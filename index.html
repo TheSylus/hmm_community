@@ -7,27 +7,28 @@
     <link rel="manifest" href="/manifest.json" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      // Configure Tailwind CSS to use the 'class' strategy for dark mode.
-      // This allows our ThemeContext to toggle dark mode by adding/removing the 'dark' class on the <html> element.
       tailwind.config = {
         darkMode: 'class',
       }
     </script>
     <link rel="stylesheet" href="https://aistudiocdn.com/react-image-crop@^11.0.10/dist/ReactCrop.css" />
-    <script type="importmap">
-    {
-      "imports": {
-        "react": "https://aistudiocdn.com/react@^19.2.0",
-        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-        "react/": "https://aistudiocdn.com/react@^19.2.0/",
-        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.26.0",
-        "react-image-crop": "https://aistudiocdn.com/react-image-crop@^11.0.10",
-        "@zxing/library": "https://aistudiocdn.com/@zxing/library@^0.21.0",
-        "react-zxing": "https://aistudiocdn.com/react-zxing@^2.0.0",
-        "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
-      }
-    }
-    </script>
+    <!-- The importmap has been removed. Vite will now handle all JavaScript dependencies from package.json. -->
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.28.0",
+    "react-image-crop": "https://aistudiocdn.com/react-image-crop@^11.0.10",
+    "@zxing/library": "https://aistudiocdn.com/@zxing/library@^0.21.3",
+    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.78.0",
+    "vite": "https://aistudiocdn.com/vite@^7.1.12",
+    "@vitejs/plugin-react-swc": "https://aistudiocdn.com/@vitejs/plugin-react-swc@^4.2.0",
+    "process": "https://aistudiocdn.com/process@^0.11.10"
+  }
+}
+</script>
 </head>
 <body>
     <div id="root"></div>
