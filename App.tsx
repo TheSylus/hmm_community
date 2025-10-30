@@ -10,7 +10,8 @@ import { ImageModal } from './components/ImageModal';
 import { SettingsModal } from './components/SettingsModal';
 import { FoodItemDetailView } from './components/FoodItemDetailView';
 import { FoodItemDetailModal } from './components/FoodItemDetailModal';
-import { ApiKeyBanner } from './components/ApiKeyBanner';
+import { Auth } from './components/Auth';
+import { useAuth } from './contexts/AuthContext';
 import * as geminiService from './services/geminiService';
 import { supabase } from './services/supabaseClient';
 import { useTranslation } from './i18n/index';
@@ -18,24 +19,13 @@ import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, B
 
 // Helper function to decode from URL-safe Base64 and decompress the data
 const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
-  // Convert URL-safe Base64 back to standard Base64
   let base64 = base64UrlString.replace(/-/g, '+').replace(/_/g, '/');
-  // Add padding if necessary
-  while (base64.length % 4) {
-    base64 += '=';
-  }
-  
-  // Decode from Base64 to a binary string
+  while (base64.length % 4) { base64 += '='; }
   const binaryString = atob(base64);
-  // Convert the binary string to a Uint8Array
   const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  // Use the DecompressionStream API to gunzip the data
+  for (let i = 0; i < binaryString.length; i++) { bytes[i] = binaryString.charCodeAt(i); }
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
   const decompressed = await new Response(stream).text();
-  // Parse the resulting JSON string
   return JSON.parse(decompressed);
 };
 
@@ -46,9 +36,7 @@ const base64ToBlob = (base64: string, mimeType: string): Blob => {
     for (let offset = 0; offset < byteCharacters.length; offset += 512) {
         const slice = byteCharacters.slice(offset, offset + 512);
         const byteNumbers = new Array(slice.length);
-        for (let i = 0; i < slice.length; i++) {
-            byteNumbers[i] = slice.charCodeAt(i);
-        }
+        for (let i = 0; i < slice.length; i++) { byteNumbers[i] = slice.charCodeAt(i); }
         const byteArray = new Uint8Array(byteNumbers);
         byteArrays.push(byteArray);
     }
@@ -71,6 +59,7 @@ const ActiveFilterPill: React.FC<{onDismiss: () => void, children: React.ReactNo
 
 const App: React.FC = () => {
   const { t } = useTranslation();
+  const { session, user } = useAuth();
 
   // Main Data State
   const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
@@ -104,29 +93,26 @@ const App: React.FC = () => {
   // Modal & Overlay State
   const [isFilterPanelVisible, setIsFilterPanelVisible] = useState(false);
   const [potentialDuplicates, setPotentialDuplicates] = useState<FoodItem[]>([]);
-  const [itemToAdd, setItemToAdd] = useState<Omit<FoodItem, 'id'> | null>(null);
+  const [itemToAdd, setItemToAdd] = useState<Omit<FoodItem, 'id' | 'user_id' | 'created_at'> | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<FoodItem | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShoppingListOpen, setIsShoppingListOpen] = useState(false);
-  const [sharedItemToShow, setSharedItemToShow] = useState<Omit<FoodItem, 'id'> | null>(null);
+  const [sharedItemToShow, setSharedItemToShow] = useState<Omit<FoodItem, 'id' | 'user_id' | 'created_at'> | null>(null);
   const [isItemTypeModalVisible, setIsItemTypeModalVisible] = useState(false);
   const [newItemType, setNewItemType] = useState<FoodItemType>('product');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
-  // API Key State
-  const [hasValidApiKey, setHasValidApiKey] = useState<boolean>(true);
-  const [isBannerDismissed, setIsBannerDismissed] = useState(() => sessionStorage.getItem('apiKeyBannerDismissed') === 'true');
-
   const isAnyFilterActive = useMemo(() => searchTerm.trim() !== '' || ratingFilter !== 'all' || typeFilter !== 'all' || aiSearchQuery !== '', [searchTerm, ratingFilter, typeFilter, aiSearchQuery]);
-
-  useEffect(() => {
-    const keyExists = geminiService.hasValidApiKey();
-    setHasValidApiKey(keyExists);
-  }, []);
   
-  // Supabase Data Fetch Effect
+  // Supabase Data Fetch Effect - only run when a user is logged in
   useEffect(() => {
+    if (!user) {
+        setFoodItems([]);
+        setIsLoading(false);
+        return;
+    };
+
     const fetchFoodItems = async () => {
         setIsLoading(true);
         setDbError(null);
@@ -137,19 +123,19 @@ const App: React.FC = () => {
 
         if (error) {
             console.error('Error fetching food items:', error);
-            setDbError(`Error loading data: ${error.message}. Please check your Supabase setup and connection.`);
+            setDbError(`Error loading data: ${error.message}. Please check your Supabase setup and RLS policies.`);
             setFoodItems([]);
         } else if (data) {
             const mappedData = data.map(({ image_url, ...rest }) => ({
                 ...rest,
                 image: image_url || undefined,
             }));
-            setFoodItems(mappedData);
+            setFoodItems(mappedData as FoodItem[]);
         }
         setIsLoading(false);
     };
     fetchFoodItems();
-  }, []);
+  }, [user]);
 
   // LocalStorage Sync for Shopping List
   useEffect(() => {
@@ -177,7 +163,7 @@ const App: React.FC = () => {
       const processShareData = async () => {
         try {
             const minified = await decodeAndDecompress(shareData);
-            const reconstructedItem: Omit<FoodItem, 'id'> = {
+            const reconstructedItem: Omit<FoodItem, 'id' | 'user_id' | 'created_at'> = {
                 name: minified.n || '', rating: minified.r || 0, itemType: minified.it || 'product', notes: minified.no, tags: minified.t,
                 nutriScore: minified.ns, ingredients: minified.i, allergens: minified.a, isLactoseFree: !!minified.lf, isVegan: !!minified.v, isGlutenFree: !!minified.gf,
                 restaurantName: minified.rn, cuisineType: minified.ct, price: minified.p,
@@ -198,12 +184,12 @@ const App: React.FC = () => {
   }, [searchTerm, ratingFilter, typeFilter, aiSearchResults.ids]);
 
   // Handlers
-  const handleDismissBanner = useCallback(() => {
-    setIsBannerDismissed(true);
-    sessionStorage.setItem('apiKeyBannerDismissed', 'true');
-  }, []);
-  
-  const handleSaveItem = useCallback(async (itemData: Omit<FoodItem, 'id'>): Promise<void> => {
+  const handleSaveItem = useCallback(async (itemData: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>): Promise<void> => {
+    if (!user) {
+        setDbError("You must be logged in to save items.");
+        return;
+    }
+    
     setDbError(null);
     let imageUrl = itemData.image;
 
@@ -211,7 +197,7 @@ const App: React.FC = () => {
     if (imageUrl && imageUrl.startsWith('data:image')) {
         const mimeType = imageUrl.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/jpeg';
         const blob = base64ToBlob(imageUrl, mimeType);
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
+        const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from('food-images')
             .upload(fileName, blob, { contentType: mimeType });
@@ -231,6 +217,7 @@ const App: React.FC = () => {
     const dbPayload = {
       ...restOfItemData,
       image_url: imageUrl || null,
+      user_id: user.id
     };
     
     if (editingItem) {
@@ -246,7 +233,7 @@ const App: React.FC = () => {
             console.error('Error updating item:', error);
             setDbError(`Failed to update item: ${error.message}`);
         } else if (data) {
-            const updatedItem = { ...data, image: data.image_url || undefined };
+            const updatedItem = { ...data, image: data.image_url || undefined } as FoodItem;
             setFoodItems(prevItems => prevItems.map(item => item.id === editingItem.id ? updatedItem : item));
             handleCancelForm();
         }
@@ -256,7 +243,7 @@ const App: React.FC = () => {
         const duplicates = foodItems.filter(item => item.name.trim().toLowerCase() === itemData.name.trim().toLowerCase());
         if (duplicates.length > 0) {
             setPotentialDuplicates(duplicates);
-            setItemToAdd(itemData); // itemData still has the base64 image if any
+            setItemToAdd(itemData);
             return;
         }
 
@@ -270,48 +257,21 @@ const App: React.FC = () => {
             console.error('Error inserting item:', error);
             setDbError(`Failed to save item: ${error.message}`);
         } else if (data) {
-            const newItem = { ...data, image: data.image_url || undefined };
+            const newItem = { ...data, image: data.image_url || undefined } as FoodItem;
             setFoodItems(prevItems => [newItem, ...prevItems]);
             handleCancelForm();
         }
     }
-  }, [editingItem, foodItems, handleCancelForm]);
+  }, [editingItem, foodItems, handleCancelForm, user]);
 
   const handleConfirmDuplicateAdd = useCallback(async () => {
     if (itemToAdd) {
-      setDbError(null);
-      let imageUrl = itemToAdd.image;
-      
-      if (imageUrl && imageUrl.startsWith('data:image')) {
-        const mimeType = imageUrl.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/jpeg';
-        const blob = base64ToBlob(imageUrl, mimeType);
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
-        const { error: uploadError } = await supabase.storage.from('food-images').upload(fileName, blob, { contentType: mimeType });
-        if (uploadError) {
-          setDbError(`Failed to upload image: ${uploadError.message}`);
-          setItemToAdd(null);
-          setPotentialDuplicates([]);
-          return;
-        }
-        const { data: urlData } = supabase.storage.from('food-images').getPublicUrl(fileName);
-        imageUrl = urlData.publicUrl;
-      }
-      
-      const { image, ...restOfItemData } = itemToAdd;
-      const dbPayload = { ...restOfItemData, image_url: imageUrl || null };
-
-      const { data, error } = await supabase.from('food_items').insert(dbPayload).select().single();
-      if (error) {
-        setDbError(`Failed to save item: ${error.message}`);
-      } else if (data) {
-        const newItem = { ...data, image: data.image_url || undefined };
-        setFoodItems(prevItems => [newItem, ...prevItems]);
-      }
+        await handleSaveItem(itemToAdd);
     }
     setItemToAdd(null);
     setPotentialDuplicates([]);
     handleCancelForm();
-  }, [itemToAdd, handleCancelForm]);
+  }, [itemToAdd, handleSaveItem, handleCancelForm]);
 
   const handleDeleteItem = useCallback(async (id: string) => {
     setDbError(null);
@@ -444,22 +404,24 @@ const App: React.FC = () => {
     // 3. Sorting
     return [...items].sort((a, b) => {
       switch (sortBy) {
-        case 'date_asc': return new Date(a.id.split('+')[0]).getTime() - new Date(b.id.split('+')[0]).getTime(); // Note: ID is UUID now, sorting by it is not date-based anymore. We'll sort by name as fallback for now.
+        case 'date_asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         case 'rating_desc': return b.rating - a.rating;
         case 'rating_asc': return a.rating - b.rating;
         case 'name_asc': return a.name.localeCompare(b.name);
-        case 'name_desc': return b.name.localeCompare(a.name);
+        case 'name_desc': return b.name.localeCompare(b.name);
         case 'date_desc':
         default:
-          return b.name.localeCompare(a.name); // Fallback sort
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
     });
   }, [foodItems, searchTerm, ratingFilter, typeFilter, sortBy, aiSearchResults.ids]);
 
+  if (!session) {
+    return <Auth />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans transition-colors duration-300">
-       {!hasValidApiKey && !isBannerDismissed && <ApiKeyBanner onDismiss={handleDismissBanner} onOpenSettings={() => setIsSettingsOpen(true)} />}
-      
        <header className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow-md dark:shadow-lg sticky top-0 z-20">
           <div className="container mx-auto px-4 py-4">
             <div className="flex justify-between items-center gap-4">
@@ -521,7 +483,7 @@ const App: React.FC = () => {
              </div>
         ) : isFormVisible ? (
             <FoodItemForm 
-                onSaveItem={handleSaveItem} 
+                onSaveItem={handleSaveItem as (item: Omit<FoodItem, 'id'>) => void} 
                 onCancel={handleCancelForm}
                 initialData={editingItem}
                 itemType={editingItem?.itemType || newItemType}
@@ -589,7 +551,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} hasValidApiKey={!!hasValidApiKey} setHasValidApiKey={setHasValidApiKey} />}
+      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} />}
       {isShoppingListOpen && <ShoppingListModal items={foodItems} shoppingListItems={shoppingList} onRemove={handleRemoveFromShoppingList} onClear={handleClearShoppingList} onClose={() => setIsShoppingListOpen(false)} />}
 
       {potentialDuplicates.length > 0 && itemToAdd && (
@@ -623,7 +585,7 @@ const App: React.FC = () => {
                 <p className="text-gray-600 dark:text-gray-400 mb-4">{t('modal.shared.description')}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-500 italic -mt-2 mb-4">{t('modal.shared.summaryNotice')}</p>
                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex-1 overflow-y-auto">
-                    <FoodItemDetailView item={{ ...sharedItemToShow, id: 'shared-item-preview' }} onImageClick={setSelectedImage} />
+                    <FoodItemDetailView item={{ ...sharedItemToShow, id: 'shared-item-preview', user_id: '', created_at: new Date().toISOString() }} onImageClick={setSelectedImage} />
                 </div>
                 <div className="mt-6 flex flex-col sm:flex-row justify-end gap-4 border-t border-gray-200 dark:border-gray-700 pt-6">
                 <button onClick={() => setSharedItemToShow(null)} className="w-full sm:w-auto px-6 py-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white rounded-md font-semibold transition-colors">{t('modal.shared.close')}</button>

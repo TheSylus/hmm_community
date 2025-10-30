@@ -4,6 +4,8 @@ export type FoodItemType = 'product' | 'dish';
 
 export interface FoodItem {
   id: string;
+  user_id: string;
+  created_at: string;
   name: string;
   rating: number; // 0 for unrated, 1-5 for star rating
   itemType: FoodItemType;

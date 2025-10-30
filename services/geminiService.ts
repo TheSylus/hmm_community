@@ -1,38 +1,34 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { FoodItem, NutriScore } from "../types";
 
-let ai: GoogleGenAI | null = null;
-const API_KEY_STORAGE_KEY = 'gemini-api-key';
-
-export const saveApiKey = (apiKey: string) => {
-    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
-    ai = null; // Reset the client to force re-initialization with the new key
-};
-
-export const getApiKey = (): string | null => {
-    return localStorage.getItem(API_KEY_STORAGE_KEY);
-};
-
-export const removeApiKey = () => {
-    localStorage.removeItem(API_KEY_STORAGE_KEY);
-    ai = null;
-};
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const hasValidApiKey = (): boolean => {
-    return !!getApiKey();
+    return !!process.env.API_KEY;
 };
 
 export function getAiClient() {
-    const apiKey = getApiKey();
-    if (!apiKey) {
-        throw new Error("API key not found in local storage. Please add one in settings.");
-    }
-    // Initialize the client only once
-    if (!ai) {
-        ai = new GoogleGenAI({ apiKey });
+    if (!process.env.API_KEY) {
+        throw new Error("API key not found. Please ensure it's set in your environment variables.");
     }
     return ai;
 }
+
+// FIX: Replaced brittle JSON parsing with a more robust implementation.
+// This version can extract a JSON object from within a markdown code block,
+// making it more resilient to variations in the AI's response format,
+// especially when using grounding tools which may return additional text.
+const parseJsonFromString = (text: string) => {
+    // Attempt to extract JSON from a markdown code block
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch && jsonMatch[1]) {
+        return JSON.parse(jsonMatch[1]);
+    }
+
+    // Fallback for cases where the entire string is a JSON object
+    return JSON.parse(text);
+};
+
 
 export interface BoundingBox {
     x: number;
@@ -100,8 +96,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
       },
     });
     
-    const jsonString = response.text;
-    const result = JSON.parse(jsonString);
+    const result = parseJsonFromString(response.text);
     
     // Validate Nutri-Score before returning
     const validScores: NutriScore[] = ['A', 'B', 'C', 'D', 'E'];
@@ -179,8 +174,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
         },
       });
       
-      const jsonString = response.text;
-      const result = JSON.parse(jsonString);
+      const result = parseJsonFromString(response.text);
 
       return {
         ingredients: result.ingredients || [],
@@ -205,41 +199,21 @@ export const findNearbyRestaurants = async (latitude: number, longitude: number)
 
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: { parts: [{ text: "List up to 10 restaurants near the provided location. For each, provide its name and main cuisine type. If cuisine is unknown, omit it." }] },
-      tools: [{ googleMaps: {} }],
-      toolConfig: {
-        retrievalConfig: {
-          latLng: {
-            latitude,
-            longitude
-          }
-        }
-      },
+      contents: { parts: [{ text: "List up to 10 restaurants near the provided location. For each, provide its name and main cuisine type. If cuisine is unknown, omit it. Return the response as a JSON array of objects, where each object has a 'name' and optional 'cuisine' key." }] },
       config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          description: "A list of nearby restaurants.",
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              name: {
-                type: Type.STRING,
-                description: "The name of the restaurant."
-              },
-              cuisine: {
-                type: Type.STRING,
-                description: "The main cuisine type of the restaurant (e.g., Italian, Mexican)."
-              }
-            },
-            required: ["name"]
+        tools: [{googleMaps: {}}],
+        toolConfig: {
+          retrievalConfig: {
+            latLng: {
+              latitude,
+              longitude
+            }
           }
         }
       }
     });
 
-    const jsonString = response.text;
-    const result = JSON.parse(jsonString);
+    const result = parseJsonFromString(response.text);
     return result;
 
   } catch (error) {
@@ -263,7 +237,7 @@ export const performConversationalSearch = async (query: string, items: FoodItem
   }
 
   // Create a more compact version of the items to send to the API, excluding large fields like images
-  const compactItems: CompactFoodItem[] = items.map(({ image, ingredients, allergens, isLactoseFree, isVegan, isGlutenFree, price, ...rest }) => rest);
+  const compactItems: CompactFoodItem[] = items.map(({ image, ingredients, allergens, isLactoseFree, isVegan, isGlutenFree, price, user_id, created_at, ...rest }) => rest);
 
   try {
     const gemini = getAiClient();
@@ -289,8 +263,7 @@ export const performConversationalSearch = async (query: string, items: FoodItem
       },
     });
 
-    const jsonString = response.text;
-    const result = JSON.parse(jsonString);
+    const result = parseJsonFromString(response.text);
     
     return result.matchingIds || [];
 

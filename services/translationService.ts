@@ -14,8 +14,6 @@ export const translateTexts = async (texts: (string | undefined | null)[], targe
         return [];
     }
     
-    // Silently return original texts if no API key is available.
-    // This prevents API calls and console warnings when the user hasn't set up a key.
     if (!hasValidApiKey()) {
         return texts.map(t => t || '');
     }
@@ -96,7 +94,6 @@ Input: ${JSON.stringify(textsToTranslate)}`
         return result;
 
     } catch (error) {
-        // Log general errors but avoid warning about the missing API key, as it's now handled.
         console.error("Error translating texts:", error);
         
         // Fallback for any error
