@@ -31,10 +31,27 @@ export interface FoodItem {
   price?: number;
 }
 
+// Represents a distinct shopping list, e.g., "Weekly Groceries" or "Party Supplies".
+export interface ShoppingList {
+  id: string;
+  owner_id: string;
+  name: string;
+  created_at: string;
+}
+
+// Represents an item on a specific shopping list.
 export interface ShoppingListItem {
-  id: string; // The unique ID of the shopping list entry itself
-  user_id: string;
+  id: string;
+  list_id: string; // Foreign key to the ShoppingList
   food_item_id: string; // Foreign key to the FoodItem
+  added_by_user_id: string;
   checked: boolean;
+  created_at: string;
+}
+
+// Represents a user's membership to a shopping list.
+export interface ShoppingListMember {
+  list_id: string;
+  user_id: string;
   created_at: string;
 }

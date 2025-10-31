@@ -1,16 +1,20 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { FoodItem } from '../types';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon } from './Icons';
+import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, PlusCircleIcon, SpinnerIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
+import { ShoppingList } from '../types';
 
 interface ShoppingListModalProps {
+  allLists: ShoppingList[];
+  activeListId: string | null;
   listData: HydratedShoppingListItem[];
   onRemove: (shoppingListItemId: string) => void;
   onClear: () => void;
   onClose: () => void;
   onToggleChecked: (shoppingListItemId: string, isChecked: boolean) => void;
+  onSelectList: (listId: string) => void;
+  onCreateList: (name: string) => void;
 }
 
 const ShoppingListItem: React.FC<{
@@ -30,12 +34,10 @@ const ShoppingListItem: React.FC<{
         <div className="flex items-center justify-between p-3">
             <div className="flex items-center overflow-hidden flex-1">
                 <input
-                    id={`item-${displayItem.id}`}
+                    id={`item-${displayItem.shoppingListItemId}`}
                     type="checkbox"
-                    // FIX: Use `displayItem` for consistency, which is now correctly typed.
                     checked={displayItem.checked}
-                    // FIX: Use `displayItem` for consistency. This resolves the reported error.
-                    onChange={() => onToggleChecked(displayItem.shoppingListId, !displayItem.checked)}
+                    onChange={() => onToggleChecked(displayItem.shoppingListItemId, !displayItem.checked)}
                     className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0"
                 />
                 <div className="ml-3 flex-1 overflow-hidden cursor-pointer" onClick={() => onExpand(displayItem.id)}>
@@ -46,7 +48,7 @@ const ShoppingListItem: React.FC<{
             </div>
             <div className="flex items-center gap-1 pl-2">
                 <button
-                    onClick={() => onRemove(displayItem.shoppingListId)}
+                    onClick={() => onRemove(displayItem.shoppingListItemId)}
                     className="p-1.5 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     aria-label={t('shoppingList.removeAria', { name: displayItem.name })}
                 >
@@ -83,13 +85,42 @@ const ShoppingListItem: React.FC<{
 }
 
 
-export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ listData, onRemove, onClear, onClose, onToggleChecked }) => {
+export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ 
+  allLists, activeListId, listData, onRemove, onClear, onClose, onToggleChecked, onSelectList, onCreateList 
+}) => {
   const { t } = useTranslation();
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [isCreatingNewList, setIsCreatingNewList] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [isSharing, setIsSharing] = useState(false);
 
   const handleExpand = useCallback((foodItemId: string) => {
     setExpandedItemId(prev => prev === foodItemId ? null : foodItemId);
   }, []);
+  
+  const handleCreateList = (e: React.FormEvent) => {
+      e.preventDefault();
+      if(newListName.trim()){
+          onCreateList(newListName.trim());
+          setNewListName('');
+          setIsCreatingNewList(false);
+      }
+  }
+
+  const handleShareList = useCallback(async () => {
+    if (!activeListId) return;
+    setIsSharing(true);
+    const inviteUrl = `${window.location.origin}${window.location.pathname}?join_list=${activeListId}`;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      alert(t('shoppingList.share.linkCopied'));
+    } catch (err) {
+      console.error('Failed to copy share link:', err);
+      alert(t('shoppingList.share.copyFailed'));
+    } finally {
+      setIsSharing(false);
+    }
+  }, [activeListId, t]);
 
   const groupedItems = useMemo(() => {
     const uncategorizedKey = t('shoppingList.uncategorized');
@@ -137,6 +168,44 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ listData, 
             </button>
         </div>
         
+        {/* List Management Section */}
+        <div className="mb-4 space-y-2">
+            <div className="flex gap-2">
+                <select 
+                    value={activeListId || ''} 
+                    onChange={(e) => onSelectList(e.target.value)}
+                    className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
+                    aria-label={t('shoppingList.selectListAria')}
+                >
+                    {allLists.map(list => (
+                        <option key={list.id} value={list.id}>{list.name}</option>
+                    ))}
+                </select>
+                <button onClick={handleShareList} disabled={isSharing} className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-green-400 transition-colors" title={t('shoppingList.share.buttonTitle')}>
+                    {isSharing ? <SpinnerIcon className="w-5 h-5"/> : <ShareIcon className="w-5 h-5"/>}
+                </button>
+            </div>
+            {isCreatingNewList ? (
+                 <form onSubmit={handleCreateList} className="flex gap-2">
+                    <input
+                        type="text"
+                        value={newListName}
+                        onChange={(e) => setNewListName(e.target.value)}
+                        placeholder={t('shoppingList.newListPlaceholder')}
+                        className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
+                        autoFocus
+                    />
+                    <button type="submit" className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold text-sm">{t('shoppingList.createButton')}</button>
+                    <button type="button" onClick={() => setIsCreatingNewList(false)} className="px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 font-semibold text-sm">{t('form.button.cancel')}</button>
+                 </form>
+            ) : (
+                <button onClick={() => setIsCreatingNewList(true)} className="w-full flex items-center justify-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold py-2 px-3 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/50 transition-colors">
+                    <PlusCircleIcon className="w-5 h-5"/>
+                    {t('shoppingList.newListButton')}
+                </button>
+            )}
+        </div>
+        
         <div className="flex-1 overflow-y-auto pr-2 -mr-2">
             {listData.length > 0 ? (
                 <div className="space-y-6">
@@ -148,7 +217,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ listData, 
                             <ul className="space-y-3">
                                 {groupedItems[groupName].map(item => (
                                     <ShoppingListItem
-                                        key={item.shoppingListId}
+                                        key={item.shoppingListItemId}
                                         item={item}
                                         onRemove={onRemove}
                                         onToggleChecked={onToggleChecked}

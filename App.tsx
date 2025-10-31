@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FoodItem, FoodItemType, ShoppingListItem } from './types';
+import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList } from './types';
 import { FoodItemForm } from './components/FoodItemForm';
 import { FoodItemList } from './components/FoodItemList';
 import { Dashboard } from './components/Dashboard';
@@ -16,6 +16,7 @@ import * as geminiService from './services/geminiService';
 import { supabase } from './services/supabaseClient';
 import { useTranslation } from './i18n/index';
 import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon } from './components/Icons';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 // Helper function to decode from URL-safe Base64 and decompress the data
 const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
@@ -50,8 +51,9 @@ export type TypeFilter = 'all' | 'product' | 'dish';
 
 // A version of FoodItem that includes its status on the shopping list
 export type HydratedShoppingListItem = FoodItem & {
-  shoppingListId: string;
+  shoppingListItemId: string;
   checked: boolean;
+  added_by_user_id: string;
 };
 
 
@@ -67,9 +69,12 @@ const ActiveFilterPill: React.FC<{onDismiss: () => void, children: React.ReactNo
 const App: React.FC = () => {
   const { t } = useTranslation();
   const { session, user } = useAuth();
+  const realtimeChannelRef = React.useRef<RealtimeChannel | null>(null);
 
   // Main Data State
   const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
+  const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
+  const [activeShoppingListId, setActiveShoppingListId] = useState<string | null>(null);
   const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
@@ -106,7 +111,9 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!user) {
         setFoodItems([]);
+        setShoppingLists([]);
         setShoppingListItems([]);
+        setActiveShoppingListId(null);
         setIsLoading(false);
         return;
     };
@@ -115,36 +122,131 @@ const App: React.FC = () => {
         setIsLoading(true);
         setDbError(null);
 
-        // Fetch both food items and shopping list items in parallel
-        const [foodItemsResult, shoppingListResult] = await Promise.all([
-             supabase.from('food_items').select('*').order('created_at', { ascending: false }),
-             supabase.from('shopping_list_items').select('*')
-        ]);
+        // Fetch user's food items and shopping lists
+        const { data: foodItemsData, error: foodItemsError } = await supabase
+            .from('food_items').select('*').order('created_at', { ascending: false });
 
-        if (foodItemsResult.error) {
-            console.error('Error fetching food items:', foodItemsResult.error);
-            setDbError(`Error loading data: ${foodItemsResult.error.message}.`);
-            setFoodItems([]);
-        } else if (foodItemsResult.data) {
-            const mappedData = foodItemsResult.data.map(({ image_url, ...rest }) => ({
-                ...rest,
-                image: image_url || undefined,
-            }));
+        if (foodItemsError) {
+            setDbError(`Error loading data: ${foodItemsError.message}.`);
+        } else if (foodItemsData) {
+            const mappedData = foodItemsData.map(({ image_url, ...rest }) => ({ ...rest, image: image_url || undefined }));
             setFoodItems(mappedData as FoodItem[]);
         }
 
-        if (shoppingListResult.error) {
-            console.error('Error fetching shopping list:', shoppingListResult.error);
-            setDbError(`Error loading shopping list: ${shoppingListResult.error.message}.`);
-            setShoppingListItems([]);
-        } else if (shoppingListResult.data) {
-            setShoppingListItems(shoppingListResult.data as ShoppingListItem[]);
-        }
+        const { data: listsData, error: listsError } = await supabase.from('shopping_lists').select('*');
 
+        if (listsError) {
+            setDbError(`Error loading shopping lists: ${listsError.message}.`);
+        } else if (listsData) {
+            if (listsData.length === 0) {
+                // First time user, create a default list
+                const { data: newList, error: newListError } = await supabase
+                    .from('shopping_lists')
+                    .insert({ owner_id: user.id, name: t('shoppingList.defaultListName') })
+                    .select().single();
+
+                if (newListError) {
+                    setDbError(`Error creating default list: ${newListError.message}.`);
+                } else if (newList) {
+                    await supabase.from('shopping_list_members').insert({ list_id: newList.id, user_id: user.id });
+                    setShoppingLists([newList]);
+                    setActiveShoppingListId(newList.id);
+                }
+            } else {
+                setShoppingLists(listsData);
+                const lastUsedListId = localStorage.getItem('activeShoppingListId');
+                const listExists = listsData.some(l => l.id === lastUsedListId);
+                setActiveShoppingListId(listExists ? lastUsedListId : listsData[0]?.id || null);
+            }
+        }
         setIsLoading(false);
     };
     fetchAllData();
-  }, [user]);
+  }, [user, t]);
+
+  // Fetch shopping list items when active list changes
+  useEffect(() => {
+    if (!activeShoppingListId) {
+      setShoppingListItems([]);
+      return;
+    }
+    localStorage.setItem('activeShoppingListId', activeShoppingListId);
+
+    const fetchListItems = async () => {
+        const { data, error } = await supabase.from('shopping_list_items').select('*').eq('list_id', activeShoppingListId);
+        if (error) {
+            setDbError(`Error loading list items: ${error.message}.`);
+        } else {
+            setShoppingListItems(data || []);
+        }
+    };
+    fetchListItems();
+
+    // Subscribe to realtime updates for the active list
+    if (realtimeChannelRef.current) {
+        realtimeChannelRef.current.unsubscribe();
+    }
+    
+    const channel = supabase.channel(`shopping_list:${activeShoppingListId}`);
+    channel
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => {
+            setShoppingListItems(prev => [...prev, payload.new as ShoppingListItem]);
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => {
+            setShoppingListItems(prev => prev.map(item => item.id === payload.new.id ? payload.new as ShoppingListItem : item));
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => {
+            setShoppingListItems(prev => prev.filter(item => item.id !== payload.old.id));
+        })
+        .subscribe();
+
+    realtimeChannelRef.current = channel;
+    
+    return () => {
+        if (realtimeChannelRef.current) {
+            realtimeChannelRef.current.unsubscribe();
+        }
+    };
+  }, [activeShoppingListId]);
+
+  const handleJoinList = useCallback(async (listId: string) => {
+    if (!user) return;
+    try {
+      // Check if user is already a member
+      const { data: member, error: memberError } = await supabase
+        .from('shopping_list_members')
+        .select('*')
+        .eq('list_id', listId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (memberError) throw memberError;
+
+      if (!member) {
+        // Add user to the list
+        await supabase.from('shopping_list_members').insert({ list_id: listId, user_id: user.id });
+      }
+
+      // Fetch the list details to add to state
+      const { data: listData, error: listError } = await supabase
+        .from('shopping_lists')
+        .select('*')
+        .eq('id', listId)
+        .single();
+      
+      if (listError) throw listError;
+      
+      if (listData && !shoppingLists.some(l => l.id === listData.id)) {
+        setShoppingLists(prev => [...prev, listData]);
+      }
+      
+      setActiveShoppingListId(listId);
+      setToastMessage(t('shoppingList.joinSuccess', { listName: listData?.name || '' }));
+    } catch (error: any) {
+      console.error("Error joining list:", error);
+      setDbError(`Error joining list: ${error.message}`);
+    }
+  }, [user, shoppingLists, t]);
 
 
   // Toast Message Timeout
@@ -164,6 +266,8 @@ const App: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const shareData = params.get('s');
+    const listInvite = params.get('join_list');
+    
     if (shareData) {
       const processShareData = async () => {
         try {
@@ -178,8 +282,11 @@ const App: React.FC = () => {
       };
       processShareData();
       window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (listInvite && user) {
+        handleJoinList(listInvite);
+        window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, []);
+  }, [user, handleJoinList]);
 
   // View Switching Logic
   useEffect(() => {
@@ -324,23 +431,23 @@ const App: React.FC = () => {
   
   // --- Shopping List Handlers ---
   const handleAddToShoppingList = useCallback(async (item: FoodItem) => {
-      if (!user) return;
-      // Prevent adding duplicates
-      if (shoppingListItems.some(sli => sli.food_item_id === item.id)) return;
+      if (!user || !activeShoppingListId) return;
+      // Prevent adding duplicates to the same list
+      if (shoppingListItems.some(sli => sli.food_item_id === item.id && sli.list_id === activeShoppingListId)) return;
 
       const { data, error } = await supabase
           .from('shopping_list_items')
-          .insert({ food_item_id: item.id, user_id: user.id })
+          .insert({ food_item_id: item.id, list_id: activeShoppingListId, added_by_user_id: user.id })
           .select()
           .single();
       
       if (error) {
           console.error('Error adding to shopping list:', error);
       } else if (data) {
-          setShoppingListItems(prev => [...prev, data as ShoppingListItem]);
+          // No need to set local state, realtime will handle it
           setToastMessage(t('shoppingList.addedToast', { name: item.name }));
       }
-  }, [user, shoppingListItems, t]);
+  }, [user, shoppingListItems, activeShoppingListId, t]);
 
   const handleRemoveFromShoppingList = useCallback(async (shoppingListItemId: string) => {
       const { error } = await supabase
@@ -348,11 +455,8 @@ const App: React.FC = () => {
           .delete()
           .eq('id', shoppingListItemId);
 
-      if (error) {
-          console.error('Error removing from shopping list:', error);
-      } else {
-          setShoppingListItems(prev => prev.filter(item => item.id !== shoppingListItemId));
-      }
+      if (error) console.error('Error removing from shopping list:', error);
+      // No need to set local state, realtime will handle it
   }, []);
   
   const handleToggleCheckedItem = useCallback(async (shoppingListItemId: string, isChecked: boolean) => {
@@ -361,16 +465,12 @@ const App: React.FC = () => {
         .update({ checked: isChecked })
         .eq('id', shoppingListItemId);
     
-    if (error) {
-        console.error('Error updating shopping list item:', error);
-    } else {
-        setShoppingListItems(prev => prev.map(item => 
-            item.id === shoppingListItemId ? { ...item, checked: isChecked } : item
-        ));
-    }
+    if (error) console.error('Error updating shopping list item:', error);
+    // No need to set local state, realtime will handle it
   }, []);
 
   const handleClearCompletedShoppingList = useCallback(async () => {
+    if (!activeShoppingListId) return;
     const checkedIds = shoppingListItems.filter(item => item.checked).map(item => item.id);
     if (checkedIds.length === 0) return;
 
@@ -379,12 +479,26 @@ const App: React.FC = () => {
         .delete()
         .in('id', checkedIds);
     
+    if (error) console.error('Error clearing completed items:', error);
+    // No need to set local state, realtime will handle it
+  }, [shoppingListItems, activeShoppingListId]);
+
+  const handleCreateNewList = useCallback(async (name: string) => {
+    if (!user || !name.trim()) return;
+
+    const { data, error } = await supabase
+        .from('shopping_lists')
+        .insert({ name: name.trim(), owner_id: user.id })
+        .select().single();
+    
     if (error) {
-        console.error('Error clearing completed items:', error);
-    } else {
-        setShoppingListItems(prev => prev.filter(item => !item.checked));
+        console.error("Error creating new list:", error);
+    } else if(data) {
+        await supabase.from('shopping_list_members').insert({ list_id: data.id, user_id: user.id });
+        setShoppingLists(prev => [...prev, data]);
+        setActiveShoppingListId(data.id);
     }
-  }, [shoppingListItems]);
+  }, [user]);
 
 
   const handleAddSharedItem = useCallback(() => {
@@ -481,8 +595,9 @@ const App: React.FC = () => {
           if (!foodItemDetails) return null;
           return {
             ...foodItemDetails,
-            shoppingListId: sli.id,
-            checked: sli.checked
+            shoppingListItemId: sli.id,
+            checked: sli.checked,
+            added_by_user_id: sli.added_by_user_id,
           };
         })
         .filter((item): item is HydratedShoppingListItem => item !== null);
@@ -625,7 +740,19 @@ const App: React.FC = () => {
       )}
 
       {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} />}
-      {isShoppingListOpen && <ShoppingListModal listData={hydratedShoppingList} onRemove={handleRemoveFromShoppingList} onClear={handleClearCompletedShoppingList} onToggleChecked={handleToggleCheckedItem} onClose={() => setIsShoppingListOpen(false)} />}
+      {isShoppingListOpen && 
+        <ShoppingListModal 
+            allLists={shoppingLists}
+            activeListId={activeShoppingListId}
+            listData={hydratedShoppingList} 
+            onRemove={handleRemoveFromShoppingList} 
+            onClear={handleClearCompletedShoppingList} 
+            onToggleChecked={handleToggleCheckedItem} 
+            onClose={() => setIsShoppingListOpen(false)}
+            onSelectList={setActiveShoppingListId}
+            onCreateList={handleCreateNewList}
+        />
+      }
 
       {potentialDuplicates.length > 0 && itemToAdd && (
         <DuplicateConfirmationModal items={potentialDuplicates} itemName={itemToAdd.name} onConfirm={handleConfirmDuplicateAdd} onCancel={handleCancelDuplicateAdd} />
