@@ -1,6 +1,5 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react-swc'
-import { process } from 'process'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -13,9 +12,9 @@ export default defineConfig(({ mode }) => {
       // This is required by the @google/genai SDK, which specifically looks for process.env.API_KEY.
       // We map the VITE_GEMINI_API_KEY from the environment (e.g., Vercel settings) to it.
       'process.env.API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY),
-      // FIX: Expose Supabase keys to the client-side code via process.env to fix TypeScript errors.
-      'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
-      'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY)
+      // Expose Supabase keys to the client-side code via simpler process.env variables.
+      'process.env.SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
+      'process.env.SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY)
     }
   }
 })

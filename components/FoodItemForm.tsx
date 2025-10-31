@@ -21,7 +21,7 @@ declare global {
 }
 
 interface FoodItemFormProps {
-  onSaveItem: (item: Omit<FoodItem, 'id'>) => void;
+  onSaveItem: (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => void;
   onCancel: () => void;
   initialData?: FoodItem | null;
   itemType: FoodItemType;

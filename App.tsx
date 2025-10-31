@@ -483,7 +483,7 @@ const App: React.FC = () => {
              </div>
         ) : isFormVisible ? (
             <FoodItemForm 
-                onSaveItem={handleSaveItem as (item: Omit<FoodItem, 'id'>) => void} 
+                onSaveItem={handleSaveItem} 
                 onCancel={handleCancelForm}
                 initialData={editingItem}
                 itemType={editingItem?.itemType || newItemType}
