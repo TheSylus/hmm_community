@@ -26,7 +26,24 @@ const parseJsonFromString = (text: string) => {
     }
 
     // Fallback for cases where the entire string is a JSON object
-    return JSON.parse(text);
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        // If parsing fails, the text itself might be the intended (non-JSON) response
+        // This is common with grounding tools that might return natural language.
+        // We will attempt to find a JSON-like structure within the text.
+        const arrayMatch = text.match(/(\[[\s\S]*\])/);
+        if (arrayMatch && arrayMatch[1]) {
+            try {
+                return JSON.parse(arrayMatch[1]);
+            } catch (parseError) {
+                console.error("Failed to parse extracted array:", parseError);
+            }
+        }
+    }
+    // If all parsing fails, which can happen with grounding, we can't process it as JSON.
+    // The calling function must handle this case. Here we throw to indicate failure.
+    throw new Error("Could not parse JSON from the AI response.");
 };
 
 
@@ -96,7 +113,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
       },
     });
     
-    const result = parseJsonFromString(response.text);
+    const result = JSON.parse(response.text);
     
     // Validate Nutri-Score before returning
     const validScores: NutriScore[] = ['A', 'B', 'C', 'D', 'E'];
@@ -174,7 +191,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
         },
       });
       
-      const result = parseJsonFromString(response.text);
+      const result = JSON.parse(response.text);
 
       return {
         ingredients: result.ingredients || [],
@@ -199,7 +216,8 @@ export const findNearbyRestaurants = async (latitude: number, longitude: number)
 
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: { parts: [{ text: "List up to 10 restaurants near the provided location. For each, provide its name and main cuisine type. If cuisine is unknown, omit it. Return the response as a JSON array of objects, where each object has a 'name' and optional 'cuisine' key." }] },
+      // FIX: Updated prompt to be more robust for JSON extraction.
+      contents: { parts: [{ text: "List up to 10 restaurants near the provided location. For each, provide its name and main cuisine type. If cuisine is unknown, omit it. Format the response as a JSON array of objects, where each object has a 'name' and optional 'cuisine' key. The entire response should be a JSON array inside a markdown code block." }] },
       config: {
         tools: [{googleMaps: {}}],
         toolConfig: {
@@ -212,9 +230,10 @@ export const findNearbyRestaurants = async (latitude: number, longitude: number)
         }
       }
     });
-
+    
+    // FIX: Using robust JSON parsing to handle potential markdown wrappers from grounding tool responses.
     const result = parseJsonFromString(response.text);
-    return result;
+    return Array.isArray(result) ? result : [];
 
   } catch (error) {
     console.error("Error finding nearby restaurants:", error);
@@ -263,7 +282,7 @@ export const performConversationalSearch = async (query: string, items: FoodItem
       },
     });
 
-    const result = parseJsonFromString(response.text);
+    const result = JSON.parse(response.text);
     
     return result.matchingIds || [];
 

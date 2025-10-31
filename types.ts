@@ -30,3 +30,11 @@ export interface FoodItem {
   cuisineType?: string;
   price?: number;
 }
+
+export interface ShoppingListItem {
+  id: string; // The unique ID of the shopping list entry itself
+  user_id: string;
+  food_item_id: string; // Foreign key to the FoodItem
+  checked: boolean;
+  created_at: string;
+}

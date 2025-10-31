@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FoodItem, FoodItemType } from './types';
+import { FoodItem, FoodItemType, ShoppingListItem } from './types';
 import { FoodItemForm } from './components/FoodItemForm';
 import { FoodItemList } from './components/FoodItemList';
 import { Dashboard } from './components/Dashboard';
@@ -48,6 +48,13 @@ export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 
 export type RatingFilter = 'liked' | 'disliked' | 'all';
 export type TypeFilter = 'all' | 'product' | 'dish';
 
+// A version of FoodItem that includes its status on the shopping list
+export type HydratedShoppingListItem = FoodItem & {
+  shoppingListId: string;
+  checked: boolean;
+};
+
+
 const ActiveFilterPill: React.FC<{onDismiss: () => void, children: React.ReactNode}> = ({onDismiss, children}) => (
   <div className="flex items-center gap-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-600/50 dark:text-indigo-200 text-xs font-semibold px-2 py-1 rounded-full">
       <span>{children}</span>
@@ -63,19 +70,9 @@ const App: React.FC = () => {
 
   // Main Data State
   const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
+  const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
-
-
-  const [shoppingList, setShoppingList] = useState<string[]>(() => {
-    try {
-      const savedList = localStorage.getItem('shoppingList');
-      return savedList ? JSON.parse(savedList) : [];
-    } catch (error) {
-      console.error("Could not parse shopping list from localStorage", error);
-      return [];
-    }
-  });
 
   // UI/View State
   const [activeView, setActiveView] = useState<'dashboard' | 'list'>('dashboard');
@@ -105,42 +102,50 @@ const App: React.FC = () => {
   
   const isAnyFilterActive = useMemo(() => searchTerm.trim() !== '' || ratingFilter !== 'all' || typeFilter !== 'all' || aiSearchQuery !== '', [searchTerm, ratingFilter, typeFilter, aiSearchQuery]);
   
-  // Supabase Data Fetch Effect - only run when a user is logged in
+  // Supabase Data Fetch Effect - run when a user is logged in
   useEffect(() => {
     if (!user) {
         setFoodItems([]);
+        setShoppingListItems([]);
         setIsLoading(false);
         return;
     };
 
-    const fetchFoodItems = async () => {
+    const fetchAllData = async () => {
         setIsLoading(true);
         setDbError(null);
-        const { data, error } = await supabase
-            .from('food_items')
-            .select('*')
-            .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error('Error fetching food items:', error);
-            setDbError(`Error loading data: ${error.message}. Please check your Supabase setup and RLS policies.`);
+        // Fetch both food items and shopping list items in parallel
+        const [foodItemsResult, shoppingListResult] = await Promise.all([
+             supabase.from('food_items').select('*').order('created_at', { ascending: false }),
+             supabase.from('shopping_list_items').select('*')
+        ]);
+
+        if (foodItemsResult.error) {
+            console.error('Error fetching food items:', foodItemsResult.error);
+            setDbError(`Error loading data: ${foodItemsResult.error.message}.`);
             setFoodItems([]);
-        } else if (data) {
-            const mappedData = data.map(({ image_url, ...rest }) => ({
+        } else if (foodItemsResult.data) {
+            const mappedData = foodItemsResult.data.map(({ image_url, ...rest }) => ({
                 ...rest,
                 image: image_url || undefined,
             }));
             setFoodItems(mappedData as FoodItem[]);
         }
+
+        if (shoppingListResult.error) {
+            console.error('Error fetching shopping list:', shoppingListResult.error);
+            setDbError(`Error loading shopping list: ${shoppingListResult.error.message}.`);
+            setShoppingListItems([]);
+        } else if (shoppingListResult.data) {
+            setShoppingListItems(shoppingListResult.data as ShoppingListItem[]);
+        }
+
         setIsLoading(false);
     };
-    fetchFoodItems();
+    fetchAllData();
   }, [user]);
 
-  // LocalStorage Sync for Shopping List
-  useEffect(() => {
-    localStorage.setItem('shoppingList', JSON.stringify(shoppingList));
-  }, [shoppingList]);
 
   // Toast Message Timeout
   useEffect(() => {
@@ -316,19 +321,71 @@ const App: React.FC = () => {
     clearAiSearch();
     setActiveView('dashboard');
   }, [clearAiSearch]);
+  
+  // --- Shopping List Handlers ---
+  const handleAddToShoppingList = useCallback(async (item: FoodItem) => {
+      if (!user) return;
+      // Prevent adding duplicates
+      if (shoppingListItems.some(sli => sli.food_item_id === item.id)) return;
 
-  const handleAddToShoppingList = useCallback((item: FoodItem) => {
-    setShoppingList(prev => {
-        if (!prev.includes(item.id)) {
-            setToastMessage(t('shoppingList.addedToast', { name: item.name }));
-            return [...prev, item.id];
-        }
-        return prev;
-    });
-  }, [t]);
+      const { data, error } = await supabase
+          .from('shopping_list_items')
+          .insert({ food_item_id: item.id, user_id: user.id })
+          .select()
+          .single();
+      
+      if (error) {
+          console.error('Error adding to shopping list:', error);
+      } else if (data) {
+          setShoppingListItems(prev => [...prev, data as ShoppingListItem]);
+          setToastMessage(t('shoppingList.addedToast', { name: item.name }));
+      }
+  }, [user, shoppingListItems, t]);
 
-  const handleRemoveFromShoppingList = useCallback((itemId: string) => setShoppingList(prev => prev.filter(id => id !== itemId)), []);
-  const handleClearShoppingList = useCallback(() => setShoppingList([]), []);
+  const handleRemoveFromShoppingList = useCallback(async (shoppingListItemId: string) => {
+      const { error } = await supabase
+          .from('shopping_list_items')
+          .delete()
+          .eq('id', shoppingListItemId);
+
+      if (error) {
+          console.error('Error removing from shopping list:', error);
+      } else {
+          setShoppingListItems(prev => prev.filter(item => item.id !== shoppingListItemId));
+      }
+  }, []);
+  
+  const handleToggleCheckedItem = useCallback(async (shoppingListItemId: string, isChecked: boolean) => {
+    const { error } = await supabase
+        .from('shopping_list_items')
+        .update({ checked: isChecked })
+        .eq('id', shoppingListItemId);
+    
+    if (error) {
+        console.error('Error updating shopping list item:', error);
+    } else {
+        setShoppingListItems(prev => prev.map(item => 
+            item.id === shoppingListItemId ? { ...item, checked: isChecked } : item
+        ));
+    }
+  }, []);
+
+  const handleClearCompletedShoppingList = useCallback(async () => {
+    const checkedIds = shoppingListItems.filter(item => item.checked).map(item => item.id);
+    if (checkedIds.length === 0) return;
+
+    const { error } = await supabase
+        .from('shopping_list_items')
+        .delete()
+        .in('id', checkedIds);
+    
+    if (error) {
+        console.error('Error clearing completed items:', error);
+    } else {
+        setShoppingListItems(prev => prev.filter(item => !item.checked));
+    }
+  }, [shoppingListItems]);
+
 
   const handleAddSharedItem = useCallback(() => {
     if (sharedItemToShow) {
@@ -415,6 +472,22 @@ const App: React.FC = () => {
       }
     });
   }, [foodItems, searchTerm, ratingFilter, typeFilter, sortBy, aiSearchResults.ids]);
+  
+  const hydratedShoppingList = useMemo((): HydratedShoppingListItem[] => {
+      const foodItemMap = new Map(foodItems.map(item => [item.id, item]));
+      return shoppingListItems
+        .map(sli => {
+          const foodItemDetails = foodItemMap.get(sli.food_item_id);
+          if (!foodItemDetails) return null;
+          return {
+            ...foodItemDetails,
+            shoppingListId: sli.id,
+            checked: sli.checked
+          };
+        })
+        .filter((item): item is HydratedShoppingListItem => item !== null);
+  }, [foodItems, shoppingListItems]);
+
 
   if (!session) {
     return <Auth />;
@@ -431,7 +504,7 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-2">
                     <button onClick={() => setIsShoppingListOpen(true)} className="relative p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label={t('header.shoppingListAria')}>
                         <ShoppingBagIcon className="w-7 h-7 text-gray-600 dark:text-gray-300" />
-                        {shoppingList.length > 0 && <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs font-bold ring-2 ring-white dark:ring-gray-800">{shoppingList.length}</span>}
+                        {shoppingListItems.length > 0 && <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs font-bold ring-2 ring-white dark:ring-gray-800">{shoppingListItems.length}</span>}
                     </button>
                     <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label={t('settings.title')}>
                         <SettingsIcon className="w-7 h-7 text-gray-600 dark:text-gray-300" />
@@ -552,7 +625,7 @@ const App: React.FC = () => {
       )}
 
       {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} />}
-      {isShoppingListOpen && <ShoppingListModal items={foodItems} shoppingListItems={shoppingList} onRemove={handleRemoveFromShoppingList} onClear={handleClearShoppingList} onClose={() => setIsShoppingListOpen(false)} />}
+      {isShoppingListOpen && <ShoppingListModal listData={hydratedShoppingList} onRemove={handleRemoveFromShoppingList} onClear={handleClearCompletedShoppingList} onToggleChecked={handleToggleCheckedItem} onClose={() => setIsShoppingListOpen(false)} />}
 
       {potentialDuplicates.length > 0 && itemToAdd && (
         <DuplicateConfirmationModal items={potentialDuplicates} itemName={itemToAdd.name} onConfirm={handleConfirmDuplicateAdd} onCancel={handleCancelDuplicateAdd} />

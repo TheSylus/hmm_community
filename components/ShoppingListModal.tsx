@@ -3,23 +3,23 @@ import { FoodItem } from '../types';
 import { useTranslation } from '../i18n/index';
 import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
+import { HydratedShoppingListItem } from '../App';
 
 interface ShoppingListModalProps {
-  items: FoodItem[];
-  shoppingListItems: string[];
-  onRemove: (itemId: string) => void;
+  listData: HydratedShoppingListItem[];
+  onRemove: (shoppingListItemId: string) => void;
   onClear: () => void;
   onClose: () => void;
+  onToggleChecked: (shoppingListItemId: string, isChecked: boolean) => void;
 }
 
 const ShoppingListItem: React.FC<{
-  item: FoodItem;
+  item: HydratedShoppingListItem;
   onRemove: (id: string) => void;
-  checked: boolean;
-  onToggle: (id: string) => void;
+  onToggleChecked: (id: string, isChecked: boolean) => void;
   isExpanded: boolean;
   onExpand: (id: string) => void;
-}> = ({ item, onRemove, checked, onToggle, isExpanded, onExpand }) => {
+}> = ({ item, onRemove, onToggleChecked, isExpanded, onExpand }) => {
   const { t } = useTranslation();
   const displayItem = useTranslatedItem(item);
 
@@ -32,19 +32,21 @@ const ShoppingListItem: React.FC<{
                 <input
                     id={`item-${displayItem.id}`}
                     type="checkbox"
-                    checked={checked}
-                    onChange={() => onToggle(displayItem.id)}
+                    // FIX: Use `displayItem` for consistency, which is now correctly typed.
+                    checked={displayItem.checked}
+                    // FIX: Use `displayItem` for consistency. This resolves the reported error.
+                    onChange={() => onToggleChecked(displayItem.shoppingListId, !displayItem.checked)}
                     className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0"
                 />
                 <div className="ml-3 flex-1 overflow-hidden cursor-pointer" onClick={() => onExpand(displayItem.id)}>
-                    <p className={`text-md font-medium text-gray-800 dark:text-gray-200 truncate transition-colors ${checked ? 'line-through text-gray-500 dark:text-gray-400' : ''}`}>
+                    <p className={`text-md font-medium text-gray-800 dark:text-gray-200 truncate transition-colors ${displayItem.checked ? 'line-through text-gray-500 dark:text-gray-400' : ''}`}>
                         {displayItem.name}
                     </p>
                 </div>
             </div>
             <div className="flex items-center gap-1 pl-2">
                 <button
-                    onClick={() => onRemove(displayItem.id)}
+                    onClick={() => onRemove(displayItem.shoppingListId)}
                     className="p-1.5 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     aria-label={t('shoppingList.removeAria', { name: displayItem.name })}
                 >
@@ -81,23 +83,17 @@ const ShoppingListItem: React.FC<{
 }
 
 
-export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ items, shoppingListItems, onRemove, onClear, onClose }) => {
+export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ listData, onRemove, onClear, onClose, onToggleChecked }) => {
   const { t } = useTranslation();
-  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
 
-  const handleExpand = useCallback((itemId: string) => {
-    setExpandedItemId(prev => prev === itemId ? null : itemId);
+  const handleExpand = useCallback((foodItemId: string) => {
+    setExpandedItemId(prev => prev === foodItemId ? null : foodItemId);
   }, []);
-
-  const listItems = useMemo(() => {
-    const itemMap = new Map(items.map(item => [item.id, item]));
-    return shoppingListItems.map(id => itemMap.get(id)).filter((item): item is FoodItem => !!item);
-  }, [items, shoppingListItems]);
 
   const groupedItems = useMemo(() => {
     const uncategorizedKey = t('shoppingList.uncategorized');
-    return listItems.reduce<Record<string, FoodItem[]>>((acc, item) => {
+    return listData.reduce<Record<string, HydratedShoppingListItem[]>>((acc, item) => {
       const key = item.purchaseLocation || uncategorizedKey;
       if (!acc[key]) {
         acc[key] = [];
@@ -105,7 +101,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ items, sho
       acc[key].push(item);
       return acc;
     }, {});
-  }, [listItems, t]);
+  }, [listData, t]);
 
   const sortedGroupNames = useMemo(() => {
       const uncategorizedKey = t('shoppingList.uncategorized');
@@ -116,23 +112,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ items, sho
       });
   }, [groupedItems, t]);
 
-
-  const handleToggle = useCallback((itemId: string) => {
-    setCheckedItems(prev => {
-        const newSet = new Set(prev);
-        if (newSet.has(itemId)) {
-            newSet.delete(itemId);
-        } else {
-            newSet.add(itemId);
-        }
-        return newSet;
-    });
-  }, []);
-
-  const handleClearCompleted = useCallback(() => {
-    checkedItems.forEach(id => onRemove(id));
-    setCheckedItems(new Set());
-  }, [checkedItems, onRemove]);
+  const checkedItemsCount = useMemo(() => listData.filter(item => item.checked).length, [listData]);
 
   return (
     <div
@@ -158,7 +138,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ items, sho
         </div>
         
         <div className="flex-1 overflow-y-auto pr-2 -mr-2">
-            {listItems.length > 0 ? (
+            {listData.length > 0 ? (
                 <div className="space-y-6">
                     {sortedGroupNames.map(groupName => (
                         <section key={groupName}>
@@ -168,11 +148,10 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ items, sho
                             <ul className="space-y-3">
                                 {groupedItems[groupName].map(item => (
                                     <ShoppingListItem
-                                        key={item.id}
+                                        key={item.shoppingListId}
                                         item={item}
                                         onRemove={onRemove}
-                                        checked={checkedItems.has(item.id)}
-                                        onToggle={handleToggle}
+                                        onToggleChecked={onToggleChecked}
                                         isExpanded={expandedItemId === item.id}
                                         onExpand={handleExpand}
                                     />
@@ -189,14 +168,14 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ items, sho
             )}
         </div>
 
-        {listItems.length > 0 && (
+        {listData.length > 0 && (
             <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
                 <button
-                    onClick={handleClearCompleted}
-                    disabled={checkedItems.size === 0}
+                    onClick={onClear}
+                    disabled={checkedItemsCount === 0}
                     className="w-full px-6 py-2 bg-red-600 text-white rounded-md font-semibold hover:bg-red-700 transition-colors disabled:bg-red-400 dark:disabled:bg-gray-600"
                 >
-                    {t('shoppingList.clear')} ({checkedItems.size})
+                    {t('shoppingList.clear')} ({checkedItemsCount})
                 </button>
             </div>
         )}
