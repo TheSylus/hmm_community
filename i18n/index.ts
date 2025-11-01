@@ -209,7 +209,9 @@ const enTranslations = {
   "detail.dietaryTitle": "Dietary Information",
   "detail.status": "Status",
   "detail.statusPublic": "Public",
-  "detail.statusPrivate": "Private"
+  "detail.statusPrivate": "Private",
+  "offline.message": "You are currently offline. Changes will be saved and synced when you reconnect.",
+  "offline.syncComplete": "Back online! Your data has been synced."
 };
 
 const deTranslations = {
@@ -421,7 +423,9 @@ const deTranslations = {
   "detail.dietaryTitle": "Ernährungsinformation",
   "detail.status": "Status",
   "detail.statusPublic": "Öffentlich",
-  "detail.statusPrivate": "Privat"
+  "detail.statusPrivate": "Privat",
+  "offline.message": "Sie sind derzeit offline. Änderungen werden gespeichert und synchronisiert, wenn Sie wieder online sind.",
+  "offline.syncComplete": "Wieder online! Deine Daten wurden synchronisiert."
 };
 
 // Type for the translation function

@@ -11,6 +11,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { FoodItemDetailView } from './components/FoodItemDetailView';
 import { FoodItemDetailModal } from './components/FoodItemDetailModal';
 import { Auth } from './components/Auth';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './contexts/AuthContext';
 import * as geminiService from './services/geminiService';
 import { supabase } from './services/supabaseClient';
@@ -107,64 +108,99 @@ const App: React.FC = () => {
   const [newItemType, setNewItemType] = useState<FoodItemType>('product');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
+  // Offline State
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
   const isAnyFilterActive = useMemo(() => searchTerm.trim() !== '' || ratingFilter !== 'all' || typeFilter !== 'all' || aiSearchQuery !== '', [searchTerm, ratingFilter, typeFilter, aiSearchQuery]);
   
-  // Supabase Data Fetch Effect - run when a user is logged in
-  useEffect(() => {
-    if (!user) {
-        setFoodItems([]);
-        setShoppingLists([]);
-        setShoppingListItems([]);
-        setActiveShoppingListId(null);
-        setIsLoading(false);
-        return;
-    };
+  const fetchAllData = useCallback(async () => {
+    if (!user) return;
 
-    const fetchAllData = async () => {
-        setIsLoading(true);
-        setDbError(null);
+    setIsLoading(true);
+    setDbError(null);
 
-        // Fetch user's food items and shopping lists
+    try {
         const { data: foodItemsData, error: foodItemsError } = await supabase
             .from('food_items').select('*').order('created_at', { ascending: false });
 
-        if (foodItemsError) {
-            setDbError(`Error loading data: ${foodItemsError.message}.`);
-        } else if (foodItemsData) {
+        if (foodItemsError) throw foodItemsError;
+        if (foodItemsData) {
             const mappedData = foodItemsData.map(({ image_url, ...rest }) => ({ ...rest, image: image_url || undefined }));
             setFoodItems(mappedData as FoodItem[]);
         }
 
         const { data: listsData, error: listsError } = await supabase.from('shopping_lists').select('*');
+        if (listsError) throw listsError;
+        
+        if (listsData && listsData.length === 0) {
+            const { data: newList, error: newListError } = await supabase
+                .from('shopping_lists')
+                .insert({ owner_id: user.id, name: t('shoppingList.defaultListName') })
+                .select().single();
 
-        if (listsError) {
-            setDbError(`Error loading shopping lists: ${listsError.message}.`);
-        } else if (listsData) {
-            if (listsData.length === 0) {
-                // First time user, create a default list
-                const { data: newList, error: newListError } = await supabase
-                    .from('shopping_lists')
-                    .insert({ owner_id: user.id, name: t('shoppingList.defaultListName') })
-                    .select().single();
-
-                if (newListError) {
-                    setDbError(`Error creating default list: ${newListError.message}.`);
-                } else if (newList) {
-                    await supabase.from('shopping_list_members').insert({ list_id: newList.id, user_id: user.id });
-                    setShoppingLists([newList]);
-                    setActiveShoppingListId(newList.id);
-                }
-            } else {
-                setShoppingLists(listsData);
-                const lastUsedListId = localStorage.getItem('activeShoppingListId');
-                const listExists = listsData.some(l => l.id === lastUsedListId);
-                setActiveShoppingListId(listExists ? lastUsedListId : listsData[0]?.id || null);
+            if (newListError) throw newListError;
+            if (newList) {
+                await supabase.from('shopping_list_members').insert({ list_id: newList.id, user_id: user.id });
+                setShoppingLists([newList]);
+                setActiveShoppingListId(newList.id);
             }
+        } else if (listsData) {
+            setShoppingLists(listsData);
+            const lastUsedListId = localStorage.getItem('activeShoppingListId');
+            const listExists = listsData.some(l => l.id === lastUsedListId);
+            setActiveShoppingListId(listExists ? lastUsedListId : listsData[0]?.id || null);
         }
+    } catch (error: any) {
+        if (isOnline) {
+             setDbError(`Error loading data: ${error.message}.`);
+        }
+        console.error("Data fetch error:", error);
+    } finally {
         setIsLoading(false);
+    }
+  }, [user, t, isOnline]);
+
+  useEffect(() => {
+    if (user) {
+        fetchAllData();
+    } else {
+        setFoodItems([]);
+        setShoppingLists([]);
+        setShoppingListItems([]);
+        setActiveShoppingListId(null);
+        setIsLoading(false);
+    }
+  }, [user, fetchAllData]);
+
+  // Listen for online/offline status changes
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
     };
-    fetchAllData();
-  }, [user, t]);
+  }, []);
+
+  // Listen for messages from the service worker (e.g., after a sync)
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+        if (event.data && event.data.type === 'SYNC_COMPLETE') {
+            console.log('Sync complete! Re-fetching data.');
+            setToastMessage(t('offline.syncComplete'));
+            fetchAllData();
+        }
+    };
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+    return () => {
+        navigator.serviceWorker.removeEventListener('message', handleMessage);
+    };
+  }, [fetchAllData, t]);
+
 
   // Fetch shopping list items when active list changes
   useEffect(() => {
@@ -176,47 +212,36 @@ const App: React.FC = () => {
     localStorage.setItem('activeShoppingListId', activeShoppingListId);
 
     const fetchListItemsAndMembers = async () => {
+      try {
         const { data, error } = await supabase.from('shopping_list_items').select('*').eq('list_id', activeShoppingListId);
-        if (error) {
-            setDbError(`Error loading list items: ${error.message}.`);
-        } else {
-            setShoppingListItems(data || []);
-        }
+        if (error) throw error;
+        setShoppingListItems(data || []);
 
         const { data: membersData, error: membersError } = await supabase
-            .from('shopping_list_members')
-            .select('user_id')
-            .eq('list_id', activeShoppingListId);
-
-        if (membersError) {
-            setDbError(`Error loading list members: ${membersError.message}.`);
-        } else if (membersData) {
+            .from('shopping_list_members').select('user_id').eq('list_id', activeShoppingListId);
+        if (membersError) throw membersError;
+        
+        if (membersData) {
             const userIds = membersData.map(m => m.user_id);
             if (userIds.length > 0) {
-                // This assumes a 'profiles' table exists with RLS allowing members to read profiles of other members of the same list.
-                // The 'profiles' table is a common Supabase pattern linked to auth.users.
                 const { data: profilesData, error: profilesError } = await supabase
-                    .from('profiles')
-                    .select('id, display_name')
-                    .in('id', userIds);
+                    .from('profiles').select('id, display_name').in('id', userIds);
+                if (profilesError) throw profilesError;
                 
-                if (profilesError) {
-                    setDbError(`Error loading member profiles: ${profilesError.message}.`);
-                } else {
-                    const memberProfiles = userIds.map(id => {
-                        const profile = profilesData?.find(p => p.id === id);
-                        if (id === user?.id) {
-                            return { id, display_name: user.email || 'Unknown User' };
-                        }
-                        // Fallback for users who might not have a profile entry yet
-                        return profile || { id, display_name: 'Unknown User' };
-                    });
-                    setListMembers(memberProfiles as UserProfile[]);
-                }
+                const memberProfiles = userIds.map(id => {
+                    const profile = profilesData?.find(p => p.id === id);
+                    if (id === user?.id) return { id, display_name: user.email || 'Unknown User' };
+                    return profile || { id, display_name: 'Unknown User' };
+                });
+                setListMembers(memberProfiles as UserProfile[]);
             } else {
                 setListMembers([]);
             }
         }
+      } catch(error: any) {
+          if(isOnline) setDbError(`Error loading list data: ${error.message}.`);
+          console.error("List fetch error:", error);
+      }
     };
     fetchListItemsAndMembers();
 
@@ -245,7 +270,7 @@ const App: React.FC = () => {
             realtimeChannelRef.current.unsubscribe();
         }
     };
-  }, [activeShoppingListId, user]);
+  }, [activeShoppingListId, user, isOnline]);
 
   const handleJoinList = useCallback(async (listId: string) => {
     if (!user) return;
@@ -343,6 +368,24 @@ const App: React.FC = () => {
     setDbError(null);
     let imageUrl = itemData.image;
 
+    // --- Optimistic UI Update ---
+    const tempId = `temp_${Date.now()}`;
+    const optimisticItem: FoodItem = {
+        ...itemData,
+        id: editingItem ? editingItem.id : tempId,
+        user_id: user.id,
+        created_at: new Date().toISOString(),
+        image: imageUrl || undefined,
+        tags: itemData.tags || [],
+    };
+    if (editingItem) {
+        setFoodItems(prev => prev.map(item => item.id === editingItem.id ? optimisticItem : item));
+    } else {
+        setFoodItems(prev => [optimisticItem, ...prev]);
+    }
+    handleCancelForm();
+    // ----------------------------
+    
     // Step 1: Handle image upload if a new base64 image is present
     if (imageUrl && imageUrl.startsWith('data:image')) {
         const mimeType = imageUrl.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/jpeg';
@@ -353,8 +396,9 @@ const App: React.FC = () => {
             .upload(fileName, blob, { contentType: mimeType });
 
         if (uploadError) {
-            console.error('Error uploading image:', uploadError);
-            setDbError(`Failed to upload image: ${uploadError.message}`);
+            if(isOnline) setDbError(`Failed to upload image: ${uploadError.message}`);
+            // Revert optimistic update on failure
+            setFoodItems(prev => prev.filter(item => item.id !== tempId));
             return;
         }
 
@@ -362,57 +406,36 @@ const App: React.FC = () => {
         imageUrl = urlData.publicUrl;
     }
 
-    // Step 2: Prepare data for Supabase (map 'image' to 'image_url')
     const { image, ...restOfItemData } = itemData;
-    const dbPayload = {
-      ...restOfItemData,
-      image_url: imageUrl || null,
-      user_id: user.id
-    };
+    const dbPayload = { ...restOfItemData, image_url: imageUrl || null, user_id: user.id };
     
     if (editingItem) {
-        // UPDATE logic
-        const { data, error } = await supabase
-            .from('food_items')
-            .update(dbPayload)
-            .eq('id', editingItem.id)
-            .select()
-            .single();
-
+        const { data, error } = await supabase.from('food_items').update(dbPayload).eq('id', editingItem.id).select().single();
         if (error) {
-            console.error('Error updating item:', error);
-            setDbError(`Failed to update item: ${error.message}`);
-        } else if (data) {
-            const updatedItem = { ...data, image: data.image_url || undefined } as FoodItem;
-            setFoodItems(prevItems => prevItems.map(item => item.id === editingItem.id ? updatedItem : item));
-            handleCancelForm();
+            if(isOnline) setDbError(`Failed to update item: ${error.message}`);
+            // Optionally revert UI change here, but optimistic update is usually kept
+        } else if(data) {
+            const finalItem = { ...data, image: data.image_url || undefined } as FoodItem;
+            setFoodItems(prev => prev.map(item => item.id === finalItem.id ? finalItem : item));
         }
     } else {
-        // INSERT logic
-        // Check for duplicates before inserting
-        const duplicates = foodItems.filter(item => item.name.trim().toLowerCase() === itemData.name.trim().toLowerCase());
+        const duplicates = foodItems.filter(item => item.name.trim().toLowerCase() === itemData.name.trim().toLowerCase() && item.id !== tempId);
         if (duplicates.length > 0) {
             setPotentialDuplicates(duplicates);
             setItemToAdd(itemData);
+            setFoodItems(prev => prev.filter(item => item.id !== tempId)); // remove optimistic item
             return;
         }
 
-        const { data, error } = await supabase
-            .from('food_items')
-            .insert(dbPayload)
-            .select()
-            .single();
-        
+        const { data, error } = await supabase.from('food_items').insert(dbPayload).select().single();
         if (error) {
-            console.error('Error inserting item:', error);
-            setDbError(`Failed to save item: ${error.message}`);
-        } else if (data) {
-            const newItem = { ...data, image: data.image_url || undefined } as FoodItem;
-            setFoodItems(prevItems => [newItem, ...prevItems]);
-            handleCancelForm();
+            if(isOnline) setDbError(`Failed to save item: ${error.message}`);
+        } else if(data) {
+            const finalItem = { ...data, image: data.image_url || undefined } as FoodItem;
+            setFoodItems(prev => prev.map(item => item.id === tempId ? finalItem : item));
         }
     }
-  }, [editingItem, foodItems, handleCancelForm, user]);
+  }, [editingItem, foodItems, handleCancelForm, user, isOnline]);
 
   const handleConfirmDuplicateAdd = useCallback(async () => {
     if (itemToAdd) {
@@ -420,23 +443,20 @@ const App: React.FC = () => {
     }
     setItemToAdd(null);
     setPotentialDuplicates([]);
-    handleCancelForm();
-  }, [itemToAdd, handleSaveItem, handleCancelForm]);
+  }, [itemToAdd, handleSaveItem]);
 
   const handleDeleteItem = useCallback(async (id: string) => {
     setDbError(null);
-    const { error } = await supabase
-        .from('food_items')
-        .delete()
-        .eq('id', id);
+    const originalItems = foodItems;
+    setFoodItems(prevItems => prevItems.filter(item => item.id !== id)); // Optimistic delete
+    
+    const { error } = await supabase.from('food_items').delete().eq('id', id);
 
     if (error) {
-        console.error('Error deleting item:', error);
-        setDbError(`Failed to delete item: ${error.message}`);
-    } else {
-        setFoodItems(prevItems => prevItems.filter(item => item.id !== id));
+        if(isOnline) setDbError(`Failed to delete item: ${error.message}`);
+        setFoodItems(originalItems); // Revert on failure
     }
-  }, []);
+  }, [foodItems, isOnline]);
   
   const handleConversationalSearch = useCallback(async (query: string) => {
     setAiSearchQuery(query);
@@ -467,80 +487,85 @@ const App: React.FC = () => {
     setActiveView('dashboard');
   }, [clearAiSearch]);
   
-  // --- Shopping List Handlers ---
   const handleAddToShoppingList = useCallback(async (item: FoodItem) => {
       if (!user || !activeShoppingListId) return;
-      // Prevent adding duplicates to the same list
       if (shoppingListItems.some(sli => sli.food_item_id === item.id && sli.list_id === activeShoppingListId)) return;
-
-      const { data, error } = await supabase
-          .from('shopping_list_items')
-          .insert({ food_item_id: item.id, list_id: activeShoppingListId, added_by_user_id: user.id })
-          .select()
-          .single();
       
-      if (error) {
-          console.error('Error adding to shopping list:', error);
-      } else if (data) {
-          // No need to set local state, realtime will handle it
-          setToastMessage(t('shoppingList.addedToast', { name: item.name }));
-      }
-  }, [user, shoppingListItems, activeShoppingListId, t]);
+      const tempItem: ShoppingListItem = {
+        id: `temp_${Date.now()}`,
+        list_id: activeShoppingListId,
+        food_item_id: item.id,
+        added_by_user_id: user.id,
+        checked: false,
+        created_at: new Date().toISOString(),
+        checked_by_user_id: null
+      };
+      setShoppingListItems(prev => [...prev, tempItem]); // Optimistic Add
+      setToastMessage(t('shoppingList.addedToast', { name: item.name }));
 
-  const handleRemoveFromShoppingList = useCallback(async (shoppingListItemId: string) => {
       const { error } = await supabase
           .from('shopping_list_items')
-          .delete()
-          .eq('id', shoppingListItemId);
+          .insert({ food_item_id: item.id, list_id: activeShoppingListId, added_by_user_id: user.id });
+      
+      if (error) {
+          if(isOnline) setDbError(`Error adding to shopping list: ${error.message}`);
+          setShoppingListItems(prev => prev.filter(i => i.id !== tempItem.id)); // Revert
+      }
+  }, [user, shoppingListItems, activeShoppingListId, t, isOnline]);
 
-      if (error) console.error('Error removing from shopping list:', error);
-      // No need to set local state, realtime will handle it
-  }, []);
+  const handleRemoveFromShoppingList = useCallback(async (shoppingListItemId: string) => {
+      const originalItems = shoppingListItems;
+      setShoppingListItems(prev => prev.filter(i => i.id !== shoppingListItemId)); // Optimistic remove
+      
+      const { error } = await supabase.from('shopping_list_items').delete().eq('id', shoppingListItemId);
+      if (error) {
+          if(isOnline) setDbError(`Error removing item: ${error.message}`);
+          setShoppingListItems(originalItems); // Revert
+      }
+  }, [shoppingListItems, isOnline]);
   
   const handleToggleCheckedItem = useCallback(async (shoppingListItemId: string, isChecked: boolean) => {
     if (!user) return;
+    const originalItems = shoppingListItems;
+    setShoppingListItems(prev => prev.map(i => i.id === shoppingListItemId ? {...i, checked: isChecked, checked_by_user_id: isChecked ? user.id : null} : i));
+
     const { error } = await supabase
         .from('shopping_list_items')
-        .update({ 
-            checked: isChecked,
-            checked_by_user_id: isChecked ? user.id : null
-        })
+        .update({ checked: isChecked, checked_by_user_id: isChecked ? user.id : null })
         .eq('id', shoppingListItemId);
     
-    if (error) console.error('Error updating shopping list item:', error);
-    // No need to set local state, realtime will handle it
-  }, [user]);
+    if (error) {
+        if(isOnline) setDbError(`Error updating item: ${error.message}`);
+        setShoppingListItems(originalItems); // Revert
+    }
+  }, [user, shoppingListItems, isOnline]);
 
   const handleClearCompletedShoppingList = useCallback(async () => {
     if (!activeShoppingListId) return;
     const checkedIds = shoppingListItems.filter(item => item.checked).map(item => item.id);
     if (checkedIds.length === 0) return;
-
-    const { error } = await supabase
-        .from('shopping_list_items')
-        .delete()
-        .in('id', checkedIds);
     
-    if (error) console.error('Error clearing completed items:', error);
-    // No need to set local state, realtime will handle it
-  }, [shoppingListItems, activeShoppingListId]);
+    const originalItems = shoppingListItems;
+    setShoppingListItems(prev => prev.filter(i => !i.checked)); // Optimistic clear
+
+    const { error } = await supabase.from('shopping_list_items').delete().in('id', checkedIds);
+    if (error) {
+        if(isOnline) setDbError(`Error clearing completed items: ${error.message}`);
+        setShoppingListItems(originalItems); // Revert
+    }
+  }, [shoppingListItems, activeShoppingListId, isOnline]);
 
   const handleCreateNewList = useCallback(async (name: string) => {
     if (!user || !name.trim()) return;
-
-    const { data, error } = await supabase
-        .from('shopping_lists')
-        .insert({ name: name.trim(), owner_id: user.id })
-        .select().single();
-    
+    const { data, error } = await supabase.from('shopping_lists').insert({ name: name.trim(), owner_id: user.id }).select().single();
     if (error) {
-        console.error("Error creating new list:", error);
+        if(isOnline) setDbError("Error creating new list:" + error.message);
     } else if(data) {
         await supabase.from('shopping_list_members').insert({ list_id: data.id, user_id: user.id });
         setShoppingLists(prev => [...prev, data]);
         setActiveShoppingListId(data.id);
     }
-  }, [user]);
+  }, [user, isOnline]);
 
 
   const handleAddSharedItem = useCallback(() => {
@@ -582,28 +607,20 @@ const App: React.FC = () => {
   
   const filteredAndSortedItems = useMemo(() => {
     let items = foodItems;
-
-    // 1. AI Search Filter (highest priority)
     if (aiSearchResults.ids) {
       const idSet = new Set(aiSearchResults.ids);
       items = items.filter(item => idSet.has(item.id));
     }
-
-    // 2. Standard Filters
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     items = items
-      .filter(item => { // Type filter
-        if (typeFilter === 'all') return true;
-        return item.itemType === typeFilter;
-      })
-      .filter(item => { // Rating filter
+      .filter(item => typeFilter === 'all' || item.itemType === typeFilter)
+      .filter(item => {
         if (ratingFilter === 'all') return true;
         if (ratingFilter === 'liked') return item.rating >= 4;
         if (ratingFilter === 'disliked') return item.rating <= 2 && item.rating > 0;
         return true;
       })
-      .filter(item =>  // Search term filter
-        !searchTerm.trim() ? true : (
+      .filter(item =>  !searchTerm.trim() ? true : (
           item.name.toLowerCase().includes(lowerCaseSearchTerm) ||
           item.notes?.toLowerCase().includes(lowerCaseSearchTerm) ||
           item.tags?.join(' ').toLowerCase().includes(lowerCaseSearchTerm) ||
@@ -613,8 +630,6 @@ const App: React.FC = () => {
           ))
         )
       );
-
-    // 3. Sorting
     return [...items].sort((a, b) => {
       switch (sortBy) {
         case 'date_asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
@@ -623,28 +638,24 @@ const App: React.FC = () => {
         case 'name_asc': return a.name.localeCompare(b.name);
         case 'name_desc': return b.name.localeCompare(b.name);
         case 'date_desc':
-        default:
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
     });
   }, [foodItems, searchTerm, ratingFilter, typeFilter, sortBy, aiSearchResults.ids]);
   
-  // FIX: Rewrote the logic to be more explicit and avoid potential TypeScript inference issues with `.map` and `.filter` chains.
-  // This resolves the "Spread types may only be created from object types" error by ensuring the spread operator `...` is only
-  // used on a variable that is guaranteed to be a valid `FoodItem` object.
   const hydratedShoppingList = useMemo((): HydratedShoppingListItem[] => {
       const foodItemMap = new Map(foodItems.map(item => [item.id, item]));
       const hydratedItems: HydratedShoppingListItem[] = [];
       for (const sli of shoppingListItems) {
         const foodItemDetails = foodItemMap.get(sli.food_item_id);
         if (foodItemDetails) {
-          hydratedItems.push({
-            ...foodItemDetails,
+          // FIX: Replaced object spread with `Object.assign` to work around a potential compiler issue with spread on intersection types.
+          hydratedItems.push(Object.assign({}, foodItemDetails, {
             shoppingListItemId: sli.id,
             checked: sli.checked,
             added_by_user_id: sli.added_by_user_id,
             checked_by_user_id: sli.checked_by_user_id,
-          });
+          }));
         }
       }
       return hydratedItems;
@@ -708,8 +719,10 @@ const App: React.FC = () => {
           </div>
       </header>
       
+      <OfflineIndicator isOnline={isOnline} />
+
       <main className="container mx-auto p-4 md:p-8">
-        {dbError && <div className="bg-red-100 dark:bg-red-900/50 border border-red-400 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg relative mb-6" role="alert">{dbError}</div>}
+        {dbError && isOnline && <div className="bg-red-100 dark:bg-red-900/50 border border-red-400 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg relative mb-6" role="alert">{dbError}</div>}
         
         {isLoading ? (
              <div className="flex flex-col items-center justify-center pt-20">
@@ -764,7 +777,7 @@ const App: React.FC = () => {
       </footer>
 
       {toastMessage && (
-         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 text-sm font-semibold py-2 px-4 rounded-full shadow-lg animate-fade-in-out">
+         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 text-sm font-semibold py-2 px-4 rounded-full shadow-lg animate-fade-in-out z-50">
             {toastMessage}
         </div>
       )}
