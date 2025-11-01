@@ -1,14 +1,17 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, PlusCircleIcon, SpinnerIcon } from './Icons';
+import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
-import { ShoppingList } from '../types';
+import { ShoppingList, UserProfile } from '../types';
+import { User } from '@supabase/supabase-js';
 
 interface ShoppingListModalProps {
   allLists: ShoppingList[];
   activeListId: string | null;
   listData: HydratedShoppingListItem[];
+  listMembers: UserProfile[];
+  currentUser: User | null;
   onRemove: (shoppingListItemId: string) => void;
   onClear: () => void;
   onClose: () => void;
@@ -17,13 +20,46 @@ interface ShoppingListModalProps {
   onCreateList: (name: string) => void;
 }
 
+const ActivityLog: React.FC<{
+  userId: string | null;
+  action: 'added' | 'checked';
+  members: UserProfile[];
+  currentUser: User | null;
+}> = ({ userId, action, members, currentUser }) => {
+  if (!userId) return null;
+  const { t } = useTranslation();
+  const member = members.find(m => m.id === userId);
+  const isCurrentUser = currentUser?.id === userId;
+  
+  // Use the part of the email before the "@" as a simple display name, or a default
+  const name = isCurrentUser 
+    ? t('shoppingList.collaboration.you') 
+    : (member?.display_name.split('@')[0] || t('shoppingList.collaboration.someone'));
+  
+  const actionText = action === 'added' 
+    ? t('shoppingList.collaboration.addedBy', { name })
+    : t('shoppingList.collaboration.checkedBy', { name });
+
+  const Icon = action === 'added' ? UserCircleIcon : CheckCircleIcon;
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 mt-1">
+      <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+      <span>{actionText}</span>
+    </div>
+  );
+};
+
+
 const ShoppingListItem: React.FC<{
   item: HydratedShoppingListItem;
   onRemove: (id: string) => void;
   onToggleChecked: (id: string, isChecked: boolean) => void;
   isExpanded: boolean;
   onExpand: (id: string) => void;
-}> = ({ item, onRemove, onToggleChecked, isExpanded, onExpand }) => {
+  members: UserProfile[];
+  currentUser: User | null;
+}> = ({ item, onRemove, onToggleChecked, isExpanded, onExpand, members, currentUser }) => {
   const { t } = useTranslation();
   const displayItem = useTranslatedItem(item);
 
@@ -64,11 +100,18 @@ const ShoppingListItem: React.FC<{
             </div>
         </div>
         {isExpanded && (
-            <div className="px-3 pb-3 pt-2 border-t border-gray-200 dark:border-gray-600 animate-fade-in-down">
+            <div className="px-3 pb-3 pt-2 border-t border-gray-200 dark:border-gray-600 animate-fade-in-down space-y-2">
+                <div className="pl-8">
+                    <ActivityLog action="added" userId={displayItem.added_by_user_id} members={members} currentUser={currentUser} />
+                    {displayItem.checked && (
+                        <ActivityLog action="checked" userId={displayItem.checked_by_user_id} members={members} currentUser={currentUser} />
+                    )}
+                </div>
+
                 {displayItem.image ? (
-                    <img src={displayItem.image} alt={displayItem.name} className="w-full rounded-md mb-2 object-contain max-h-48 bg-white dark:bg-gray-800" />
+                    <img src={displayItem.image} alt={displayItem.name} className="w-full rounded-md object-contain max-h-48 bg-white dark:bg-gray-800" />
                 ) : (
-                    <div className="w-full h-24 bg-gray-200 dark:bg-gray-600 rounded-md flex items-center justify-center text-gray-400 mb-2">
+                    <div className="w-full h-24 bg-gray-200 dark:bg-gray-600 rounded-md flex items-center justify-center text-gray-400">
                         <CameraIcon className="w-8 h-8"/>
                     </div>
                 )}
@@ -86,7 +129,7 @@ const ShoppingListItem: React.FC<{
 
 
 export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ 
-  allLists, activeListId, listData, onRemove, onClear, onClose, onToggleChecked, onSelectList, onCreateList 
+  allLists, activeListId, listData, listMembers, currentUser, onRemove, onClear, onClose, onToggleChecked, onSelectList, onCreateList 
 }) => {
   const { t } = useTranslation();
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
@@ -122,16 +165,26 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
     }
   }, [activeListId, t]);
 
+  const getInitials = (name: string) => {
+      if (!name) return '?';
+      const parts = name.split('@')[0].replace(/[^a-zA-Z\s]/g, ' ').split(' ');
+      if (parts.length > 1) {
+          return (parts[0][0] + (parts[parts.length - 1][0] || '')).toUpperCase();
+      }
+      return name.substring(0, 2).toUpperCase();
+  };
+
   const groupedItems = useMemo(() => {
     const uncategorizedKey = t('shoppingList.uncategorized');
-    return listData.reduce<Record<string, HydratedShoppingListItem[]>>((acc, item) => {
+    // FIX: Replaced generic on .reduce with a typed initial value to resolve TS error.
+    return listData.reduce((acc, item) => {
       const key = item.purchaseLocation || uncategorizedKey;
       if (!acc[key]) {
         acc[key] = [];
       }
       acc[key].push(item);
       return acc;
-    }, {});
+    }, {} as Record<string, HydratedShoppingListItem[]>);
   }, [listData, t]);
 
   const sortedGroupNames = useMemo(() => {
@@ -168,45 +221,65 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
             </button>
         </div>
         
-        {/* List Management Section */}
-        <div className="mb-4 space-y-2">
-            <div className="flex gap-2">
-                <select 
-                    value={activeListId || ''} 
-                    onChange={(e) => onSelectList(e.target.value)}
-                    className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
-                    aria-label={t('shoppingList.selectListAria')}
-                >
-                    {allLists.map(list => (
-                        <option key={list.id} value={list.id}>{list.name}</option>
-                    ))}
-                </select>
-                <button onClick={handleShareList} disabled={isSharing} className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-green-400 transition-colors" title={t('shoppingList.share.buttonTitle')}>
-                    {isSharing ? <SpinnerIcon className="w-5 h-5"/> : <ShareIcon className="w-5 h-5"/>}
-                </button>
-            </div>
-            {isCreatingNewList ? (
-                 <form onSubmit={handleCreateList} className="flex gap-2">
-                    <input
-                        type="text"
-                        value={newListName}
-                        onChange={(e) => setNewListName(e.target.value)}
-                        placeholder={t('shoppingList.newListPlaceholder')}
+        {/* List Management & Members Section */}
+        <div className="mb-4 space-y-4">
+            <div className="space-y-2">
+                <div className="flex gap-2">
+                    <select 
+                        value={activeListId || ''} 
+                        onChange={(e) => onSelectList(e.target.value)}
                         className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
-                        autoFocus
-                    />
-                    <button type="submit" className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold text-sm">{t('shoppingList.createButton')}</button>
-                    <button type="button" onClick={() => setIsCreatingNewList(false)} className="px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 font-semibold text-sm">{t('form.button.cancel')}</button>
-                 </form>
-            ) : (
-                <button onClick={() => setIsCreatingNewList(true)} className="w-full flex items-center justify-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold py-2 px-3 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/50 transition-colors">
-                    <PlusCircleIcon className="w-5 h-5"/>
-                    {t('shoppingList.newListButton')}
-                </button>
+                        aria-label={t('shoppingList.selectListAria')}
+                    >
+                        {allLists.map(list => (
+                            <option key={list.id} value={list.id}>{list.name}</option>
+                        ))}
+                    </select>
+                    <button onClick={handleShareList} disabled={isSharing} className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-green-400 transition-colors" title={t('shoppingList.share.buttonTitle')}>
+                        {isSharing ? <SpinnerIcon className="w-5 h-5"/> : <ShareIcon className="w-5 h-5"/>}
+                    </button>
+                </div>
+                {isCreatingNewList ? (
+                    <form onSubmit={handleCreateList} className="flex gap-2">
+                        <input
+                            type="text"
+                            value={newListName}
+                            onChange={(e) => setNewListName(e.target.value)}
+                            placeholder={t('shoppingList.newListPlaceholder')}
+                            className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
+                            autoFocus
+                        />
+                        <button type="submit" className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold text-sm">{t('shoppingList.createButton')}</button>
+                        <button type="button" onClick={() => setIsCreatingNewList(false)} className="px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 font-semibold text-sm">{t('form.button.cancel')}</button>
+                    </form>
+                ) : (
+                    <button onClick={() => setIsCreatingNewList(true)} className="w-full flex items-center justify-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold py-2 px-3 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/50 transition-colors">
+                        <PlusCircleIcon className="w-5 h-5"/>
+                        {t('shoppingList.newListButton')}
+                    </button>
+                )}
+            </div>
+
+            {listMembers.length > 0 && (
+              <div>
+                  <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">{t('shoppingList.collaboration.members')}</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                      {listMembers.map(member => (
+                          <div key={member.id} className="group relative">
+                              <div className="w-8 h-8 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-xs font-bold text-indigo-700 dark:text-indigo-200 ring-2 ring-white dark:ring-gray-800">
+                                  {getInitials(member.display_name)}
+                              </div>
+                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                  {member.id === currentUser?.id ? `${member.display_name} (${t('shoppingList.collaboration.you')})` : member.display_name}
+                              </span>
+                          </div>
+                      ))}
+                  </div>
+              </div>
             )}
         </div>
         
-        <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+        <div className="flex-1 overflow-y-auto pr-2 -mr-2 border-t border-gray-200 dark:border-gray-700 pt-4">
             {listData.length > 0 ? (
                 <div className="space-y-6">
                     {sortedGroupNames.map(groupName => (
@@ -223,6 +296,8 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                         onToggleChecked={onToggleChecked}
                                         isExpanded={expandedItemId === item.id}
                                         onExpand={handleExpand}
+                                        members={listMembers}
+                                        currentUser={currentUser}
                                     />
                                 ))}
                             </ul>

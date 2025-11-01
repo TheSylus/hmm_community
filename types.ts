@@ -47,6 +47,7 @@ export interface ShoppingListItem {
   added_by_user_id: string;
   checked: boolean;
   created_at: string;
+  checked_by_user_id: string | null;
 }
 
 // Represents a user's membership to a shopping list.
@@ -54,4 +55,10 @@ export interface ShoppingListMember {
   list_id: string;
   user_id: string;
   created_at: string;
+}
+
+// Represents a user's public profile information.
+export interface UserProfile {
+  id: string; // Corresponds to auth.users.id
+  display_name: string;
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList } from './types';
+import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList, UserProfile } from './types';
 import { FoodItemForm } from './components/FoodItemForm';
 import { FoodItemList } from './components/FoodItemList';
 import { Dashboard } from './components/Dashboard';
@@ -54,6 +54,7 @@ export type HydratedShoppingListItem = FoodItem & {
   shoppingListItemId: string;
   checked: boolean;
   added_by_user_id: string;
+  checked_by_user_id: string | null;
 };
 
 
@@ -76,6 +77,7 @@ const App: React.FC = () => {
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
   const [activeShoppingListId, setActiveShoppingListId] = useState<string | null>(null);
   const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
+  const [listMembers, setListMembers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
 
@@ -166,21 +168,57 @@ const App: React.FC = () => {
 
   // Fetch shopping list items when active list changes
   useEffect(() => {
-    if (!activeShoppingListId) {
+    if (!activeShoppingListId || !user) {
       setShoppingListItems([]);
+      setListMembers([]);
       return;
     }
     localStorage.setItem('activeShoppingListId', activeShoppingListId);
 
-    const fetchListItems = async () => {
+    const fetchListItemsAndMembers = async () => {
         const { data, error } = await supabase.from('shopping_list_items').select('*').eq('list_id', activeShoppingListId);
         if (error) {
             setDbError(`Error loading list items: ${error.message}.`);
         } else {
             setShoppingListItems(data || []);
         }
+
+        const { data: membersData, error: membersError } = await supabase
+            .from('shopping_list_members')
+            .select('user_id')
+            .eq('list_id', activeShoppingListId);
+
+        if (membersError) {
+            setDbError(`Error loading list members: ${membersError.message}.`);
+        } else if (membersData) {
+            const userIds = membersData.map(m => m.user_id);
+            if (userIds.length > 0) {
+                // This assumes a 'profiles' table exists with RLS allowing members to read profiles of other members of the same list.
+                // The 'profiles' table is a common Supabase pattern linked to auth.users.
+                const { data: profilesData, error: profilesError } = await supabase
+                    .from('profiles')
+                    .select('id, display_name')
+                    .in('id', userIds);
+                
+                if (profilesError) {
+                    setDbError(`Error loading member profiles: ${profilesError.message}.`);
+                } else {
+                    const memberProfiles = userIds.map(id => {
+                        const profile = profilesData?.find(p => p.id === id);
+                        if (id === user?.id) {
+                            return { id, display_name: user.email || 'Unknown User' };
+                        }
+                        // Fallback for users who might not have a profile entry yet
+                        return profile || { id, display_name: 'Unknown User' };
+                    });
+                    setListMembers(memberProfiles as UserProfile[]);
+                }
+            } else {
+                setListMembers([]);
+            }
+        }
     };
-    fetchListItems();
+    fetchListItemsAndMembers();
 
     // Subscribe to realtime updates for the active list
     if (realtimeChannelRef.current) {
@@ -207,7 +245,7 @@ const App: React.FC = () => {
             realtimeChannelRef.current.unsubscribe();
         }
     };
-  }, [activeShoppingListId]);
+  }, [activeShoppingListId, user]);
 
   const handleJoinList = useCallback(async (listId: string) => {
     if (!user) return;
@@ -460,14 +498,18 @@ const App: React.FC = () => {
   }, []);
   
   const handleToggleCheckedItem = useCallback(async (shoppingListItemId: string, isChecked: boolean) => {
+    if (!user) return;
     const { error } = await supabase
         .from('shopping_list_items')
-        .update({ checked: isChecked })
+        .update({ 
+            checked: isChecked,
+            checked_by_user_id: isChecked ? user.id : null
+        })
         .eq('id', shoppingListItemId);
     
     if (error) console.error('Error updating shopping list item:', error);
     // No need to set local state, realtime will handle it
-  }, []);
+  }, [user]);
 
   const handleClearCompletedShoppingList = useCallback(async () => {
     if (!activeShoppingListId) return;
@@ -587,20 +629,25 @@ const App: React.FC = () => {
     });
   }, [foodItems, searchTerm, ratingFilter, typeFilter, sortBy, aiSearchResults.ids]);
   
+  // FIX: Rewrote the logic to be more explicit and avoid potential TypeScript inference issues with `.map` and `.filter` chains.
+  // This resolves the "Spread types may only be created from object types" error by ensuring the spread operator `...` is only
+  // used on a variable that is guaranteed to be a valid `FoodItem` object.
   const hydratedShoppingList = useMemo((): HydratedShoppingListItem[] => {
       const foodItemMap = new Map(foodItems.map(item => [item.id, item]));
-      return shoppingListItems
-        .map(sli => {
-          const foodItemDetails = foodItemMap.get(sli.food_item_id);
-          if (!foodItemDetails) return null;
-          return {
+      const hydratedItems: HydratedShoppingListItem[] = [];
+      for (const sli of shoppingListItems) {
+        const foodItemDetails = foodItemMap.get(sli.food_item_id);
+        if (foodItemDetails) {
+          hydratedItems.push({
             ...foodItemDetails,
             shoppingListItemId: sli.id,
             checked: sli.checked,
             added_by_user_id: sli.added_by_user_id,
-          };
-        })
-        .filter((item): item is HydratedShoppingListItem => item !== null);
+            checked_by_user_id: sli.checked_by_user_id,
+          });
+        }
+      }
+      return hydratedItems;
   }, [foodItems, shoppingListItems]);
 
 
@@ -745,6 +792,8 @@ const App: React.FC = () => {
             allLists={shoppingLists}
             activeListId={activeShoppingListId}
             listData={hydratedShoppingList} 
+            listMembers={listMembers}
+            currentUser={user}
             onRemove={handleRemoveFromShoppingList} 
             onClear={handleClearCompletedShoppingList} 
             onToggleChecked={handleToggleCheckedItem} 
