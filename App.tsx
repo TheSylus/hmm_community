@@ -592,6 +592,47 @@ const App: React.FC = () => {
     }
   }, [user, isOnline, shoppingLists]);
 
+  const handleDeleteList = useCallback(async (listId: string) => {
+      const originalLists = [...shoppingLists];
+      const newLists = shoppingLists.filter(l => l.id !== listId);
+      
+      // Optimistic update
+      setShoppingLists(newLists);
+      if (activeShoppingListId === listId) {
+        const newActiveId = newLists[0]?.id || null;
+        setActiveShoppingListId(newActiveId);
+        if (newActiveId) localStorage.setItem('activeShoppingListId', newActiveId);
+        else localStorage.removeItem('activeShoppingListId');
+      }
+
+      const { error } = await supabase.from('shopping_lists').delete().eq('id', listId);
+      if (error && isOnline) {
+          setDbError(`Error deleting list: ${error.message}`);
+          setShoppingLists(originalLists); // Revert on failure
+      }
+  }, [shoppingLists, activeShoppingListId, isOnline]);
+
+  const handleLeaveList = useCallback(async (listId: string) => {
+      if (!user) return;
+      const originalLists = [...shoppingLists];
+      const newLists = shoppingLists.filter(l => l.id !== listId);
+
+      // Optimistic update
+      setShoppingLists(newLists);
+      if (activeShoppingListId === listId) {
+        const newActiveId = newLists[0]?.id || null;
+        setActiveShoppingListId(newActiveId);
+        if (newActiveId) localStorage.setItem('activeShoppingListId', newActiveId);
+        else localStorage.removeItem('activeShoppingListId');
+      }
+
+      const { error } = await supabase.from('shopping_list_members').delete().eq('list_id', listId).eq('user_id', user.id);
+      if (error && isOnline) {
+          setDbError(`Error leaving list: ${error.message}`);
+          setShoppingLists(originalLists); // Revert on failure
+      }
+  }, [user, shoppingLists, activeShoppingListId, isOnline]);
+
 
   const handleAddSharedItem = useCallback(() => {
     if (sharedItemToShow) {
@@ -674,15 +715,14 @@ const App: React.FC = () => {
       for (const sli of shoppingListItems) {
         const foodItemDetails = foodItemMap.get(sli.food_item_id);
         if (foodItemDetails) {
-// FIX: The spread operator was causing a "Spread types may only be created from object types" error in some TypeScript environments. Reverting to Object.assign for creating the new hydrated item object is a safer alternative.
-          hydratedItems.push(
-            Object.assign({}, foodItemDetails, {
-              shoppingListItemId: sli.id,
-              checked: sli.checked,
-              added_by_user_id: sli.added_by_user_id,
-              checked_by_user_id: sli.checked_by_user_id,
-            })
-          );
+// FIX: Replaced Object.assign with the spread operator. The previous implementation caused a type inference error, and the spread syntax is both correctly typed and more idiomatic.
+          hydratedItems.push({
+            ...foodItemDetails,
+            shoppingListItemId: sli.id,
+            checked: sli.checked,
+            added_by_user_id: sli.added_by_user_id,
+            checked_by_user_id: sli.checked_by_user_id,
+          });
         }
       }
       return hydratedItems;
@@ -840,6 +880,8 @@ const App: React.FC = () => {
             onClose={() => setIsShoppingListOpen(false)}
             onSelectList={setActiveShoppingListId}
             onCreateList={handleCreateNewList}
+            onDeleteList={handleDeleteList}
+            onLeaveList={handleLeaveList}
         />
       }
 

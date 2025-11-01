@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon } from './Icons';
+import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
 import { ShoppingList, UserProfile } from '../types';
@@ -18,6 +18,8 @@ interface ShoppingListModalProps {
   onToggleChecked: (shoppingListItemId: string, isChecked: boolean) => void;
   onSelectList: (listId: string) => void;
   onCreateList: (name: string) => void;
+  onDeleteList: (listId: string) => void;
+  onLeaveList: (listId: string) => void;
 }
 
 const ActivityLog: React.FC<{
@@ -129,13 +131,20 @@ const ShoppingListItem: React.FC<{
 
 
 export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ 
-  allLists, activeListId, listData, listMembers, currentUser, onRemove, onClear, onClose, onToggleChecked, onSelectList, onCreateList 
+  allLists, activeListId, listData, listMembers, currentUser, onRemove, onClear, onClose, onToggleChecked, onSelectList, onCreateList, onDeleteList, onLeaveList
 }) => {
   const { t } = useTranslation();
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [isCreatingNewList, setIsCreatingNewList] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [isSharing, setIsSharing] = useState(false);
+  const [isManageMenuOpen, setIsManageMenuOpen] = useState(false);
+  const manageMenuRef = React.useRef<HTMLDivElement>(null);
+
+
+  const activeList = useMemo(() => allLists.find(l => l.id === activeListId), [allLists, activeListId]);
+  const isOwner = useMemo(() => currentUser && activeList && currentUser.id === activeList.owner_id, [currentUser, activeList]);
+
 
   const handleExpand = useCallback((foodItemId: string) => {
     setExpandedItemId(prev => prev === foodItemId ? null : foodItemId);
@@ -149,6 +158,22 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
           setIsCreatingNewList(false);
       }
   }
+
+  const handleDelete = () => {
+    if (!activeList) return;
+    if (window.confirm(t('shoppingList.delete.confirm', { listName: activeList.name }))) {
+        onDeleteList(activeList.id);
+        setIsManageMenuOpen(false);
+    }
+  };
+
+  const handleLeave = () => {
+    if (!activeList) return;
+    if (window.confirm(t('shoppingList.leave.confirm', { listName: activeList.name }))) {
+        onLeaveList(activeList.id);
+        setIsManageMenuOpen(false);
+    }
+  };
 
   const handleShareList = useCallback(async () => {
     if (!activeListId) return;
@@ -198,6 +223,17 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
 
   const checkedItemsCount = useMemo(() => listData.filter(item => item.checked).length, [listData]);
 
+  // Close manage menu if clicked outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (manageMenuRef.current && !manageMenuRef.current.contains(event.target as Node)) {
+                setIsManageMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in"
@@ -224,7 +260,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
         {/* List Management & Members Section */}
         <div className="mb-4 space-y-4">
             <div className="space-y-2">
-                <div className="flex gap-2">
+                <div className="flex gap-2 relative">
                     <select 
                         value={activeListId || ''} 
                         onChange={(e) => onSelectList(e.target.value)}
@@ -238,6 +274,26 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                     <button onClick={handleShareList} disabled={isSharing} className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-green-400 transition-colors" title={t('shoppingList.share.buttonTitle')}>
                         {isSharing ? <SpinnerIcon className="w-5 h-5"/> : <ShareIcon className="w-5 h-5"/>}
                     </button>
+                    <div ref={manageMenuRef} className="relative">
+                        <button onClick={() => setIsManageMenuOpen(prev => !prev)} className="p-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors" title={t('shoppingList.manage.buttonTitle')}>
+                            <EllipsisVerticalIcon className="w-5 h-5"/>
+                        </button>
+                        {isManageMenuOpen && activeList && (
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
+                                {isOwner ? (
+                                    <button onClick={handleDelete} className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center gap-2">
+                                        <TrashIcon className="w-4 h-4" />
+                                        {t('shoppingList.delete.button')}
+                                    </button>
+                                ) : (
+                                    <button onClick={handleLeave} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2">
+                                        <XMarkIcon className="w-4 h-4" />
+                                        {t('shoppingList.leave.button')}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
                 {isCreatingNewList ? (
                     <form onSubmit={handleCreateList} className="flex gap-2">
