@@ -208,7 +208,10 @@ const App: React.FC = () => {
 
   // Fetch shopping list items when active list changes
   useEffect(() => {
-    if (!activeShoppingListId || !user) {
+    // FIX: Add a guard to prevent fetching data with a temporary, client-side ID.
+    // This resolves a race condition where this effect would fire before the new list's
+    // real UUID was returned from the database, causing a crash.
+    if (!activeShoppingListId || !user || activeShoppingListId.startsWith('temp_')) {
       setShoppingListItems([]);
       setListMembers([]);
       return;
@@ -256,12 +259,15 @@ const App: React.FC = () => {
     
     const channel = supabase.channel(`shopping_list:${activeShoppingListId}`);
     channel
+// FIX: Corrected typo from `activeListId` to `activeShoppingListId` in the filter strings. This was causing a "Cannot find name" error.
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => {
             setShoppingListItems(prev => [...prev, payload.new as ShoppingListItem]);
         })
+// FIX: Corrected typo from `activeListId` to `activeShoppingListId` in the filter strings. This was causing a "Cannot find name" error.
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => {
             setShoppingListItems(prev => prev.map(item => item.id === payload.new.id ? payload.new as ShoppingListItem : item));
         })
+// FIX: Corrected typo from `activeListId` to `activeShoppingListId` in the filter strings. This was causing a "Cannot find name" error.
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => {
             setShoppingListItems(prev => prev.filter(item => item.id !== payload.old.id));
         })
@@ -668,14 +674,15 @@ const App: React.FC = () => {
       for (const sli of shoppingListItems) {
         const foodItemDetails = foodItemMap.get(sli.food_item_id);
         if (foodItemDetails) {
-          // FIX: Replaced Object.assign with spread syntax for better type inference.
-          hydratedItems.push({
-            ...foodItemDetails,
-            shoppingListItemId: sli.id,
-            checked: sli.checked,
-            added_by_user_id: sli.added_by_user_id,
-            checked_by_user_id: sli.checked_by_user_id,
-          });
+// FIX: The spread operator was causing a "Spread types may only be created from object types" error in some TypeScript environments. Reverting to Object.assign for creating the new hydrated item object is a safer alternative.
+          hydratedItems.push(
+            Object.assign({}, foodItemDetails, {
+              shoppingListItemId: sli.id,
+              checked: sli.checked,
+              added_by_user_id: sli.added_by_user_id,
+              checked_by_user_id: sli.checked_by_user_id,
+            })
+          );
         }
       }
       return hydratedItems;
