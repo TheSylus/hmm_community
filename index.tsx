@@ -1,9 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-// FIX: Add .tsx extension to file path
-import App from './App.tsx';
-// FIX: Add .ts extension to file path
-import { I18nProvider } from './i18n/index.ts';
+import App from './App';
+import { I18nProvider } from './i18n/index';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AppSettingsProvider } from './contexts/AppSettingsContext';
 import { AuthProvider } from './contexts/AuthContext';

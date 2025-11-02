@@ -1,55 +1,18 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { FoodItem, NutriScore } from "../types";
 
-let ai: GoogleGenAI | null = null;
-let currentApiKey: string | null = null;
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// FIX: Added function to set API key at runtime, storing it in localStorage.
-export const setApiKey = (key: string) => {
-    if (typeof window !== 'undefined') {
-        localStorage.setItem('gemini_api_key', key);
-        // Reset client instance to be re-created with the new key on next call
-        ai = null; 
-        currentApiKey = null;
-    }
-};
-
-// FIX: Helper to get API key from environment or localStorage.
-const getApiKey = (): string | null => {
-    const keyFromEnv = process.env.API_KEY;
-    if (keyFromEnv) {
-        return keyFromEnv;
-    }
-    if (typeof window !== 'undefined') {
-        return localStorage.getItem('gemini_api_key');
-    }
-    return null;
-}
-
-
-// FIX: Updated hasValidApiKey to check both environment and localStorage.
 export const hasValidApiKey = (): boolean => {
-    return !!getApiKey();
+    return !!process.env.API_KEY;
 };
 
-// FIX: Updated getAiClient to initialize the client on-demand.
 export function getAiClient() {
-    const apiKey = getApiKey();
-    if (!apiKey) {
-        throw new Error("API key not found. Please set it in your environment or app settings.");
+    if (!process.env.API_KEY) {
+        throw new Error("API key not found. Please ensure it's set in your environment variables.");
     }
-
-    // Return cached instance if key is unchanged
-    if (ai && currentApiKey === apiKey) {
-        return ai;
-    }
-    
-    // Create new instance if key is new or different
-    currentApiKey = apiKey;
-    ai = new GoogleGenAI({ apiKey });
     return ai;
 }
-
 
 // FIX: Replaced brittle JSON parsing with a more robust implementation.
 // This version can extract a JSON object from within a markdown code block,
