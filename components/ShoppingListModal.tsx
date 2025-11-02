@@ -35,7 +35,7 @@ const ActivityLog: React.FC<{
   
   const name = isCurrentUser 
     ? t('shoppingList.collaboration.you') 
-    : (member?.display_name.split('@')[0] || t('shoppingList.collaboration.someone'));
+    : (member?.display_name || t('shoppingList.collaboration.someone'));
   
   const actionText = action === 'added' 
     ? t('shoppingList.collaboration.addedBy', { name })
@@ -191,9 +191,12 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
 
   const getInitials = (name: string) => {
       if (!name) return '?';
-      const parts = name.split('@')[0].replace(/[^a-zA-Z\s]/g, ' ').split(' ');
+      const parts = name.replace(/[^a-zA-Z\s]/g, ' ').split(' ').filter(Boolean);
       if (parts.length > 1 && parts[0] && parts[parts.length -1]) {
           return (parts[0][0] + (parts[parts.length - 1][0] || '')).toUpperCase();
+      }
+       if (parts.length === 1 && parts[0]) {
+          return parts[0].substring(0, 2).toUpperCase();
       }
       return name.substring(0, 2).toUpperCase();
   };
