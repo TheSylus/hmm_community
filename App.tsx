@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { FoodItem, FoodItemType, Like, CommentWithProfile, ShoppingList, ShoppingListItem, UserProfile, Collection } from './types';
-import { isSupabaseConfigured, supabase } from './services/supabaseClient';
+import { FoodItem, FoodItemType, Like, CommentWithProfile, ShoppingList, ShoppingListItem, UserProfile } from './types';
+import { supabase } from './services/supabaseClient';
 import { useAuth } from './contexts/AuthContext';
 import { useAppSettings } from './contexts/AppSettingsContext';
 import { hasValidApiKey, setApiKey as setGeminiApiKey, performConversationalSearch } from './services/geminiService';
@@ -17,15 +17,12 @@ import { FoodItemDetailModal } from './components/FoodItemDetailModal';
 import { ImageModal } from './components/ImageModal';
 import { DuplicateConfirmationModal } from './components/DuplicateConfirmationModal';
 import { ShoppingListModal } from './components/ShoppingListModal';
-import { AddToCollectionModal } from './components/AddToCollectionModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { FilterPanel } from './components/FilterPanel';
-import { ProfileView } from './components/ProfileView';
-import { CollectionDetailView } from './components/CollectionDetailView';
 import { useTranslation } from './i18n';
 import { GlobeAltIcon, HomeIcon, ListBulletIcon, PlusCircleIcon, Cog6ToothIcon, ShoppingBagIcon } from './components/Icons';
 
-export type View = 'dashboard' | 'list' | 'discover' | 'profile' | 'collection';
+export type View = 'dashboard' | 'list' | 'discover';
 export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
 export type RatingFilter = 'all' | 'liked' | 'disliked';
 export type TypeFilter = 'all' | 'product' | 'dish';
@@ -36,23 +33,6 @@ export interface HydratedShoppingListItem extends FoodItem {
     added_by_user_id: string;
     checked_by_user_id: string | null;
 }
-
-const ConfigurationErrorScreen = () => (
-    <div className="fixed inset-0 bg-gray-100 dark:bg-gray-900 flex items-center justify-center z-50 p-4">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-lg text-center">
-            <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
-                Application Configuration Error
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-                The application is not configured correctly. The Supabase URL and Key are missing.
-            </p>
-            <p className="text-gray-500 dark:text-gray-500 text-sm">
-                Please ensure you have set up your <code>.env</code> file with <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> for local development, or that these variables are set in your deployment environment.
-            </p>
-        </div>
-    </div>
-);
-
 
 const App: React.FC = () => {
     const { session, user } = useAuth();
@@ -101,14 +81,6 @@ const App: React.FC = () => {
     const [shoppingListItems, setShoppingListItems] = useState<HydratedShoppingListItem[]>([]);
     const [shoppingListMembers, setShoppingListMembers] = useState<UserProfile[]>([]);
     
-    // Collections & Profile State
-    const [collections, setCollections] = useState<Collection[]>([]);
-    const [itemToCollect, setItemToCollect] = useState<FoodItem | null>(null);
-    const [profileUserId, setProfileUserId] = useState<string | null>(null);
-    const [viewingCollection, setViewingCollection] = useState<Collection | null>(null);
-    const [viewingCollectionAuthor, setViewingCollectionAuthor] = useState<UserProfile | null>(null);
-
-
     const Header = () => (
         <header className="bg-white dark:bg-gray-800 shadow-md p-4 flex justify-between items-center">
             <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200">{t('header.title')}</h1>
@@ -166,14 +138,12 @@ const App: React.FC = () => {
             { data: itemsData, error: itemsError },
             { data: profileData, error: profileError },
             { data: listsData, error: listsError },
-            { data: membersData, error: membersError },
-            { data: collectionsData, error: collectionsError }
+            { data: membersData, error: membersError }
         ] = await Promise.all([
             supabase.from('food_items').select('*').eq('user_id', user.id),
             supabase.from('profiles').select('*').eq('id', user.id).single(),
             supabase.from('shopping_lists').select('*'),
-            supabase.from('shopping_list_members').select('*, profiles!inner(id, display_name)'),
-            supabase.from('collections').select('*, collection_items(food_items(*))').eq('user_id', user.id)
+            supabase.from('shopping_list_members').select('*, profiles!inner(id, display_name)')
         ]);
 
         if (itemsError) console.error('Error fetching food items:', itemsError);
@@ -197,9 +167,6 @@ const App: React.FC = () => {
             }
         }
         
-        if (collectionsError) console.error('Error fetching collections:', collectionsError);
-        else setCollections(collectionsData as Collection[] || []);
-
         setIsLoading(false);
     }, [user]);
 
@@ -210,9 +177,9 @@ const App: React.FC = () => {
             { data: likesData, error: likesError },
             { data: commentsData, error: commentsError }
         ] = await Promise.all([
-            supabase.from('food_items').select('*, profiles(id, display_name)').eq('isPublic', true).neq('user_id', user?.id || '').order('created_at', { ascending: false }),
+            supabase.from('food_items').select('*').eq('isPublic', true).neq('user_id', user?.id || '').order('created_at', { ascending: false }),
             supabase.from('likes').select('*'),
-            supabase.from('comments').select('*, profiles(id, display_name)')
+            supabase.from('comments').select('*, profiles(display_name)')
         ]);
 
         if (itemsError) console.error("Error fetching community items:", itemsError); else setCommunityItems(itemsData || []);
@@ -273,28 +240,42 @@ const App: React.FC = () => {
     useEffect(() => {
         if (!user) return;
         
-        const myChannel = supabase.channel(`my_data_${user.id}`);
-        myChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'food_items', filter: `user_id=eq.${user.id}` }, () => fetchAllData())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'collections', filter: `user_id=eq.${user.id}` }, () => fetchAllData())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'collection_items', filter: `user_id=eq.${user.id}` }, () => fetchAllData())
-            .subscribe();
+        // My Items
+        const itemChanges = supabase.channel('food_items')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'food_items', filter: `user_id=eq.${user.id}` }, payload => {
+                fetchAllData(); // Refetch all my data on change
+            }).subscribe();
 
-        const publicChannel = supabase.channel('public_data');
-        publicChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'food_items', filter: 'isPublic=eq.true' }, () => { if(view === 'discover') fetchCommunityData(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => { if(view === 'discover' || detailedItem) fetchCommunityData(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => { if(view === 'discover' || detailedItem) fetchCommunityData(); })
-            .subscribe();
+        // Community Items
+        const publicItemChanges = supabase.channel('public_food_items')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'food_items', filter: 'isPublic=eq.true' }, payload => {
+                if(view === 'discover') fetchCommunityData();
+            }).subscribe();
 
-        const shoppingListChannel = supabase.channel('shopping_lists_channel');
-        shoppingListChannel.on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_lists' }, fetchAllData)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_list_members' }, () => { fetchAllData(); fetchShoppingListData(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, fetchShoppingListData)
-            .subscribe();
+        // Likes & Comments
+        const likesChanges = supabase.channel('likes').on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => {
+            if(view === 'discover' || detailedItem) fetchCommunityData();
+        }).subscribe();
+        const commentsChanges = supabase.channel('comments').on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => {
+            if(view === 'discover' || detailedItem) fetchCommunityData();
+        }).subscribe();
+
+        // Shopping Lists
+        const listChanges = supabase.channel('shopping_lists').on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_lists' }, () => fetchAllData()).subscribe();
+        const memberChanges = supabase.channel('shopping_list_members').on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_list_members' }, () => {
+            fetchAllData();
+            fetchShoppingListData();
+        }).subscribe();
+        const listItemChanges = supabase.channel('shopping_list_items').on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, () => fetchShoppingListData()).subscribe();
 
         return () => {
-            supabase.removeChannel(myChannel);
-            supabase.removeChannel(publicChannel);
-            supabase.removeChannel(shoppingListChannel);
+            supabase.removeChannel(itemChanges);
+            supabase.removeChannel(publicItemChanges);
+            supabase.removeChannel(likesChanges);
+            supabase.removeChannel(commentsChanges);
+            supabase.removeChannel(listChanges);
+            supabase.removeChannel(memberChanges);
+            supabase.removeChannel(listItemChanges);
         };
     }, [user, view, detailedItem, activeShoppingListId, fetchAllData, fetchCommunityData, fetchShoppingListData]);
     
@@ -341,26 +322,6 @@ const App: React.FC = () => {
         if (error) { console.error('Error updating profile:', error); return false; }
         return true;
     };
-
-    const handleViewProfile = (userId: string) => {
-        setProfileUserId(userId);
-        setView('profile');
-    };
-    
-    const handleViewCollection = async (collection: Collection) => {
-        const { data, error } = await supabase.from('profiles').select('*').eq('id', collection.user_id).single();
-        if (error) console.error("Could not fetch collection author");
-        else setViewingCollectionAuthor(data);
-        setViewingCollection(collection);
-        setView('collection');
-    };
-
-    const handleBackToMainView = () => {
-        setView('dashboard');
-        setProfileUserId(null);
-        setViewingCollection(null);
-        setViewingCollectionAuthor(null);
-    }
     
     // Community Handlers
     const handleToggleLike = async (foodItemId: string) => {
@@ -434,90 +395,35 @@ const App: React.FC = () => {
         localStorage.setItem('activeListId', listId);
     };
 
-    // Collections Handlers
-    const handleSaveToCollection = async (collectionId: string, foodItemId: string) => {
-        if (!user) return;
-        const { error } = await supabase.from('collection_items').insert({
-            collection_id: collectionId,
-            food_item_id: foodItemId,
-            user_id: user.id
-        });
-        if (error) {
-            if (error.code === '23505') { // unique constraint violation
-                console.log("Item already in collection.");
-            } else {
-                console.error('Error adding to collection:', error);
-                throw error;
-            }
-        }
-    };
 
-    const handleCreateCollectionAndAddItem = async (collectionName: string, foodItemId: string) => {
-        if (!user) return;
-        const { data: newCollection, error: createError } = await supabase
-            .from('collections')
-            .insert({ name: collectionName, user_id: user.id })
-            .select('*, collection_items(food_items(*))')
-            .single();
-
-        if (createError) throw createError;
-        if (newCollection) await handleSaveToCollection(newCollection.id, foodItemId);
-    };
-
-
-    const renderContent = () => {
-      if (isFormVisible) {
-        return <FoodItemForm 
-                  onSaveItem={handleSaveItem} 
-                  onCancel={() => { setIsFormVisible(false); setEditingItem(null); }}
-                  initialData={editingItem}
-                  itemType={formItemType}
-                />;
-      }
-      switch (view) {
-        case 'dashboard':
-          return <Dashboard items={foodItems} onViewAll={() => setView('list')} onAddNew={() => { setFormItemType('product'); setIsFormVisible(true); }} onDelete={handleDeleteItem} onEdit={handleEditItem} onViewDetails={setDetailedItem} onAddToShoppingList={handleAddToShoppingList} />;
-        case 'list':
-          return <FoodItemList items={foodItems} onDelete={handleDeleteItem} onEdit={handleEditItem} onViewDetails={setDetailedItem} onAddToShoppingList={handleAddToShoppingList} />;
-        case 'discover':
-          return <DiscoverView items={communityItems} likes={communityLikes} comments={communityComments} isLoading={isCommunityLoading} onViewDetails={setDetailedItem} onViewProfile={handleViewProfile} />;
-        case 'profile':
-            return profileUserId ? <ProfileView userId={profileUserId} onViewDetails={setDetailedItem} onViewCollection={handleViewCollection} onClose={handleBackToMainView} /> : null;
-        case 'collection':
-            return viewingCollection ? <CollectionDetailView collection={viewingCollection} author={viewingCollectionAuthor} onViewDetails={setDetailedItem} onClose={handleBackToMainView} /> : null;
-        default:
-          return <Dashboard items={foodItems} onViewAll={() => setView('list')} onAddNew={() => { setFormItemType('product'); setIsFormVisible(true); }} onDelete={handleDeleteItem} onEdit={handleEditItem} onViewDetails={setDetailedItem} onAddToShoppingList={handleAddToShoppingList} />;
-      }
-    };
-    
-    if (!isSupabaseConfigured) {
-        return <ConfigurationErrorScreen />;
-    }
-    
     if (!session) return <Auth />;
     if (isApiKeyMissing) return <ApiKeyModal onKeySave={handleKeySave} />;
-
-    const isSubView = view === 'profile' || view === 'collection';
 
     return (
         <div className="bg-gray-100 dark:bg-gray-900 min-h-screen">
             {showApiKeyBanner && <ApiKeyBanner onDismiss={() => { setShowApiKeyBanner(false); localStorage.setItem('apiKeyBannerDismissed', 'true'); }} onOpenSettings={() => { setShowApiKeyBanner(false); setShowSettingsModal(true); }} />}
             <Header />
             <main className="p-4 pb-24">
-              {isSubView && (
-                  <button onClick={handleBackToMainView} className="mb-4 text-indigo-600 dark:text-indigo-400 hover:underline">
-                      &larr; Back
-                  </button>
-              )}
-              {renderContent()}
+                {isFormVisible ? (
+                    <FoodItemForm 
+                        onSaveItem={handleSaveItem} 
+                        onCancel={() => { setIsFormVisible(false); setEditingItem(null); }}
+                        initialData={editingItem}
+                        itemType={formItemType}
+                    />
+                ) : (
+                    <>
+                        {view === 'dashboard' && <Dashboard items={foodItems} onViewAll={() => setView('list')} onAddNew={() => { setFormItemType('product'); setIsFormVisible(true); }} onDelete={handleDeleteItem} onEdit={handleEditItem} onViewDetails={setDetailedItem} onAddToShoppingList={handleAddToShoppingList} />}
+                        {view === 'list' && <FoodItemList items={foodItems} onDelete={handleDeleteItem} onEdit={handleEditItem} onViewDetails={setDetailedItem} onAddToShoppingList={handleAddToShoppingList} />}
+                        {view === 'discover' && <DiscoverView items={communityItems} likes={communityLikes} comments={communityComments} isLoading={isCommunityLoading} onViewDetails={setDetailedItem} />}
+                    </>
+                )}
             </main>
-
-            {!isSubView && <Navigation />}
+            <Navigation />
             
             {showSettingsModal && <SettingsModal onClose={() => setShowSettingsModal(false)} onUpdateProfile={handleUpdateProfile} currentUserProfile={currentUserProfile} />}
-            {detailedItem && <FoodItemDetailModal item={detailedItem} likes={communityLikes.filter(l => l.food_item_id === detailedItem.id)} comments={communityComments.filter(c => c.food_item_id === detailedItem.id)} currentUser={user} onClose={() => setDetailedItem(null)} onEdit={handleEditItem} onImageClick={setImageModalUrl} onToggleLike={handleToggleLike} onAddComment={handleAddComment} onDeleteComment={handleDeleteComment} onAddToCollection={setItemToCollect} onViewProfile={handleViewProfile} />}
+            {detailedItem && <FoodItemDetailModal item={detailedItem} likes={communityLikes.filter(l => l.food_item_id === detailedItem.id)} comments={communityComments.filter(c => c.food_item_id === detailedItem.id)} currentUser={user} onClose={() => setDetailedItem(null)} onEdit={handleEditItem} onImageClick={setImageModalUrl} onToggleLike={handleToggleLike} onAddComment={handleAddComment} onDeleteComment={handleDeleteComment} />}
             {imageModalUrl && <ImageModal imageUrl={imageModalUrl} onClose={() => setImageModalUrl(null)} />}
-            {itemToCollect && <AddToCollectionModal item={itemToCollect} collections={collections} onClose={() => setItemToCollect(null)} onSave={handleSaveToCollection} onCreateAndSave={handleCreateCollectionAndAddItem} />}
             {isShoppingListOpen && <ShoppingListModal allLists={shoppingLists} activeListId={activeShoppingListId} listData={shoppingListItems} listMembers={shoppingListMembers} currentUser={user} onClose={() => setIsShoppingListOpen(false)} onRemove={handleRemoveFromShoppingList} onClear={handleClearCheckedItems} onToggleChecked={handleToggleChecked} onSelectList={handleSelectList} onCreateList={handleCreateList} onDeleteList={handleDeleteList} onLeaveList={handleLeaveList} />}
         </div>
     );

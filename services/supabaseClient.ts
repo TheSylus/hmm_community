@@ -21,13 +21,8 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
-// Vite replaces missing env vars with the literal `undefined`, not the string.
-// So the check should be for falsy values.
-const areKeysMissing = !supabaseUrl || !supabaseAnonKey;
+if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabase URL and Anon Key must be defined in your Vercel environment variables with the `VITE_` prefix.");
+}
 
-// We will now export a status flag along with the client.
-// The client is initialized with empty strings if keys are missing.
-// This prevents the app from crashing on import, allowing us to show a friendly error message.
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
-
-export const isSupabaseConfigured = !areKeysMissing;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

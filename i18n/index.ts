@@ -185,27 +185,8 @@ const translations: Record<Language, Translations> = {
     'detail.noComments': 'No comments yet. Be the first to share your thoughts!',
     'detail.addCommentPlaceholder': 'Add a comment...',
     'detail.sendComment': 'Send',
-    
-    'collection.addTo': 'Add to Collection',
-    'collection.modal.title': 'Add "{{itemName}}" to Collection',
-    'collection.selectExisting': 'Select an existing collection',
-    'collection.createNew': 'Or create a new one',
-    'collection.new.placeholder': 'New collection name...',
-    'collection.new.saveButton': 'Create & Add',
-    'collection.existing.addButton': 'Add',
-    'collection.addedSuccess': 'Successfully added to {{collectionName}}!',
-    'collection.addError': 'Could not add to collection: {{error}}',
 
     'modal.shared.close': 'Close',
-
-    'profile.userTitle': "Profile of {{name}}",
-    'profile.tab.entries': 'Entries',
-    'profile.tab.collections': 'Collections',
-    'profile.empty.entries': 'This user hasn’t shared any public entries yet.',
-    'profile.empty.collections': 'This user hasn’t created any public collections yet.',
-    'collection.view.title': 'Collection: {{name}}',
-    'collection.view.by': 'by {{name}}',
-    'collection.view.empty': 'This collection is empty.',
 
   },
   de: {
@@ -387,27 +368,8 @@ const translations: Record<Language, Translations> = {
     'detail.noComments': 'Noch keine Kommentare. Sei der Erste, der seine Meinung teilt!',
     'detail.addCommentPlaceholder': 'Einen Kommentar hinzufügen...',
     'detail.sendComment': 'Senden',
-    
-    'collection.addTo': 'Zu Collection hinzufügen',
-    'collection.modal.title': '"{{itemName}}" zu Collection hinzufügen',
-    'collection.selectExisting': 'Wähle eine bestehende Collection',
-    'collection.createNew': 'Oder erstelle eine neue',
-    'collection.new.placeholder': 'Name der neuen Collection...',
-    'collection.new.saveButton': 'Erstellen & Hinzufügen',
-    'collection.existing.addButton': 'Hinzufügen',
-    'collection.addedSuccess': 'Erfolgreich zu {{collectionName}} hinzugefügt!',
-    'collection.addError': 'Fehler beim Hinzufügen: {{error}}',
 
     'modal.shared.close': 'Schließen',
-    
-    'profile.userTitle': "Profil von {{name}}",
-    'profile.tab.entries': 'Einträge',
-    'profile.tab.collections': 'Sammlungen',
-    'profile.empty.entries': 'Dieser Benutzer hat noch keine öffentlichen Einträge geteilt.',
-    'profile.empty.collections': 'Dieser Benutzer hat noch keine öffentlichen Sammlungen erstellt.',
-    'collection.view.title': 'Sammlung: {{name}}',
-    'collection.view.by': 'von {{name}}',
-    'collection.view.empty': 'Diese Sammlung ist leer.',
   },
 };
 

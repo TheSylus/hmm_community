@@ -1,24 +1,18 @@
 import React from 'react';
-import { FoodItem, Like, Comment, UserProfile } from '../types';
+import { FoodItem, Like, Comment } from '../types';
 import { FoodItemCard } from './FoodItemCard';
 import { useTranslation } from '../i18n/index';
 import { GlobeAltIcon, SpinnerIcon } from './Icons';
 
-// Add profiles to the FoodItem type for this view
-interface DiscoverFoodItem extends FoodItem {
-    profiles: UserProfile | null;
-}
-
 interface DiscoverViewProps {
-  items: DiscoverFoodItem[];
+  items: FoodItem[];
   likes: Like[];
   comments: Comment[];
   isLoading: boolean;
   onViewDetails: (item: FoodItem) => void;
-  onViewProfile: (userId: string) => void;
 }
 
-export const DiscoverView: React.FC<DiscoverViewProps> = ({ items, likes, comments, isLoading, onViewDetails, onViewProfile }) => {
+export const DiscoverView: React.FC<DiscoverViewProps> = ({ items, likes, comments, isLoading, onViewDetails }) => {
   const { t } = useTranslation();
 
   if (isLoading) {
@@ -49,8 +43,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ items, likes, commen
               onEdit={() => {}}
               onViewDetails={onViewDetails}
               onAddToShoppingList={() => {}}
-              onViewProfile={onViewProfile}
-              isPreview={true} 
+              isPreview={true} // Community cards are always in preview mode (no edit/delete)
               likes={likes.filter(l => l.food_item_id === item.id)}
               comments={comments.filter(c => c.food_item_id === item.id)}
             />
