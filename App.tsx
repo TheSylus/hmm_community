@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FoodItem, FoodItemType, Like, CommentWithProfile, ShoppingList, ShoppingListItem, UserProfile, Collection } from './types';
-import { supabase } from './services/supabaseClient';
+import { isSupabaseConfigured, supabase } from './services/supabaseClient';
 import { useAuth } from './contexts/AuthContext';
 import { useAppSettings } from './contexts/AppSettingsContext';
 import { hasValidApiKey, setApiKey as setGeminiApiKey, performConversationalSearch } from './services/geminiService';
@@ -36,6 +36,23 @@ export interface HydratedShoppingListItem extends FoodItem {
     added_by_user_id: string;
     checked_by_user_id: string | null;
 }
+
+const ConfigurationErrorScreen = () => (
+    <div className="fixed inset-0 bg-gray-100 dark:bg-gray-900 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-lg text-center">
+            <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
+                Application Configuration Error
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+                The application is not configured correctly. The Supabase URL and Key are missing.
+            </p>
+            <p className="text-gray-500 dark:text-gray-500 text-sm">
+                Please ensure you have set up your <code>.env</code> file with <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> for local development, or that these variables are set in your deployment environment.
+            </p>
+        </div>
+    </div>
+);
+
 
 const App: React.FC = () => {
     const { session, user } = useAuth();
@@ -472,6 +489,10 @@ const App: React.FC = () => {
           return <Dashboard items={foodItems} onViewAll={() => setView('list')} onAddNew={() => { setFormItemType('product'); setIsFormVisible(true); }} onDelete={handleDeleteItem} onEdit={handleEditItem} onViewDetails={setDetailedItem} onAddToShoppingList={handleAddToShoppingList} />;
       }
     };
+    
+    if (!isSupabaseConfigured) {
+        return <ConfigurationErrorScreen />;
+    }
     
     if (!session) return <Auth />;
     if (isApiKeyMissing) return <ApiKeyModal onKeySave={handleKeySave} />;
