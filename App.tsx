@@ -749,14 +749,15 @@ const App: React.FC = () => {
       for (const sli of shoppingListItems) {
         const foodItemDetails = foodItemMap.get(sli.food_item_id);
         if (foodItemDetails) {
-          // FIX: The spread operator `...foodItemDetails` can sometimes cause a "Spread types may only be created from object types" error with complex type inference.
-          // Using Object.assign is a more traditional and sometimes more robust way to merge objects, avoiding potential compiler issues.
-          hydratedItems.push(Object.assign({}, foodItemDetails, {
+          // FIX: The Object.assign implementation was causing a type inference issue where properties from `foodItemDetails` were not being recognized.
+          // Switched to the more modern and correctly-typed spread syntax to merge the objects.
+          hydratedItems.push({
+            ...foodItemDetails,
             shoppingListItemId: sli.id,
             checked: sli.checked,
             added_by_user_id: sli.added_by_user_id,
             checked_by_user_id: sli.checked_by_user_id,
-          }));
+          });
         }
       }
       return hydratedItems;

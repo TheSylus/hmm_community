@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon } from './Icons';
+import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
 import { ShoppingList, UserProfile } from '../types';
@@ -33,7 +33,6 @@ const ActivityLog: React.FC<{
   const member = members.find(m => m.id === userId);
   const isCurrentUser = currentUser?.id === userId;
   
-  // Use the part of the email before the "@" as a simple display name, or a default
   const name = isCurrentUser 
     ? t('shoppingList.collaboration.you') 
     : (member?.display_name.split('@')[0] || t('shoppingList.collaboration.someone'));
@@ -137,9 +136,9 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [isCreatingNewList, setIsCreatingNewList] = useState(false);
   const [newListName, setNewListName] = useState('');
-  const [isSharing, setIsSharing] = useState(false);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copying' | 'copied'>('idle');
   const [isManageMenuOpen, setIsManageMenuOpen] = useState(false);
-  const manageMenuRef = React.useRef<HTMLDivElement>(null);
+  const manageMenuRef = useRef<HTMLDivElement>(null);
 
 
   const activeList = useMemo(() => allLists.find(l => l.id === activeListId), [allLists, activeListId]);
@@ -177,23 +176,23 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
 
   const handleShareList = useCallback(async () => {
     if (!activeListId) return;
-    setIsSharing(true);
+    setShareStatus('copying');
     const inviteUrl = `${window.location.origin}${window.location.pathname}?join_list=${activeListId}`;
     try {
       await navigator.clipboard.writeText(inviteUrl);
-      alert(t('shoppingList.share.linkCopied'));
+      setShareStatus('copied');
+      setTimeout(() => setShareStatus('idle'), 2000); // Reset after 2 seconds
     } catch (err) {
       console.error('Failed to copy share link:', err);
       alert(t('shoppingList.share.copyFailed'));
-    } finally {
-      setIsSharing(false);
+      setShareStatus('idle');
     }
   }, [activeListId, t]);
 
   const getInitials = (name: string) => {
       if (!name) return '?';
       const parts = name.split('@')[0].replace(/[^a-zA-Z\s]/g, ' ').split(' ');
-      if (parts.length > 1) {
+      if (parts.length > 1 && parts[0] && parts[parts.length -1]) {
           return (parts[0][0] + (parts[parts.length - 1][0] || '')).toUpperCase();
       }
       return name.substring(0, 2).toUpperCase();
@@ -201,7 +200,6 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
 
   const groupedItems = useMemo(() => {
     const uncategorizedKey = t('shoppingList.uncategorized');
-    // FIX: Replaced generic on .reduce with a typed initial value to resolve TS error.
     return listData.reduce((acc, item) => {
       const key = item.purchaseLocation || uncategorizedKey;
       if (!acc[key]) {
@@ -223,8 +221,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
 
   const checkedItemsCount = useMemo(() => listData.filter(item => item.checked).length, [listData]);
 
-  // Close manage menu if clicked outside
-    useEffect(() => {
+  useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (manageMenuRef.current && !manageMenuRef.current.contains(event.target as Node)) {
                 setIsManageMenuOpen(false);
@@ -257,10 +254,9 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
             </button>
         </div>
         
-        {/* List Management & Members Section */}
         <div className="mb-4 space-y-4">
-            <div className="space-y-2">
-                <div className="flex gap-2 relative">
+             <div className="space-y-2">
+                <div className="flex gap-2">
                     <select 
                         value={activeListId || ''} 
                         onChange={(e) => onSelectList(e.target.value)}
@@ -271,22 +267,19 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                             <option key={list.id} value={list.id}>{list.name}</option>
                         ))}
                     </select>
-                    <button onClick={handleShareList} disabled={isSharing} className="p-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-green-400 transition-colors" title={t('shoppingList.share.buttonTitle')}>
-                        {isSharing ? <SpinnerIcon className="w-5 h-5"/> : <ShareIcon className="w-5 h-5"/>}
-                    </button>
-                    <div ref={manageMenuRef} className="relative">
-                        <button onClick={() => setIsManageMenuOpen(prev => !prev)} className="p-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors" title={t('shoppingList.manage.buttonTitle')}>
+                     <div ref={manageMenuRef} className="relative">
+                        <button onClick={() => setIsManageMenuOpen(prev => !prev)} className="p-2 h-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors" title={t('shoppingList.manage.buttonTitle')}>
                             <EllipsisVerticalIcon className="w-5 h-5"/>
                         </button>
                         {isManageMenuOpen && activeList && (
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10 animate-fade-in-fast">
                                 {isOwner ? (
-                                    <button onClick={handleDelete} className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center gap-2">
+                                    <button onClick={handleDelete} className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center gap-2 transition-colors">
                                         <TrashIcon className="w-4 h-4" />
                                         {t('shoppingList.delete.button')}
                                     </button>
                                 ) : (
-                                    <button onClick={handleLeave} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2">
+                                    <button onClick={handleLeave} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 transition-colors">
                                         <XMarkIcon className="w-4 h-4" />
                                         {t('shoppingList.leave.button')}
                                     </button>
@@ -295,8 +288,8 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                         )}
                     </div>
                 </div>
-                {isCreatingNewList ? (
-                    <form onSubmit={handleCreateList} className="flex gap-2">
+                 {isCreatingNewList ? (
+                    <form onSubmit={handleCreateList} className="flex gap-2 animate-fade-in-down">
                         <input
                             type="text"
                             value={newListName}
@@ -316,23 +309,29 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                 )}
             </div>
 
-            {listMembers.length > 0 && (
-              <div>
-                  <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">{t('shoppingList.collaboration.members')}</h3>
-                  <div className="flex flex-wrap items-center gap-2">
-                      {listMembers.map(member => (
-                          <div key={member.id} className="group relative">
-                              <div className="w-8 h-8 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-xs font-bold text-indigo-700 dark:text-indigo-200 ring-2 ring-white dark:ring-gray-800">
-                                  {getInitials(member.display_name)}
-                              </div>
-                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                  {member.id === currentUser?.id ? `${member.display_name} (${t('shoppingList.collaboration.you')})` : member.display_name}
-                              </span>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-            )}
+            <div className="bg-gray-100 dark:bg-gray-700/50 p-3 rounded-lg space-y-3">
+                 <div>
+                    <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">{t('shoppingList.collaboration.members')}</h3>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {listMembers.map(member => (
+                            <div key={member.id} className="group relative">
+                                <div className="w-8 h-8 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-xs font-bold text-indigo-700 dark:text-indigo-200 ring-2 ring-white dark:ring-gray-800">
+                                    {getInitials(member.display_name)}
+                                </div>
+                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                    {member.id === currentUser?.id ? `${member.display_name} (${t('shoppingList.collaboration.you')})` : member.display_name}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                 <button onClick={handleShareList} disabled={shareStatus !== 'idle'} className="w-full flex items-center justify-center gap-2 text-sm bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-70">
+                    {shareStatus === 'copying' && <SpinnerIcon className="w-5 h-5" />}
+                    {shareStatus === 'copied' && <CheckCircleIcon className="w-5 h-5" />}
+                    {shareStatus === 'idle' && <UserPlusIcon className="w-5 h-5"/>}
+                    <span>{shareStatus === 'copied' ? t('shoppingList.share.linkCopied') : t('shoppingList.share.inviteButton')}</span>
+                </button>
+            </div>
         </div>
         
         <div className="flex-1 overflow-y-auto pr-2 -mr-2 border-t border-gray-200 dark:border-gray-700 pt-4">
@@ -383,6 +382,8 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
       <style>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .animate-fade-in { animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeInFast { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .animate-fade-in-fast { animation: fadeInFast 0.1s ease-out; }
         @keyframes fadeInDown {
           from { opacity: 0; transform: translateY(-10px); }
           to { opacity: 1; transform: translateY(0); }
