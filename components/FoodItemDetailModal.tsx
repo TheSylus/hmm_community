@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { FoodItem, Like, CommentWithProfile } from '../types';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, PencilIcon, HeartIcon, TrashIcon } from './Icons';
+import { XMarkIcon, PencilIcon, HeartIcon, TrashIcon, BookmarkSquareIcon } from './Icons';
 import { FoodItemDetailView } from './FoodItemDetailView';
 import { User } from '@supabase/supabase-js';
 
@@ -16,6 +16,7 @@ interface FoodItemDetailModalProps {
   onToggleLike: (foodItemId: string) => void;
   onAddComment: (foodItemId: string, content: string) => void;
   onDeleteComment: (commentId: string) => void;
+  onAddToCollection: (item: FoodItem) => void;
 }
 
 const CommentSection: React.FC<{
@@ -99,7 +100,7 @@ const CommentSection: React.FC<{
 
 
 export const FoodItemDetailModal: React.FC<FoodItemDetailModalProps> = ({ 
-  item, likes, comments, currentUser, onClose, onEdit, onImageClick, onToggleLike, onAddComment, onDeleteComment 
+  item, likes, comments, currentUser, onClose, onEdit, onImageClick, onToggleLike, onAddComment, onDeleteComment, onAddToCollection
 }) => {
   const { t } = useTranslation();
   
@@ -150,10 +151,16 @@ export const FoodItemDetailModal: React.FC<FoodItemDetailModalProps> = ({
           </div>
           <button onClick={onClose} className="w-full sm:w-auto px-6 py-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white rounded-md font-semibold transition-colors">{t('modal.shared.close')}</button>
           {item.user_id === currentUser?.id && (
-            <button onClick={handleEditClick} className="w-full sm:w-auto px-8 py-2 bg-indigo-600 text-white rounded-md font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
-                <PencilIcon className="w-5 h-5" />
-                <span>{t('form.editTitle')}</span>
-            </button>
+            <>
+              <button onClick={() => onAddToCollection(item)} className="w-full sm:w-auto px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2">
+                  <BookmarkSquareIcon className="w-5 h-5" />
+                  <span>{t('collection.addTo')}</span>
+              </button>
+              <button onClick={handleEditClick} className="w-full sm:w-auto px-4 py-2 bg-indigo-600 text-white rounded-md font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+                  <PencilIcon className="w-5 h-5" />
+                  <span>{t('form.editTitle')}</span>
+              </button>
+            </>
           )}
         </div>
         <button

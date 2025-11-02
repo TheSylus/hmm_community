@@ -86,3 +86,22 @@ export interface CommentWithProfile extends Comment {
     display_name: string;
   } | null;
 }
+
+// Represents a user-created collection of food items.
+export interface Collection {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  is_public: boolean;
+}
+
+// Represents the link between a food item and a collection.
+export interface CollectionItem {
+  id: string;
+  collection_id: string;
+  food_item_id: string;
+  user_id: string;
+  created_at: string;
+}
