@@ -62,3 +62,27 @@ export interface UserProfile {
   id: string; // Corresponds to auth.users.id
   display_name: string;
 }
+
+// Represents a "like" on a food item.
+export interface Like {
+  id: string;
+  user_id: string;
+  food_item_id: string;
+  created_at: string;
+}
+
+// Represents a comment on a food item.
+export interface Comment {
+  id: string;
+  user_id: string;
+  food_item_id: string;
+  content: string;
+  created_at: string;
+}
+
+// Represents a comment joined with the author's profile.
+export interface CommentWithProfile extends Comment {
+  profiles: {
+    display_name: string;
+  } | null;
+}

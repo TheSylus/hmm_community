@@ -221,6 +221,10 @@ const enTranslations = {
   "detail.status": "Status",
   "detail.statusPublic": "Public",
   "detail.statusPrivate": "Private",
+  "detail.commentsTitle": "Comments",
+  "detail.noComments": "Be the first to leave a comment!",
+  "detail.addCommentPlaceholder": "Add a comment...",
+  "detail.sendComment": "Send",
   "offline.message": "You are currently offline. Changes will be saved and synced when you reconnect.",
   "offline.syncComplete": "Back online! Your data has been synced."
 };
@@ -446,6 +450,10 @@ const deTranslations = {
   "detail.status": "Status",
   "detail.statusPublic": "Öffentlich",
   "detail.statusPrivate": "Privat",
+  "detail.commentsTitle": "Kommentare",
+  "detail.noComments": "Sei der Erste, der einen Kommentar hinterlässt!",
+  "detail.addCommentPlaceholder": "Einen Kommentar hinzufügen...",
+  "detail.sendComment": "Senden",
   "offline.message": "Sie sind derzeit offline. Änderungen werden gespeichert und synchronisiert, wenn Sie wieder online sind.",
   "offline.syncComplete": "Wieder online! Deine Daten wurden synchronisiert."
 };

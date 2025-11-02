@@ -1,16 +1,18 @@
 import React from 'react';
-import { FoodItem } from '../types';
+import { FoodItem, Like, Comment } from '../types';
 import { FoodItemCard } from './FoodItemCard';
 import { useTranslation } from '../i18n/index';
 import { GlobeAltIcon, SpinnerIcon } from './Icons';
 
 interface DiscoverViewProps {
   items: FoodItem[];
+  likes: Like[];
+  comments: Comment[];
   isLoading: boolean;
   onViewDetails: (item: FoodItem) => void;
 }
 
-export const DiscoverView: React.FC<DiscoverViewProps> = ({ items, isLoading, onViewDetails }) => {
+export const DiscoverView: React.FC<DiscoverViewProps> = ({ items, likes, comments, isLoading, onViewDetails }) => {
   const { t } = useTranslation();
 
   if (isLoading) {
@@ -42,6 +44,8 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ items, isLoading, on
               onViewDetails={onViewDetails}
               onAddToShoppingList={() => {}}
               isPreview={true} // Community cards are always in preview mode (no edit/delete)
+              likes={likes.filter(l => l.food_item_id === item.id)}
+              comments={comments.filter(c => c.food_item_id === item.id)}
             />
           ))}
         </div>

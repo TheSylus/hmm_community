@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
-import { FoodItem, NutriScore } from '../types';
-import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShareIcon, ShoppingBagIcon, BuildingStorefrontIcon, GlobeAltIcon, LockClosedIcon } from './Icons';
+import { FoodItem, NutriScore, Like, Comment } from '../types';
+import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShareIcon, ShoppingBagIcon, BuildingStorefrontIcon, GlobeAltIcon, LockClosedIcon, HeartIcon, ChatBubbleOvalLeftIcon } from './Icons';
 import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
@@ -12,6 +12,8 @@ interface FoodItemCardProps {
   onViewDetails: (item: FoodItem) => void;
   onAddToShoppingList: (item: FoodItem) => void;
   isPreview?: boolean;
+  likes?: Like[];
+  comments?: Comment[];
 }
 
 const nutriScoreColors: Record<NutriScore, string> = {
@@ -65,7 +67,7 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
     );
 }
 
-export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, isPreview = false }) => {
+export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, isPreview = false, likes = [], comments = [] }) => {
   const { t } = useTranslation();
   const displayItem = useTranslatedItem(item);
 
@@ -267,11 +269,26 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
         </div>
         
         {/* Notes Section */}
-        {displayItem.notes && (
+        {displayItem.notes && !isPreview && (
             <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50">
                 <p className="text-gray-600 dark:text-gray-400 text-sm leading-tight line-clamp-2">{displayItem.notes}</p>
             </div>
         )}
+        
+        {/* Community interaction stats */}
+        {isPreview && (
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                <div className="flex items-center gap-1.5">
+                    <HeartIcon className="w-5 h-5 text-red-500" filled={likes.length > 0} />
+                    <span className="font-semibold">{likes.length}</span>
+                </div>
+                 <div className="flex items-center gap-1.5">
+                    <ChatBubbleOvalLeftIcon className="w-5 h-5 text-sky-500" />
+                    <span className="font-semibold">{comments.length}</span>
+                </div>
+            </div>
+        )}
+
 
       {/* Custom scrollbar styling & line clamp */}
       <style>{`

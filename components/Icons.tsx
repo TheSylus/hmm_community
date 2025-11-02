@@ -195,6 +195,18 @@ export const EllipsisVerticalIcon: React.FC<{ className?: string }> = ({ classNa
     </svg>
 );
 
+export const HeartIcon: React.FC<{ className?: string, filled?: boolean }> = ({ className, filled = false }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+    </svg>
+);
+
+export const ChatBubbleOvalLeftIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.76 9.76 0 01-2.53-.388A9.864 9.864 0 013 18.25v-2.523C3.65 14.28 4.887 13.5 6.25 13.5h1.166a9.01 9.01 0 012.212.388c1.366.56 2.87.935 4.372.935 4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 1.39.324 2.72.885 3.856" />
+    </svg>
+);
+
 
 // Dietary Icons
 export const LactoseFreeIcon: React.FC<{ className?: string }> = ({ className }) => (

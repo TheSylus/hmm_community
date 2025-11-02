@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList, UserProfile } from './types';
+import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList, UserProfile, Like, Comment, CommentWithProfile } from './types';
 import { FoodItemForm } from './components/FoodItemForm';
 import { FoodItemList } from './components/FoodItemList';
 import { Dashboard } from './components/Dashboard';
@@ -84,6 +84,8 @@ const App: React.FC = () => {
   const [activeShoppingListId, setActiveShoppingListId] = useState<string | null>(null);
   const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
   const [listMembers, setListMembers] = useState<UserProfile[]>([]);
+  const [likes, setLikes] = useState<Like[]>([]);
+  const [comments, setComments] = useState<CommentWithProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPublicItemsLoading, setIsPublicItemsLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
@@ -170,8 +172,6 @@ const App: React.FC = () => {
       if (!user) return;
       setIsPublicItemsLoading(true);
       try {
-        // NOTE: This requires a Supabase RLS policy that allows authenticated users
-        // to read items where `isPublic` is true.
         const { data, error } = await supabase
             .from('food_items')
             .select('*')
@@ -182,6 +182,18 @@ const App: React.FC = () => {
         if(data) {
             const mappedData = data.map(({ image_url, ...rest }) => ({ ...rest, image: image_url || undefined }));
             setPublicFoodItems(mappedData as FoodItem[]);
+            
+            // Fetch likes and comments for all public items
+            const publicItemIds = data.map(item => item.id);
+            if (publicItemIds.length > 0) {
+                const { data: likesData, error: likesError } = await supabase.from('likes').select('*').in('food_item_id', publicItemIds);
+                if (likesError) throw likesError;
+                setLikes(likesData || []);
+
+                const { data: commentsData, error: commentsError } = await supabase.from('comments').select('*, profiles(display_name)').in('food_item_id', publicItemIds).order('created_at', { ascending: true });
+                if (commentsError) throw commentsError;
+                setComments((commentsData as CommentWithProfile[]) || []);
+            }
         }
       } catch (error: any) {
           if (isOnline) {
@@ -208,6 +220,40 @@ const App: React.FC = () => {
         setIsPublicItemsLoading(false);
     }
   }, [user, fetchAllData, fetchPublicItems]);
+  
+  // Realtime Subscriptions for Community Interactions
+  useEffect(() => {
+      const likesChannel = supabase.channel('public:likes')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'likes' }, payload => {
+            setLikes(prev => [...prev, payload.new as Like]);
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'likes' }, payload => {
+            setLikes(prev => prev.filter(l => l.id !== payload.old.id));
+        })
+        .subscribe();
+      
+      const commentsChannel = supabase.channel('public:comments')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, async (payload) => {
+            const newComment = payload.new as Comment;
+            const { data: profile, error } = await supabase.from('profiles').select('display_name').eq('id', newComment.user_id).single();
+            if (error) console.error("Error fetching profile for new comment", error);
+            
+            const commentWithProfile: CommentWithProfile = {
+                ...newComment,
+                profiles: profile ? { display_name: profile.display_name } : { display_name: 'User' }
+            };
+            setComments(prev => [...prev, commentWithProfile]);
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'comments' }, payload => {
+            setComments(prev => prev.filter(c => c.id !== payload.old.id));
+        })
+        .subscribe();
+      
+      return () => {
+          supabase.removeChannel(likesChannel);
+          supabase.removeChannel(commentsChannel);
+      }
+  }, []);
 
   // Listen for online/offline status changes
   useEffect(() => {
@@ -704,6 +750,45 @@ const App: React.FC = () => {
     setItemToAdd(null);
     setPotentialDuplicates([]);
   }, []);
+
+  const handleToggleLike = useCallback(async (foodItemId: string) => {
+    if (!user) return;
+    const existingLike = likes.find(l => l.food_item_id === foodItemId && l.user_id === user.id);
+
+    if (existingLike) {
+        // Optimistic unlike
+        setLikes(prev => prev.filter(l => l.id !== existingLike.id));
+        const { error } = await supabase.from('likes').delete().eq('id', existingLike.id);
+        if (error) {
+            setDbError(`Error unliking item: ${error.message}`);
+            setLikes(prev => [...prev, existingLike]); // Revert
+        }
+    } else {
+        // Optimistic like
+        const tempLike: Like = { id: `temp_${Date.now()}`, food_item_id: foodItemId, user_id: user.id, created_at: new Date().toISOString() };
+        setLikes(prev => [...prev, tempLike]);
+        const { error } = await supabase.from('likes').insert({ food_item_id: foodItemId, user_id: user.id });
+         if (error) {
+            setDbError(`Error liking item: ${error.message}`);
+            setLikes(prev => prev.filter(l => l.id !== tempLike.id)); // Revert
+        }
+    }
+  }, [user, likes]);
+
+  const handleAddComment = useCallback(async (foodItemId: string, content: string) => {
+    if (!user || !content.trim()) return;
+    const { error } = await supabase.from('comments').insert({ food_item_id: foodItemId, user_id: user.id, content: content.trim() });
+    if (error) {
+        setDbError(`Error adding comment: ${error.message}`);
+    }
+  }, [user]);
+
+  const handleDeleteComment = useCallback(async (commentId: string) => {
+    const { error } = await supabase.from('comments').delete().eq('id', commentId);
+    if (error) {
+        setDbError(`Error deleting comment: ${error.message}`);
+    }
+  }, []);
   
   const filteredAndSortedItems = useMemo(() => {
     let items = foodItems;
@@ -749,15 +834,13 @@ const App: React.FC = () => {
       for (const sli of shoppingListItems) {
         const foodItemDetails = foodItemMap.get(sli.food_item_id);
         if (foodItemDetails) {
-          // FIX: The Object.assign implementation was causing a type inference issue where properties from `foodItemDetails` were not being recognized.
-          // Switched to the more modern and correctly-typed spread syntax to merge the objects.
-          hydratedItems.push({
-            ...foodItemDetails,
+          // FIX: The spread syntax was causing a "Spread types may only be created from object types" error. Replaced with Object.assign to correctly merge the objects.
+          hydratedItems.push(Object.assign({}, foodItemDetails, {
             shoppingListItemId: sli.id,
             checked: sli.checked,
             added_by_user_id: sli.added_by_user_id,
             checked_by_user_id: sli.checked_by_user_id,
-          });
+          }));
         }
       }
       return hydratedItems;
@@ -804,6 +887,8 @@ const App: React.FC = () => {
         return (
             <DiscoverView 
                 items={publicFoodItems} 
+                likes={likes}
+                comments={comments}
                 isLoading={isPublicItemsLoading}
                 onViewDetails={handleViewDetails}
             />
@@ -972,7 +1057,18 @@ const App: React.FC = () => {
         <DuplicateConfirmationModal items={potentialDuplicates} itemName={itemToAdd.name} onConfirm={handleConfirmDuplicateAdd} onCancel={handleCancelDuplicateAdd} />
       )}
       
-      {detailItem && <FoodItemDetailModal item={detailItem} onClose={() => setDetailItem(null)} onEdit={() => handleStartEdit(detailItem.id)} onImageClick={setSelectedImage} />}
+      {detailItem && <FoodItemDetailModal 
+        item={detailItem}
+        likes={likes.filter(l => l.food_item_id === detailItem.id)}
+        comments={comments.filter(c => c.food_item_id === detailItem.id)}
+        currentUser={user}
+        onClose={() => setDetailItem(null)}
+        onEdit={() => handleStartEdit(detailItem.id)}
+        onImageClick={setSelectedImage}
+        onToggleLike={handleToggleLike}
+        onAddComment={handleAddComment}
+        onDeleteComment={handleDeleteComment}
+      />}
 
       {isItemTypeModalVisible && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setIsItemTypeModalVisible(false)} role="dialog" aria-modal="true">
