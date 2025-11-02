@@ -17,6 +17,7 @@ interface FoodItemDetailModalProps {
   onAddComment: (foodItemId: string, content: string) => void;
   onDeleteComment: (commentId: string) => void;
   onAddToCollection: (item: FoodItem) => void;
+  onViewProfile: (userId: string) => void;
 }
 
 const CommentSection: React.FC<{
@@ -24,7 +25,8 @@ const CommentSection: React.FC<{
     currentUser: User | null;
     onAddComment: (content: string) => void;
     onDeleteComment: (commentId: string) => void;
-}> = ({ comments, currentUser, onAddComment, onDeleteComment }) => {
+    onViewProfile: (userId: string) => void;
+}> = ({ comments, currentUser, onAddComment, onDeleteComment, onViewProfile }) => {
     const { t } = useTranslation();
     const [newComment, setNewComment] = useState('');
 
@@ -51,6 +53,10 @@ const CommentSection: React.FC<{
     const getDisplayName = (comment: CommentWithProfile) => {
         return comment.profiles?.display_name || 'Anonymous';
     };
+    
+    const handleViewProfile = (userId: string) => {
+      onViewProfile(userId);
+    };
 
     return (
         <div className="space-y-4">
@@ -58,14 +64,14 @@ const CommentSection: React.FC<{
             <div className="space-y-4 max-h-48 overflow-y-auto pr-2">
                 {comments.length > 0 ? comments.map(comment => (
                     <div key={comment.id} className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300 flex-shrink-0">
+                        <button onClick={() => handleViewProfile(comment.user_id)} className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300 flex-shrink-0">
                             {getInitials(comment.profiles?.display_name)}
-                        </div>
+                        </button>
                         <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
                             <div className="flex justify-between items-center">
-                                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                <button onClick={() => handleViewProfile(comment.user_id)} className="text-sm font-semibold text-gray-900 dark:text-white hover:underline">
                                     {getDisplayName(comment)}
-                                </p>
+                                </button>
                                 {currentUser?.id === comment.user_id && (
                                     <button onClick={() => onDeleteComment(comment.id)} className="text-gray-400 hover:text-red-500">
                                         <TrashIcon className="w-4 h-4" />
@@ -100,7 +106,7 @@ const CommentSection: React.FC<{
 
 
 export const FoodItemDetailModal: React.FC<FoodItemDetailModalProps> = ({ 
-  item, likes, comments, currentUser, onClose, onEdit, onImageClick, onToggleLike, onAddComment, onDeleteComment, onAddToCollection
+  item, likes, comments, currentUser, onClose, onEdit, onImageClick, onToggleLike, onAddComment, onDeleteComment, onAddToCollection, onViewProfile
 }) => {
   const { t } = useTranslation();
   
@@ -133,6 +139,10 @@ export const FoodItemDetailModal: React.FC<FoodItemDetailModalProps> = ({
                         currentUser={currentUser}
                         onAddComment={(content) => onAddComment(item.id, content)}
                         onDeleteComment={onDeleteComment}
+                        onViewProfile={(userId) => {
+                            onClose(); // Close detail modal before opening profile
+                            onViewProfile(userId);
+                        }}
                     />
                 </div>
             )}

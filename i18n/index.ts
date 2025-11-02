@@ -198,6 +198,15 @@ const translations: Record<Language, Translations> = {
 
     'modal.shared.close': 'Close',
 
+    'profile.userTitle': "Profile of {{name}}",
+    'profile.tab.entries': 'Entries',
+    'profile.tab.collections': 'Collections',
+    'profile.empty.entries': 'This user hasn’t shared any public entries yet.',
+    'profile.empty.collections': 'This user hasn’t created any public collections yet.',
+    'collection.view.title': 'Collection: {{name}}',
+    'collection.view.by': 'by {{name}}',
+    'collection.view.empty': 'This collection is empty.',
+
   },
   de: {
     'nav.dashboard': 'Dashboard',
@@ -390,6 +399,15 @@ const translations: Record<Language, Translations> = {
     'collection.addError': 'Fehler beim Hinzufügen: {{error}}',
 
     'modal.shared.close': 'Schließen',
+    
+    'profile.userTitle': "Profil von {{name}}",
+    'profile.tab.entries': 'Einträge',
+    'profile.tab.collections': 'Sammlungen',
+    'profile.empty.entries': 'Dieser Benutzer hat noch keine öffentlichen Einträge geteilt.',
+    'profile.empty.collections': 'Dieser Benutzer hat noch keine öffentlichen Sammlungen erstellt.',
+    'collection.view.title': 'Sammlung: {{name}}',
+    'collection.view.by': 'von {{name}}',
+    'collection.view.empty': 'Diese Sammlung ist leer.',
   },
 };
 

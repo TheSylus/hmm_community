@@ -1,16 +1,17 @@
 import React, { useCallback } from 'react';
-import { FoodItem, NutriScore, Like, Comment } from '../types';
+import { FoodItem, NutriScore, Like, Comment, UserProfile } from '../types';
 import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShareIcon, ShoppingBagIcon, BuildingStorefrontIcon, GlobeAltIcon, LockClosedIcon, HeartIcon, ChatBubbleOvalLeftIcon } from './Icons';
 import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 
 interface FoodItemCardProps {
-  item: FoodItem;
+  item: FoodItem & { profiles?: UserProfile | null }; // Allow profile for discover view
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onViewDetails: (item: FoodItem) => void;
   onAddToShoppingList: (item: FoodItem) => void;
+  onViewProfile?: (userId: string) => void;
   isPreview?: boolean;
   likes?: Like[];
   comments?: Comment[];
@@ -67,7 +68,7 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
     );
 }
 
-export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, isPreview = false, likes = [], comments = [] }) => {
+export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, onViewProfile, isPreview = false, likes = [], comments = [] }) => {
   const { t } = useTranslation();
   const displayItem = useTranslatedItem(item);
 
@@ -75,8 +76,6 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
     if (!item || !displayItem) return;
 
     try {
-      // Create a minified object for sharing. To keep the URL short,
-      // we exclude potentially long fields like notes, ingredients, and allergens.
       const { id, image, ...dataToShare } = item;
       const minified: any = {
         n: dataToShare.name,
@@ -96,7 +95,6 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
           minified.p = dataToShare.price;
       }
       
-      // Clean up undefined/null values and empty arrays to make the JSON string even smaller
       Object.keys(minified).forEach((key) => {
         const k = key as keyof typeof minified;
         if (minified[k] === undefined || minified[k] === null || (Array.isArray(minified[k]) && (minified[k] as any[]).length === 0)) {
@@ -105,9 +103,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
       });
       
       const serializedItem = await compressAndEncode(minified);
-
       const shareUrl = `${window.location.origin}${window.location.pathname}?s=${serializedItem}`;
-      
       const shareTitle = t('share.title', { name: displayItem.name });
       const shareBody = displayItem.rating > 0
         ? t('share.text', { name: displayItem.name, rating: displayItem.rating })
@@ -115,8 +111,6 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
       
       const shareData = {
         title: shareTitle,
-        // The URL is part of the text. Most apps will parse it and create a rich preview.
-        // This avoids the issue where some apps append the 'url' field as plain text when it's separate.
         text: `${shareBody}\n${shareUrl}`,
       };
 
@@ -135,7 +129,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   }, [item, displayItem, t]);
 
   if (!displayItem) {
-    return null; // Render nothing if the item is not available
+    return null;
   }
   
   const hasDietaryOrAllergens = displayItem.itemType === 'product' && (displayItem.isLactoseFree || displayItem.isVegan || displayItem.isGlutenFree || (displayItem.allergens && displayItem.allergens.length > 0));
@@ -144,167 +138,78 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
 
   return (
     <div 
-        className={`bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-lg flex flex-col p-4 transition-all duration-300 hover:shadow-xl dark:hover:shadow-2xl hover:-translate-y-1 relative ${isClickable ? 'cursor-pointer' : ''}`}
+        className={`bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-lg flex flex-col p-4 transition-all duration-300 hover:shadow-xl dark:hover:shadow-2xl hover:-translate-y-1 relative`}
         onClick={() => isClickable && onViewDetails(item)}
     >
-        <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
+        <div className={`absolute top-3 left-3 flex items-center gap-2 z-10 ${isClickable ? 'cursor-pointer' : ''}`}>
             <div className="group relative">
-                {displayItem.itemType === 'dish' ? (
-                    <BuildingStorefrontIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                ) : (
-                    <ShoppingBagIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                )}
+                {displayItem.itemType === 'dish' ? <BuildingStorefrontIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" /> : <ShoppingBagIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />}
                 <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     {t(displayItem.itemType === 'dish' ? 'card.dishTooltip' : 'card.productTooltip')}
                 </span>
             </div>
              <div className="group relative">
-                {displayItem.isPublic ? (
-                    <GlobeAltIcon className="w-5 h-5 text-green-500" />
-                ) : (
-                    <LockClosedIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                )}
+                {displayItem.isPublic ? <GlobeAltIcon className="w-5 h-5 text-green-500" /> : <LockClosedIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />}
                 <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     {t(displayItem.isPublic ? 'card.publicTooltip' : 'card.privateTooltip')}
                 </span>
             </div>
         </div>
         <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-            {/* Image Thumbnail */}
             {displayItem.image && (
                 <div className="w-full h-32 sm:w-24 sm:h-24 flex-shrink-0 rounded-md overflow-hidden group">
-                    <img src={displayItem.image} alt={displayItem.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    <img src={displayItem.image} alt={displayItem.name} className={`w-full h-full object-cover transition-transform duration-300 ${isClickable ? 'group-hover:scale-105' : ''}`} />
                 </div>
             )}
 
-            {/* Core Details Section */}
             <div className={`flex-1 flex flex-col justify-start overflow-hidden w-full ${!displayItem.image ? 'pl-16' : ''}`}>
                 <div className="flex justify-between items-start gap-2">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white truncate" title={displayItem.name}>{displayItem.name}</h3>
+                    <h3 className={`text-lg font-bold text-gray-900 dark:text-white truncate ${isClickable ? 'cursor-pointer' : ''}`} title={displayItem.name}>{displayItem.name}</h3>
                     
                     {!isPreview && (
                         <div className="flex items-center gap-1 flex-shrink-0">
-                            {displayItem.itemType === 'product' && (
-                                <button
-                                onClick={(e) => { e.stopPropagation(); onAddToShoppingList(item); }}
-                                className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors"
-                                aria-label={t('shoppingList.addAria', { name: displayItem.name })}
-                                >
-                                <ShoppingBagIcon className="w-5 h-5" />
-                            </button>
-                            )}
-                            {navigator.share && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleShare(); }}
-                                className="text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors"
-                                aria-label={t('card.shareAria', { name: displayItem.name })}
-                            >
-                                <ShareIcon className="w-5 h-5" />
-                            </button>
-                            )}
-                            <button
-                            onClick={(e) => { e.stopPropagation(); onEdit(item.id); }}
-                            className="text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors"
-                            aria-label={t('card.editAria', { name: displayItem.name })}
-                            >
-                            <PencilIcon className="w-5 h-5" />
-                            </button>
-                            <button
-                            onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                            className="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors"
-                            aria-label={t('card.deleteAria', { name: displayItem.name })}
-                            >
-                            <TrashIcon className="w-5 h-5" />
-                            </button>
+                            {displayItem.itemType === 'product' && <button onClick={(e) => { e.stopPropagation(); onAddToShoppingList(item); }} className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors" aria-label={t('shoppingList.addAria', { name: displayItem.name })}><ShoppingBagIcon className="w-5 h-5" /></button>}
+                            {navigator.share && <button onClick={(e) => { e.stopPropagation(); handleShare(); }} className="text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors" aria-label={t('card.shareAria', { name: displayItem.name })}><ShareIcon className="w-5 h-5" /></button>}
+                            <button onClick={(e) => { e.stopPropagation(); onEdit(item.id); }} className="text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors" aria-label={t('card.editAria', { name: displayItem.name })}><PencilIcon className="w-5 h-5" /></button>
+                            <button onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} className="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors" aria-label={t('card.deleteAria', { name: displayItem.name })}><TrashIcon className="w-5 h-5" /></button>
                         </div>
                     )}
                 </div>
                 
-                {displayItem.itemType === 'dish' && displayItem.restaurantName && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate italic" title={displayItem.restaurantName}>
-                      {t('card.dishAt', { restaurant: displayItem.restaurantName })}
-                  </p>
-                )}
-
-                {displayItem.itemType === 'product' && displayItem.purchaseLocation && (
-                  <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-                    <BuildingStorefrontIcon className="w-4 h-4" />
-                    <p className="truncate italic" title={displayItem.purchaseLocation}>{displayItem.purchaseLocation}</p>
-                  </div>
+                {isPreview && displayItem.profiles && onViewProfile && (
+                    <button onClick={(e) => { e.stopPropagation(); onViewProfile(displayItem.user_id); }} className="text-sm text-gray-500 dark:text-gray-400 hover:underline text-left">
+                        by {displayItem.profiles.display_name}
+                    </button>
                 )}
                 
+                {displayItem.itemType === 'dish' && displayItem.restaurantName && <p className="text-sm text-gray-500 dark:text-gray-400 truncate italic" title={displayItem.restaurantName}>{t('card.dishAt', { restaurant: displayItem.restaurantName })}</p>}
+                {displayItem.itemType === 'product' && displayItem.purchaseLocation && <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400"><BuildingStorefrontIcon className="w-4 h-4" /><p className="truncate italic" title={displayItem.purchaseLocation}>{displayItem.purchaseLocation}</p></div>}
+                
                 <div className="flex items-center my-1.5">
-                    {[1, 2, 3, 4, 5].map(star => (
-                        <StarIcon key={star} className={`w-5 h-5 ${displayItem.rating >= star ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} filled={displayItem.rating >= star} />
-                    ))}
-                    
-                    {displayItem.itemType === 'product' && displayItem.nutriScore && (
-                        <div className={`ml-3 text-xs w-6 h-6 rounded-full text-white font-bold flex items-center justify-center flex-shrink-0 ${nutriScoreColors[displayItem.nutriScore]}`}>
-                        {displayItem.nutriScore}
-                        </div>
-                    )}
+                    {[1, 2, 3, 4, 5].map(star => <StarIcon key={star} className={`w-5 h-5 ${displayItem.rating >= star ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} filled={displayItem.rating >= star} />)}
+                    {displayItem.itemType === 'product' && displayItem.nutriScore && <div className={`ml-3 text-xs w-6 h-6 rounded-full text-white font-bold flex items-center justify-center flex-shrink-0 ${nutriScoreColors[displayItem.nutriScore]}`}>{displayItem.nutriScore}</div>}
                 </div>
                 
                 <div className="mt-1.5 space-y-2">
-                    {hasDietaryOrAllergens && (
-                         <div className="flex items-center gap-2 flex-wrap">
-                            {displayItem.isLactoseFree && <DietaryIcon type="lactoseFree" className="w-6 h-6" />}
-                            {displayItem.isVegan && <DietaryIcon type="vegan" className="w-6 h-6" />}
-                            {displayItem.isGlutenFree && <DietaryIcon type="glutenFree" className="w-6 h-6" />}
-                            {displayItem.allergens && displayItem.allergens.length > 0 && <AllergenDisplay allergens={displayItem.allergens} />}
-                        </div>
-                    )}
-
-                    {hasTags && (
-                        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                            {displayItem.tags!.map(tag => (
-                            <span key={tag} className="flex-shrink-0 bg-indigo-100 text-indigo-800 dark:bg-indigo-600 dark:text-indigo-100 text-xs font-semibold px-2 py-1 rounded-full">
-                                {tag}
-                            </span>
-                            ))}
-                        </div>
-                    )}
+                    {hasDietaryOrAllergens && <div className="flex items-center gap-2 flex-wrap">{displayItem.isLactoseFree && <DietaryIcon type="lactoseFree" className="w-6 h-6" />}{displayItem.isVegan && <DietaryIcon type="vegan" className="w-6 h-6" />}{displayItem.isGlutenFree && <DietaryIcon type="glutenFree" className="w-6 h-6" />}{displayItem.allergens && displayItem.allergens.length > 0 && <AllergenDisplay allergens={displayItem.allergens} />}</div>}
+                    {hasTags && <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">{displayItem.tags!.map(tag => <span key={tag} className="flex-shrink-0 bg-indigo-100 text-indigo-800 dark:bg-indigo-600 dark:text-indigo-100 text-xs font-semibold px-2 py-1 rounded-full">{tag}</span>)}</div>}
                 </div>
             </div>
         </div>
         
-        {/* Notes Section */}
-        {displayItem.notes && !isPreview && (
-            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50">
-                <p className="text-gray-600 dark:text-gray-400 text-sm leading-tight line-clamp-2">{displayItem.notes}</p>
-            </div>
-        )}
+        {displayItem.notes && !isPreview && <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50"><p className="text-gray-600 dark:text-gray-400 text-sm leading-tight line-clamp-2">{displayItem.notes}</p></div>}
         
-        {/* Community interaction stats */}
         {isPreview && (
             <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                <div className="flex items-center gap-1.5">
-                    <HeartIcon className="w-5 h-5 text-red-500" filled={likes.length > 0} />
-                    <span className="font-semibold">{likes.length}</span>
-                </div>
-                 <div className="flex items-center gap-1.5">
-                    <ChatBubbleOvalLeftIcon className="w-5 h-5 text-sky-500" />
-                    <span className="font-semibold">{comments.length}</span>
-                </div>
+                <div className="flex items-center gap-1.5"><HeartIcon className="w-5 h-5 text-red-500" filled={likes.length > 0} /><span className="font-semibold">{likes.length}</span></div>
+                <div className="flex items-center gap-1.5"><ChatBubbleOvalLeftIcon className="w-5 h-5 text-sky-500" /><span className="font-semibold">{comments.length}</span></div>
             </div>
         )}
 
-
-      {/* Custom scrollbar styling & line clamp */}
       <style>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .line-clamp-2 {
-            overflow: hidden;
-            display: -webkit-box;
-            -webkit-box-orient: vertical;
-            -webkit-line-clamp: 2;
-        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
       `}</style>
     </div>
   );
