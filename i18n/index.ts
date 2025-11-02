@@ -1,6 +1,8 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useMemo, useCallback } from 'react';
 
 const enTranslations = {
+  "nav.dashboard": "Dashboard",
+  "nav.discover": "Discover",
   "header.title": "Food Memory Tracker",
   "header.searchPlaceholder": "Search by name, notes, tags...",
   "header.filter.button": "Filters",
@@ -40,6 +42,10 @@ const enTranslations = {
   "dashboard.viewAll": "View All Items",
   "dashboard.empty.title": "Your culinary journey starts here!",
   "dashboard.empty.description": "Add your first product or dish to see your personal dashboard come to life.",
+  "discover.title": "Discover Community Favorites",
+  "discover.loading": "Loading community favorites...",
+  "discover.empty.title": "The Community is just getting started!",
+  "discover.empty.description": "Be the first to share an item with the community. When adding an item, just flip the 'Share with Community' toggle!",
   "conversationalSearch.placeholder": "Ask about your food... (e.g., a gluten-free snack I liked)",
   "conversationalSearch.tooltip": "Search with AI",
   "conversationalSearch.buttonAria": "Search with AI",
@@ -220,6 +226,8 @@ const enTranslations = {
 };
 
 const deTranslations = {
+  "nav.dashboard": "Dashboard",
+  "nav.discover": "Entdecken",
   "header.title": "Lebensmittel-Tracker",
   "header.searchPlaceholder": "Suche nach Name, Notizen, Tags...",
   "header.filter.button": "Filter",
@@ -259,6 +267,10 @@ const deTranslations = {
   "dashboard.viewAll": "Alle Produkte anzeigen",
   "dashboard.empty.title": "Deine kulinarische Reise beginnt hier!",
   "dashboard.empty.description": "Füge dein erstes Produkt oder Gericht hinzu, um dein persönliches Dashboard zum Leben zu erwecken.",
+  "discover.title": "Entdecke Community-Favoriten",
+  "discover.loading": "Lade Community-Favoriten...",
+  "discover.empty.title": "Die Community fängt gerade erst an!",
+  "discover.empty.description": "Sei der Erste, der einen Artikel mit der Community teilt. Aktiviere beim Hinzufügen einfach den Schalter 'Mit Community teilen'!",
   "conversationalSearch.placeholder": "Frage nach deinem Essen... (z.B. ein glutenfreier Snack, den ich mochte)",
   "conversationalSearch.tooltip": "Mit KI suchen",
   "conversationalSearch.buttonAria": "Mit KI suchen",

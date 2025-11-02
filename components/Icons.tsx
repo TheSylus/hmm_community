@@ -170,6 +170,13 @@ export const UserCircleIcon: React.FC<{ className?: string }> = ({ className }) 
     </svg>
 );
 
+export const UserGroupIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0-9 0m9 0a9.094 9.094 0 0 1-9 0m9 0a4.547 4.547 0 0 1 1.06-2.572M18 18.72v-1.5a4.5 4.5 0 0 0-9 0v1.5m-3 0a4.5 4.5 0 0 1 9 0m-9 0a9.094 9.094 0 0 0-9 0m9 0a4.547 4.547 0 0 0-1.06-2.572M9 18.72v-1.5a4.5 4.5 0 0 1 9 0v1.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm-9 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+    </svg>
+);
+
 export const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

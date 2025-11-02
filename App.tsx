@@ -8,15 +8,17 @@ import { FilterPanel } from './components/FilterPanel';
 import { DuplicateConfirmationModal } from './components/DuplicateConfirmationModal';
 import { ImageModal } from './components/ImageModal';
 import { SettingsModal } from './components/SettingsModal';
-import { FoodItemDetailView } from './components/FoodItemDetailView';
+import { DiscoverView } from './components/DiscoverView';
 import { FoodItemDetailModal } from './components/FoodItemDetailModal';
+// FIX: Import FoodItemDetailView to make it available for rendering shared item previews.
+import { FoodItemDetailView } from './components/FoodItemDetailView';
 import { Auth } from './components/Auth';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './contexts/AuthContext';
 import * as geminiService from './services/geminiService';
 import { supabase } from './services/supabaseClient';
 import { useTranslation } from './i18n/index';
-import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon } from './components/Icons';
+import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, GlobeAltIcon } from './components/Icons';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 // Helper function to decode from URL-safe Base64 and decompress the data
@@ -49,6 +51,8 @@ const base64ToBlob = (base64: string, mimeType: string): Blob => {
 export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
 export type RatingFilter = 'liked' | 'disliked' | 'all';
 export type TypeFilter = 'all' | 'product' | 'dish';
+export type AppView = 'dashboard' | 'list' | 'discover';
+
 
 // A version of FoodItem that includes its status on the shopping list
 export type HydratedShoppingListItem = FoodItem & {
@@ -75,15 +79,17 @@ const App: React.FC = () => {
 
   // Main Data State
   const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
+  const [publicFoodItems, setPublicFoodItems] = useState<FoodItem[]>([]);
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
   const [activeShoppingListId, setActiveShoppingListId] = useState<string | null>(null);
   const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
   const [listMembers, setListMembers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPublicItemsLoading, setIsPublicItemsLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
 
   // UI/View State
-  const [activeView, setActiveView] = useState<'dashboard' | 'list'>('dashboard');
+  const [activeView, setActiveView] = useState<AppView>('dashboard');
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<FoodItem | null>(null);
   
@@ -160,17 +166,48 @@ const App: React.FC = () => {
     }
   }, [user, t, isOnline]);
 
+  const fetchPublicItems = useCallback(async () => {
+      if (!user) return;
+      setIsPublicItemsLoading(true);
+      try {
+        // NOTE: This requires a Supabase RLS policy that allows authenticated users
+        // to read items where `isPublic` is true.
+        const { data, error } = await supabase
+            .from('food_items')
+            .select('*')
+            .eq('isPublic', true)
+            .order('created_at', { ascending: false });
+        
+        if(error) throw error;
+        if(data) {
+            const mappedData = data.map(({ image_url, ...rest }) => ({ ...rest, image: image_url || undefined }));
+            setPublicFoodItems(mappedData as FoodItem[]);
+        }
+      } catch (error: any) {
+          if (isOnline) {
+              setDbError(`Error loading public items: ${error.message}`);
+          }
+          console.error("Public items fetch error:", error);
+      } finally {
+          setIsPublicItemsLoading(false);
+      }
+
+  }, [user, isOnline]);
+
   useEffect(() => {
     if (user) {
         fetchAllData();
+        fetchPublicItems();
     } else {
         setFoodItems([]);
+        setPublicFoodItems([]);
         setShoppingLists([]);
         setShoppingListItems([]);
         setActiveShoppingListId(null);
         setIsLoading(false);
+        setIsPublicItemsLoading(false);
     }
-  }, [user, fetchAllData]);
+  }, [user, fetchAllData, fetchPublicItems]);
 
   // Listen for online/offline status changes
   useEffect(() => {
@@ -259,15 +296,12 @@ const App: React.FC = () => {
     
     const channel = supabase.channel(`shopping_list:${activeShoppingListId}`);
     channel
-// FIX: Corrected typo from `activeListId` to `activeShoppingListId` in the filter strings. This was causing a "Cannot find name" error.
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => {
             setShoppingListItems(prev => [...prev, payload.new as ShoppingListItem]);
         })
-// FIX: Corrected typo from `activeListId` to `activeShoppingListId` in the filter strings. This was causing a "Cannot find name" error.
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => {
             setShoppingListItems(prev => prev.map(item => item.id === payload.new.id ? payload.new as ShoppingListItem : item));
         })
-// FIX: Corrected typo from `activeListId` to `activeShoppingListId` in the filter strings. This was causing a "Cannot find name" error.
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => {
             setShoppingListItems(prev => prev.filter(item => item.id !== payload.old.id));
         })
@@ -715,14 +749,14 @@ const App: React.FC = () => {
       for (const sli of shoppingListItems) {
         const foodItemDetails = foodItemMap.get(sli.food_item_id);
         if (foodItemDetails) {
-// FIX: Replaced Object.assign with the spread operator. The previous implementation caused a type inference error, and the spread syntax is both correctly typed and more idiomatic.
-          hydratedItems.push({
-            ...foodItemDetails,
+          // FIX: The spread operator `...foodItemDetails` can sometimes cause a "Spread types may only be created from object types" error with complex type inference.
+          // Using Object.assign is a more traditional and sometimes more robust way to merge objects, avoiding potential compiler issues.
+          hydratedItems.push(Object.assign({}, foodItemDetails, {
             shoppingListItemId: sli.id,
             checked: sli.checked,
             added_by_user_id: sli.added_by_user_id,
             checked_by_user_id: sli.checked_by_user_id,
-          });
+          }));
         }
       }
       return hydratedItems;
@@ -733,8 +767,77 @@ const App: React.FC = () => {
     return <Auth />;
   }
 
+  const renderContent = () => {
+    if (isLoading) {
+       return (
+           <div className="flex flex-col items-center justify-center pt-20">
+              <SpinnerIcon className="w-12 h-12 text-indigo-500" />
+              <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">Loading your food memories...</p>
+           </div>
+       );
+    }
+    if (isFormVisible) {
+        return (
+            <FoodItemForm 
+                onSaveItem={handleSaveItem} 
+                onCancel={handleCancelForm}
+                initialData={editingItem}
+                itemType={editingItem?.itemType || newItemType}
+            />
+        );
+    }
+    switch(activeView) {
+      case 'dashboard':
+        return (
+          <Dashboard 
+            items={foodItems}
+            onViewAll={() => setActiveView('list')}
+            onAddNew={handleAddNewClick}
+            onEdit={handleStartEdit}
+            onDelete={handleDeleteItem}
+            onViewDetails={handleViewDetails}
+            onAddToShoppingList={handleAddToShoppingList}
+          />
+        );
+      case 'discover':
+        return (
+            <DiscoverView 
+                items={publicFoodItems} 
+                isLoading={isPublicItemsLoading}
+                onViewDetails={handleViewDetails}
+            />
+        );
+      case 'list':
+      default:
+        return (
+          <>
+            {aiSearchResults.ids !== null && (
+              <div className="my-6 p-4 bg-indigo-50 dark:bg-gray-800 rounded-lg flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-indigo-800 dark:text-indigo-200">{t('conversationalSearch.resultsTitle')}</h2>
+                    <p className="text-sm text-indigo-600 dark:text-indigo-300 italic">"{aiSearchQuery}"</p>
+                  </div>
+                  <button onClick={clearAiSearch} className="flex items-center gap-2 text-sm bg-indigo-200 dark:bg-indigo-600/50 hover:bg-indigo-300 dark:hover:bg-indigo-600/80 text-indigo-800 dark:text-indigo-100 font-semibold py-1.5 px-3 rounded-full transition">
+                    <XMarkIcon className="w-4 h-4" />
+                    {t('conversationalSearch.clear')}
+                  </button>
+              </div>
+            )}
+            {aiSearchResults.error && <p className="text-red-500 dark:text-red-400 text-center my-4">{aiSearchResults.error}</p>}
+            <FoodItemList 
+              items={filteredAndSortedItems} 
+              onDelete={handleDeleteItem} 
+              onEdit={handleStartEdit}
+              onViewDetails={handleViewDetails}
+              onAddToShoppingList={handleAddToShoppingList}
+            />
+          </>
+        );
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans transition-colors duration-300">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans transition-colors duration-300 pb-20">
        <header className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow-md dark:shadow-lg sticky top-0 z-20">
           <div className="container mx-auto px-4 py-4">
             <div className="flex justify-between items-center gap-4">
@@ -751,7 +854,7 @@ const App: React.FC = () => {
                     </button>
                 </div>
             </div>
-            {!isFormVisible && (
+            {!isFormVisible && activeView !== 'discover' && (
                 <div className="mt-4 space-y-3">
                     <div className="flex gap-2 items-center">
                        <div className="relative flex-1">
@@ -790,61 +893,40 @@ const App: React.FC = () => {
 
       <main className="container mx-auto p-4 md:p-8">
         {dbError && isOnline && <div className="bg-red-100 dark:bg-red-900/50 border border-red-400 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg relative mb-6" role="alert">{dbError}</div>}
-        
-        {isLoading ? (
-             <div className="flex flex-col items-center justify-center pt-20">
-                <SpinnerIcon className="w-12 h-12 text-indigo-500" />
-                <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">Loading your food memories...</p>
-             </div>
-        ) : isFormVisible ? (
-            <FoodItemForm 
-                onSaveItem={handleSaveItem} 
-                onCancel={handleCancelForm}
-                initialData={editingItem}
-                itemType={editingItem?.itemType || newItemType}
-            />
-        ) : activeView === 'dashboard' ? (
-           <Dashboard 
-              items={foodItems}
-              onViewAll={() => setActiveView('list')}
-              onAddNew={handleAddNewClick}
-              onEdit={handleStartEdit}
-              onDelete={handleDeleteItem}
-              onViewDetails={handleViewDetails}
-              onAddToShoppingList={handleAddToShoppingList}
-           />
-        ) : (
-          <>
-             {aiSearchResults.ids !== null && (
-              <div className="my-6 p-4 bg-indigo-50 dark:bg-gray-800 rounded-lg flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold text-indigo-800 dark:text-indigo-200">{t('conversationalSearch.resultsTitle')}</h2>
-                    <p className="text-sm text-indigo-600 dark:text-indigo-300 italic">"{aiSearchQuery}"</p>
-                  </div>
-                  <button onClick={clearAiSearch} className="flex items-center gap-2 text-sm bg-indigo-200 dark:bg-indigo-600/50 hover:bg-indigo-300 dark:hover:bg-indigo-600/80 text-indigo-800 dark:text-indigo-100 font-semibold py-1.5 px-3 rounded-full transition">
-                    <XMarkIcon className="w-4 h-4" />
-                    {t('conversationalSearch.clear')}
-                  </button>
-              </div>
-            )}
-            {aiSearchResults.error && <p className="text-red-500 dark:text-red-400 text-center my-4">{aiSearchResults.error}</p>}
-            <FoodItemList 
-              items={filteredAndSortedItems} 
-              onDelete={handleDeleteItem} 
-              onEdit={handleStartEdit}
-              onViewDetails={handleViewDetails}
-              onAddToShoppingList={handleAddToShoppingList}
-            />
-          </>
-        )}
+        {renderContent()}
       </main>
+
+      {!isFormVisible && (
+        <>
+            <button
+                onClick={handleAddNewClick}
+                className="fixed bottom-24 right-6 bg-green-600 hover:bg-green-700 text-white font-bold p-4 rounded-full shadow-lg transition-transform transform hover:scale-110 z-30"
+                aria-label={t('form.addNewButton')}
+            >
+                <PlusCircleIcon className="w-8 h-8" />
+            </button>
+
+            <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-[0_-2px_5px_rgba(0,0,0,0.1)] dark:shadow-[0_-2px_5px_rgba(0,0,0,0.3)] z-30">
+                <div className="container mx-auto px-4 h-16 flex justify-around items-center">
+                    <button onClick={() => setActiveView('dashboard')} className={`flex flex-col items-center justify-center gap-1 transition-colors ${activeView === 'dashboard' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400'}`}>
+                        <UserCircleIcon className="w-6 h-6" />
+                        <span className="text-xs font-semibold">{t('nav.dashboard')}</span>
+                    </button>
+                    <button onClick={() => setActiveView('discover')} className={`flex flex-col items-center justify-center gap-1 transition-colors ${activeView === 'discover' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400'}`}>
+                        <GlobeAltIcon className="w-6 h-6" />
+                        <span className="text-xs font-semibold">{t('nav.discover')}</span>
+                    </button>
+                </div>
+            </nav>
+        </>
+      )}
       
       <footer className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
         <p>{t('footer.text')}</p>
       </footer>
 
       {toastMessage && (
-         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 text-sm font-semibold py-2 px-4 rounded-full shadow-lg animate-fade-in-out z-50">
+         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 text-sm font-semibold py-2 px-4 rounded-full shadow-lg animate-fade-in-out z-50">
             {toastMessage}
         </div>
       )}

@@ -138,7 +138,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   
   const hasDietaryOrAllergens = displayItem.itemType === 'product' && (displayItem.isLactoseFree || displayItem.isVegan || displayItem.isGlutenFree || (displayItem.allergens && displayItem.allergens.length > 0));
   const hasTags = displayItem.tags && displayItem.tags.length > 0;
-  const isClickable = !isPreview && onViewDetails;
+  const isClickable = onViewDetails;
 
   return (
     <div 
