@@ -35,20 +35,13 @@ const CommentSection: React.FC<{
         }
     };
 
-    const getInitials = (name?: string | null) => {
+    const getInitials = (name: string) => {
         if (!name) return '?';
-        const parts = name.replace(/[^a-zA-Z\s]/g, ' ').split(' ').filter(Boolean);
+        const parts = name.split('@')[0].replace(/[^a-zA-Z\s]/g, ' ').split(' ');
         if (parts.length > 1 && parts[0] && parts[parts.length -1]) {
             return (parts[0][0] + (parts[parts.length - 1][0] || '')).toUpperCase();
         }
-        if (parts.length === 1 && parts[0]) {
-            return parts[0].substring(0, 2).toUpperCase();
-        }
         return name.substring(0, 2).toUpperCase();
-    };
-
-    const getDisplayName = (comment: CommentWithProfile) => {
-        return comment.profiles?.display_name || 'Anonymous';
     };
 
     return (
@@ -58,12 +51,12 @@ const CommentSection: React.FC<{
                 {comments.length > 0 ? comments.map(comment => (
                     <div key={comment.id} className="flex items-start gap-3">
                         <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300 flex-shrink-0">
-                            {getInitials(comment.profiles?.display_name)}
+                            {getInitials(comment.profiles?.display_name || 'U')}
                         </div>
                         <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-3">
                             <div className="flex justify-between items-center">
                                 <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                    {getDisplayName(comment)}
+                                    {comment.profiles?.display_name.split('@')[0] || 'Anonymous'}
                                 </p>
                                 {currentUser?.id === comment.user_id && (
                                     <button onClick={() => onDeleteComment(comment.id)} className="text-gray-400 hover:text-red-500">

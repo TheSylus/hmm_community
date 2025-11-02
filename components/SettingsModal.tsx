@@ -1,20 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useAppSettings } from '../contexts/AppSettingsContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTranslation } from '../i18n';
 import { ApiKeyTester } from './ApiKeyTester';
-import { XMarkIcon, SpinnerIcon, CheckIcon } from './Icons';
+import { XMarkIcon } from './Icons';
 import { setApiKey } from '../services/geminiService';
-import { UserProfile } from '../types';
 
+// FIX: Create a valid SettingsModal.tsx module.
 
 interface SettingsModalProps {
   onClose: () => void;
-  onUpdateProfile: (displayName: string) => Promise<boolean>;
-  currentUserProfile: UserProfile | null;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onUpdateProfile, currentUserProfile }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const { t, language, setLanguage } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { 
@@ -23,30 +21,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onUpdateP
     isOffSearchEnabled, setIsOffSearchEnabled 
   } = useAppSettings();
 
-  const [displayName, setDisplayName] = useState('');
-  const [profileSaveStatus, setProfileSaveStatus] = useState<'idle' | 'saving' | 'success'>('idle');
-
-  useEffect(() => {
-    if (currentUserProfile) {
-      setDisplayName(currentUserProfile.display_name || '');
-    }
-  }, [currentUserProfile]);
-
-  const handleProfileSave = async () => {
-    if (!displayName.trim()) return;
-    setProfileSaveStatus('saving');
-    const success = await onUpdateProfile(displayName.trim());
-    if (success) {
-      setProfileSaveStatus('success');
-      setTimeout(() => setProfileSaveStatus('idle'), 2000);
-    } else {
-      setProfileSaveStatus('idle');
-      // Optionally show an error message
-    }
-  };
-
   const handleKeyVerified = (apiKey: string) => {
     setApiKey(apiKey);
+    // Optionally, you could provide feedback to the user here.
+    // The ApiKeyTester component already shows a success message.
   };
 
   const Toggle: React.FC<{ label: string; description: string; checked: boolean; onChange: (checked: boolean) => void; }> = ({ label, description, checked, onChange }) => (
@@ -87,32 +65,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onUpdateP
 
         <div className="flex-1 overflow-y-auto space-y-8 pr-2 -mr-2">
           <section>
-            <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-4">{t('settings.profile.title')}</h3>
-             <div>
-                <label htmlFor="display-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.profile.displayName')}</label>
-                <div className="flex gap-2">
-                    <input
-                        id="display-name"
-                        type="text"
-                        placeholder={t('settings.profile.placeholder')}
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        className="flex-grow w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
-                    />
-                     <button
-                        onClick={handleProfileSave}
-                        disabled={profileSaveStatus !== 'idle' || !displayName.trim() || displayName.trim() === currentUserProfile?.display_name}
-                        className="w-32 flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-md font-semibold hover:bg-indigo-700 transition-colors disabled:bg-indigo-400 dark:disabled:bg-gray-600"
-                    >
-                       {profileSaveStatus === 'saving' && <SpinnerIcon className="w-5 h-5 animate-spin" />}
-                       {profileSaveStatus === 'success' && <CheckIcon className="w-5 h-5" />}
-                       {profileSaveStatus === 'idle' && <span>{t('settings.profile.saveButton')}</span>}
-                    </button>
-                </div>
-            </div>
-          </section>
-
-          <section>
             <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-4">{t('settings.general')}</h3>
             <div className="space-y-4">
               <div>
@@ -137,7 +89,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onUpdateP
                   className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
                 >
                   <option value="en">English</option>
-                  <option value="de">Deutsch</option>
+                  <option value="de">Deutsch (German) - Incomplete</option>
                 </select>
               </div>
             </div>
