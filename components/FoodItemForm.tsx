@@ -1,12 +1,12 @@
 import React, { useState, FormEvent, useRef, useEffect, useCallback } from 'react';
-import { FoodItem, FoodItemType, NutriScore } from '../types';
+import { FoodItem, FoodItemType, NutriScore, ShoppingList } from '../types';
 import { BoundingBox, analyzeFoodImage, analyzeIngredientsImage, hasValidApiKey, findNearbyRestaurants } from '../services/geminiService';
 import { fetchProductFromOpenFoodFacts, searchProductByNameFromOpenFoodFacts } from '../services/openFoodFactsService';
 import { CameraCapture } from './CameraCapture';
 import { BarcodeScanner } from './BarcodeScanner';
 import { SpeechInputModal } from './SpeechInputModal';
 import { ImageCropper } from './ImageCropper';
-import { StarIcon, SparklesIcon, CameraIcon, PlusCircleIcon, XMarkIcon, DocumentTextIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, BarcodeIcon, MicrophoneIcon, SpinnerIcon, MapPinIcon } from './Icons';
+import { StarIcon, SparklesIcon, CameraIcon, PlusCircleIcon, XMarkIcon, DocumentTextIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, BarcodeIcon, MicrophoneIcon, SpinnerIcon, MapPinIcon, GlobeAltIcon, LockClosedIcon, UserGroupIcon } from './Icons';
 import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useAppSettings } from '../contexts/AppSettingsContext';
@@ -20,11 +20,14 @@ declare global {
   }
 }
 
+type SharingOption = 'private' | 'community' | 'group';
+
 interface FoodItemFormProps {
   onSaveItem: (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => void;
   onCancel: () => void;
   initialData?: FoodItem | null;
   itemType: FoodItemType;
+  shoppingLists: ShoppingList[];
 }
 
 const nutriScoreOptions: NutriScore[] = ['A', 'B', 'C', 'D', 'E'];
@@ -36,7 +39,7 @@ const nutriScoreColors: Record<NutriScore, string> = {
   E: 'bg-red-600',
 };
 
-export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel, initialData, itemType }) => {
+export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel, initialData, itemType, shoppingLists }) => {
   const { t, language } = useTranslation();
   const { isAiEnabled, isBarcodeScannerEnabled, isOffSearchEnabled } = useAppSettings();
   
@@ -55,7 +58,9 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
   const [notes, setNotes] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [tags, setTags] = useState('');
-  const [isPublic, setIsPublic] = useState(false);
+  const [sharingOption, setSharingOption] = useState<SharingOption>('private');
+  const [sharedWithListId, setSharedWithListId] = useState<string | null>(null);
+
   // Product-specific
   const [nutriScore, setNutriScore] = useState<NutriScore | ''>('');
   const [purchaseLocation, setPurchaseLocation] = useState('');
@@ -100,7 +105,8 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
     setNutriScore('');
     setPurchaseLocation('');
     setTags('');
-    setIsPublic(false);
+    setSharingOption('private');
+    setSharedWithListId(null);
     setIngredients([]);
     setAllergens([]);
     setDietary({ isLactoseFree: false, isVegan: false, isGlutenFree: false });
@@ -119,7 +125,17 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
       setNotes(initialData.notes || '');
       setImage(initialData.image || null);
       setTags(initialData.tags?.join(', ') || '');
-      setIsPublic(initialData.isPublic || false);
+      
+      if (initialData.shared_with_list_id) {
+        setSharingOption('group');
+        setSharedWithListId(initialData.shared_with_list_id);
+      } else if (initialData.isPublic) {
+        setSharingOption('community');
+        setSharedWithListId(null);
+      } else {
+        setSharingOption('private');
+        setSharedWithListId(null);
+      }
       
       if(initialData.itemType === 'product') {
         setNutriScore(initialData.nutriScore || '');
@@ -531,7 +547,8 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
       image: image || undefined,
       tags: tags ? tags.split(',').map(tag => tag.trim()).filter(Boolean) : undefined,
       itemType,
-      isPublic,
+      isPublic: sharingOption === 'community',
+      shared_with_list_id: sharingOption === 'group' ? sharedWithListId : null,
     };
 
     if (itemType === 'product') {
@@ -553,7 +570,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
           price: price !== '' ? Number(price) : undefined,
         });
     }
-  }, [name, rating, t, notes, image, tags, itemType, onSaveItem, nutriScore, purchaseLocation, ingredients, allergens, dietary, restaurantName, cuisineType, price, isPublic]);
+  }, [name, rating, t, notes, image, tags, itemType, onSaveItem, nutriScore, purchaseLocation, ingredients, allergens, dietary, restaurantName, cuisineType, price, sharingOption, sharedWithListId]);
 
   const removeImage = useCallback(() => {
     setImage(null);
@@ -871,16 +888,46 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
         {error && <p className="text-red-500 dark:text-red-400 bg-red-100 dark:bg-red-900/50 p-3 rounded-md text-sm mt-4">{error}</p>}
         
         <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-            <label htmlFor="share-toggle" className="flex items-center justify-between bg-gray-100 dark:bg-gray-700/50 p-3 rounded-lg cursor-pointer transition hover:bg-gray-200 dark:hover:bg-gray-700">
-                <div className="max-w-[75%] pr-2">
-                    <span className="font-semibold text-gray-800 dark:text-gray-200">{t('form.share.title')}</span>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">{t('form.share.description')}</p>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">{t('form.share.title')}</h3>
+                <div className="space-y-3">
+                    <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${sharingOption === 'private' ? 'bg-gray-100 dark:bg-gray-700/50 border-indigo-500' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
+                        <input type="radio" name="sharing" value="private" checked={sharingOption === 'private'} onChange={() => setSharingOption('private')} className="mt-1 h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" />
+                        <div>
+                            <span className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2"><LockClosedIcon className="w-4 h-4" /> {t('form.share.private')}</span>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">{t('form.share.privateDesc')}</p>
+                        </div>
+                    </label>
+                    <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${sharingOption === 'community' ? 'bg-gray-100 dark:bg-gray-700/50 border-indigo-500' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
+                        <input type="radio" name="sharing" value="community" checked={sharingOption === 'community'} onChange={() => setSharingOption('community')} className="mt-1 h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" />
+                        <div>
+                            <span className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2"><GlobeAltIcon className="w-4 h-4" /> {t('form.share.community')}</span>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">{t('form.share.communityDesc')}</p>
+                        </div>
+                    </label>
+                    <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${sharingOption === 'group' ? 'bg-gray-100 dark:bg-gray-700/50 border-indigo-500' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
+                        <input type="radio" name="sharing" value="group" checked={sharingOption === 'group'} onChange={() => setSharingOption('group')} disabled={shoppingLists.length === 0} className="mt-1 h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 disabled:opacity-50" />
+                        <div>
+                            <span className={`font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2 ${shoppingLists.length === 0 ? 'text-gray-400 dark:text-gray-500' : ''}`}><UserGroupIcon className="w-4 h-4" /> {t('form.share.group')}</span>
+                            <p className={`text-xs text-gray-600 dark:text-gray-400 ${shoppingLists.length === 0 ? 'text-gray-400 dark:text-gray-500' : ''}`}>{t('form.share.groupDesc')}</p>
+                        </div>
+                    </label>
+                    {sharingOption === 'group' && shoppingLists.length > 0 && (
+                      <div className="pl-8 pt-2 animate-fade-in">
+                        <select
+                          value={sharedWithListId || ''}
+                          onChange={(e) => setSharedWithListId(e.target.value || null)}
+                          className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
+                        >
+                          <option value="">{t('form.share.selectGroup')}</option>
+                          {shoppingLists.map(list => (
+                            <option key={list.id} value={list.id}>{list.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                 </div>
-                <div className="relative">
-                    <input id="share-toggle" type="checkbox" className="sr-only peer" checked={isPublic} onChange={() => setIsPublic(!isPublic)} />
-                    <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-green-600"></div>
-                </div>
-            </label>
+            </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
                 <button
@@ -893,7 +940,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                 <button
                 type="submit"
                 className="w-full sm:flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-md transition-colors text-lg disabled:bg-green-400 dark:disabled:bg-gray-600"
-                disabled={isLoading || analysisProgress.active || isIngredientsLoading || !name || rating === 0}
+                disabled={isLoading || analysisProgress.active || isIngredientsLoading || !name || rating === 0 || (sharingOption === 'group' && !sharedWithListId)}
                 >
                 <PlusCircleIcon className="w-6 h-6" />
                 {isEditing ? t('form.button.update') : t('form.button.save')}

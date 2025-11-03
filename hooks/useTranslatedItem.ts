@@ -6,7 +6,7 @@ import { translateTexts } from '../services/translationService';
 const SOURCE_LANGUAGE = 'en';
 
 // FIX: Made the hook generic to preserve the specific type of the item being passed in.
-// This prevents losing properties on extended types like `HydratedShoppingListItem`.
+// This prevents losing properties on extended types like `HydratedGroupShoppingListItem`.
 export const useTranslatedItem = <T extends FoodItem>(item: T | null): T | null => {
     const { language } = useTranslation();
     const [translatedItem, setTranslatedItem] = useState(item);

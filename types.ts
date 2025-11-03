@@ -10,6 +10,7 @@ export interface FoodItem {
   rating: number; // 0 for unrated, 1-5 for star rating
   itemType: FoodItemType;
   isPublic?: boolean; // For community sharing
+  shared_with_list_id?: string | null; // For sharing with a specific group
 
   // Common fields
   notes?: string;
@@ -31,7 +32,8 @@ export interface FoodItem {
   price?: number;
 }
 
-// Represents a distinct shopping list, e.g., "Weekly Groceries" or "Party Supplies".
+// Represents a distinct group for sharing food items and shopping lists.
+// FIX: Renamed FoodGroup to ShoppingList for consistency.
 export interface ShoppingList {
   id: string;
   owner_id: string;
@@ -39,9 +41,11 @@ export interface ShoppingList {
   created_at: string;
 }
 
-// Represents an item on a specific shopping list.
+// Represents an item on a specific group's shopping list.
+// FIX: Renamed GroupShoppingListItem to ShoppingListItem for consistency.
 export interface ShoppingListItem {
   id: string;
+  // FIX: Renamed group_id to list_id for consistency.
   list_id: string; // Foreign key to the ShoppingList
   food_item_id: string; // Foreign key to the FoodItem
   added_by_user_id: string;
@@ -50,9 +54,11 @@ export interface ShoppingListItem {
   checked_by_user_id: string | null;
 }
 
-// Represents a user's membership to a shopping list.
+// Represents a user's membership to a group.
+// FIX: Renamed FoodGroupMember to ShoppingListMember for consistency.
 export interface ShoppingListMember {
-  list_id: string;
+  // FIX: Renamed group_id to list_id for consistency.
+  list_id: string; // Corresponds to ShoppingList ID
   user_id: string;
   created_at: string;
 }

@@ -3,6 +3,7 @@ import React, { createContext, useState, useEffect, useContext, ReactNode, useMe
 const enTranslations = {
   "nav.dashboard": "Dashboard",
   "nav.discover": "Discover",
+  "nav.groups": "Groups",
   "header.title": "Food Memory Tracker",
   "header.searchPlaceholder": "Search by name, notes, tags...",
   "header.filter.button": "Filters",
@@ -53,19 +54,19 @@ const enTranslations = {
   "conversationalSearch.error": "AI search failed. Please try a different query.",
   "conversationalSearch.resultsTitle": "AI Search Results",
   "conversationalSearch.clear": "Clear AI Search",
-  "shoppingList.title": "Shared List",
+  "shoppingList.title": "Group Details",
   "shoppingList.empty": "This list is empty. Add products from their cards to get started.",
   "shoppingList.clear": "Clear Completed",
-  "shoppingList.addAria": "Add {name} to shopping list",
-  "shoppingList.removeAria": "Remove {name} from shopping list",
+  "shoppingList.addAria": "Add {name} to group shopping list",
+  "shoppingList.removeAria": "Remove {name} from group shopping list",
   "shoppingList.toggleDetailsAria": "Toggle details",
   "shoppingList.addedToast": "{name} added to list.",
   "shoppingList.uncategorized": "Uncategorized",
   "shoppingList.defaultListName": "Personal List",
-  "shoppingList.joinSuccess": "Successfully joined list: {listName}!",
-  "shoppingList.selectListAria": "Select a shared list",
-  "shoppingList.newListButton": "Create New List",
-  "shoppingList.newListPlaceholder": "New list name...",
+  "shoppingList.joinSuccess": "Successfully joined group: {listName}!",
+  "shoppingList.selectListAria": "Select a shared group",
+  "shoppingList.newListButton": "Create New Group",
+  "shoppingList.newListPlaceholder": "New group name...",
   "shoppingList.createButton": "Create",
   "shoppingList.share.inviteButton": "Invite Members",
   "shoppingList.share.linkCopied": "Invite Link Copied!",
@@ -75,14 +76,18 @@ const enTranslations = {
   "shoppingList.collaboration.someone": "Someone",
   "shoppingList.collaboration.addedBy": "Added by {name}",
   "shoppingList.collaboration.checkedBy": "Checked by {name}",
-  "shoppingList.manage.buttonTitle": "Manage list",
-  "shoppingList.delete.button": "Delete List",
-  "shoppingList.delete.confirm": "Are you sure you want to permanently delete the list \"{listName}\"? This action cannot be undone.",
-  "shoppingList.leave.button": "Leave List",
-  "shoppingList.leave.confirm": "Are you sure you want to leave the list \"{listName}\"?",
-  "shoppingList.tab.checklist": "Checklist",
+  "shoppingList.manage.buttonTitle": "Manage group",
+  "shoppingList.delete.button": "Delete Group",
+  "shoppingList.delete.confirm": "Are you sure you want to permanently delete the group \"{listName}\"? This action cannot be undone.",
+  "shoppingList.leave.button": "Leave Group",
+  "shoppingList.leave.confirm": "Are you sure you want to leave the group \"{listName}\"?",
+  "shoppingList.tab.checklist": "Shopping List",
   "shoppingList.tab.feed": "Group Feed",
-  "shoppingList.feed.empty": "The feed is empty. Public items from group members will appear here.",
+  "shoppingList.feed.empty": "The feed is empty. Public and group-shared items from members will appear here.",
+  "groups.empty.title": "No groups yet!",
+  "groups.empty.description": "Create a group to share food items and shopping lists with family or friends.",
+  "groups.empty.cta": "Create Your First Group",
+  "groups.memberCount": "{count, plural, one {# member} other {# members}}",
   "form.addNewButton": "Add New Item",
   "form.editTitle": "Edit Food Item",
   "form.placeholder.name": "Product Name",
@@ -136,8 +141,15 @@ const enTranslations = {
   "form.dietary.lactoseFree": "Lactose-Free",
   "form.dietary.vegan": "Vegan",
   "form.dietary.glutenFree": "Gluten-Free",
-  "form.share.title": "Share with Community",
-  "form.share.description": "Making this item public allows others to see it.",
+  "form.share.title": "Sharing Options",
+  "form.share.description": "Choose who can see this item.",
+  "form.share.private": "Private",
+  "form.share.privateDesc": "Only you can see this.",
+  "form.share.community": "Community",
+  "form.share.communityDesc": "Visible to everyone.",
+  "form.share.group": "Group",
+  "form.share.groupDesc": "Share with a specific group.",
+  "form.share.selectGroup": "Select a group",
   "list.empty.title": "Your list is empty!",
   "list.empty.description": "Add a food item using the form above to start tracking your preferences.",
   "list.resultsFor": "Results for \"{searchTerm}\"",
@@ -151,6 +163,7 @@ const enTranslations = {
   "card.dishTooltip": "Restaurant Dish",
   "card.publicTooltip": "Shared with community",
   "card.privateTooltip": "Private item",
+  "card.groupTooltip": "Shared with a group",
   "card.dishAt": "at {restaurant}",
   "share.title": "Check out this product: {name}",
   "share.text": "I gave \"{name}\" a {rating}/5 star rating. See my thoughts on the Food Memory Tracker app!",
@@ -235,6 +248,7 @@ const enTranslations = {
 const deTranslations = {
   "nav.dashboard": "Dashboard",
   "nav.discover": "Entdecken",
+  "nav.groups": "Gruppen",
   "header.title": "Lebensmittel-Tracker",
   "header.searchPlaceholder": "Suche nach Name, Notizen, Tags...",
   "header.filter.button": "Filter",
@@ -285,19 +299,19 @@ const deTranslations = {
   "conversationalSearch.error": "KI-Suche fehlgeschlagen. Bitte versuche eine andere Anfrage.",
   "conversationalSearch.resultsTitle": "KI-Suchergebnisse",
   "conversationalSearch.clear": "KI-Suche löschen",
-  "shoppingList.title": "Gemeinsame Liste",
+  "shoppingList.title": "Gruppendetails",
   "shoppingList.empty": "Diese Liste ist leer. Füge Produkte von ihren Karten hinzu, um zu beginnen.",
   "shoppingList.clear": "Erledigte entfernen",
-  "shoppingList.addAria": "{name} zur Einkaufsliste hinzufügen",
-  "shoppingList.removeAria": "{name} von der Einkaufsliste entfernen",
+  "shoppingList.addAria": "{name} zur Gruppen-Einkaufsliste hinzufügen",
+  "shoppingList.removeAria": "{name} von der Gruppen-Einkaufsliste entfernen",
   "shoppingList.toggleDetailsAria": "Details ein-/ausblenden",
   "shoppingList.addedToast": "{name} zur Liste hinzugefügt.",
   "shoppingList.uncategorized": "Unkategorisiert",
   "shoppingList.defaultListName": "Persönliche Liste",
-  "shoppingList.joinSuccess": "Erfolgreich der Liste beigetreten: {listName}!",
-  "shoppingList.selectListAria": "Gemeinsame Liste auswählen",
-  "shoppingList.newListButton": "Neue Liste erstellen",
-  "shoppingList.newListPlaceholder": "Name der neuen Liste...",
+  "shoppingList.joinSuccess": "Erfolgreich der Gruppe beigetreten: {listName}!",
+  "shoppingList.selectListAria": "Gemeinsame Gruppe auswählen",
+  "shoppingList.newListButton": "Neue Gruppe erstellen",
+  "shoppingList.newListPlaceholder": "Name der neuen Gruppe...",
   "shoppingList.createButton": "Erstellen",
   "shoppingList.share.inviteButton": "Mitglieder einladen",
   "shoppingList.share.linkCopied": "Einladungslink kopiert!",
@@ -307,14 +321,18 @@ const deTranslations = {
   "shoppingList.collaboration.someone": "Jemand",
   "shoppingList.collaboration.addedBy": "{name} hat's hinzugefügt",
   "shoppingList.collaboration.checkedBy": "{name} hat's abgehakt",
-  "shoppingList.manage.buttonTitle": "Liste verwalten",
-  "shoppingList.delete.button": "Liste löschen",
-  "shoppingList.delete.confirm": "Bist du sicher, dass du die Liste \"{listName}\" dauerhaft löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.",
-  "shoppingList.leave.button": "Liste verlassen",
-  "shoppingList.leave.confirm": "Bist du sicher, dass du die Liste \"{listName}\" verlassen möchtest?",
-  "shoppingList.tab.checklist": "Checkliste",
+  "shoppingList.manage.buttonTitle": "Gruppe verwalten",
+  "shoppingList.delete.button": "Gruppe löschen",
+  "shoppingList.delete.confirm": "Bist du sicher, dass du die Gruppe \"{listName}\" dauerhaft löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.",
+  "shoppingList.leave.button": "Gruppe verlassen",
+  "shoppingList.leave.confirm": "Bist du sicher, dass du die Gruppe \"{listName}\" verlassen möchtest?",
+  "shoppingList.tab.checklist": "Einkaufsliste",
   "shoppingList.tab.feed": "Gruppen-Feed",
-  "shoppingList.feed.empty": "Der Feed ist leer. Öffentliche Einträge von Gruppenmitgliedern werden hier angezeigt.",
+  "shoppingList.feed.empty": "Der Feed ist leer. Öffentliche und geteilte Einträge von Mitgliedern erscheinen hier.",
+  "groups.empty.title": "Noch keine Gruppen!",
+  "groups.empty.description": "Erstelle eine Gruppe, um Lebensmittel und Einkaufslisten mit Familie oder Freunden zu teilen.",
+  "groups.empty.cta": "Deine erste Gruppe erstellen",
+  "groups.memberCount": "{count, plural, one {# Mitglied} other {# Mitglieder}}",
   "form.addNewButton": "Neuen Eintrag hinzufügen",
   "form.editTitle": "Lebensmittel bearbeiten",
   "form.placeholder.name": "Produktname",
@@ -339,10 +357,10 @@ const deTranslations = {
   "form.error.offSearchDisabled": "Die Lebensmittel-Datenbanksuche ist in den Einstellungen deaktiviert. Sie können sie aktivieren, um diese Funktion zu nutzen.",
   "form.error.geolocationUnsupported": "Geolokalisierung wird von Ihrem Browser nicht unterstützt.",
   "form.error.geolocationPermission": "Standort konnte nicht abgerufen werden. Bitte aktivieren Sie die Ortungsdienste und erteilen Sie die Erlaubnis.",
-  "form.error.findRestaurants": "Konnte keine Restaurants in der Nähe finden. Bitte versuchen Sie es erneut oder geben Sie den Namen manuell ein.",
+  "form.error.findRestaurants": "Konnten keine Restaurants in der Nähe finden. Bitte versuchen Sie es erneut oder geben Sie sie manuell ein.",
   "form.button.cancel": "Abbrechen",
-  "form.button.save": "Produkt speichern",
-  "form.button.update": "Produkt aktualisieren",
+  "form.button.save": "Eintrag speichern",
+  "form.button.update": "Eintrag aktualisieren",
   "form.button.scanIngredients": "Zutaten scannen",
   "form.button.scanBarcode": "Barcode scannen",
   "form.button.dictate": "Diktieren",
@@ -350,73 +368,81 @@ const deTranslations = {
   "form.button.findNearby.aria": "Restaurants in der Nähe finden",
   "form.findRestaurants.loading": "Suche Restaurants in der Nähe...",
   "form.image.removeAria": "Bild entfernen",
-  "form.image.placeholder": "Scanne ein Produkt oder lade ein Bild hoch, um zu beginnen",
+  "form.image.placeholder": "Scannen Sie ein Produkt oder laden Sie ein Bild hoch, um zu beginnen",
   "form.button.scanNew": "Foto scannen",
   "form.button.upload": "Hochladen",
-  "form.aiProgress.readingName": "Lese Produktnamen...",
-  "form.aiProgress.findingScore": "Suche nach Nutri-Score...",
-  "form.aiProgress.generatingTags": "Generiere passende Tags...",
+  "form.aiProgress.readingName": "Produktname wird gelesen...",
+  "form.aiProgress.findingScore": "Nutri-Score wird gesucht...",
+  "form.aiProgress.generatingTags": "Beschreibende Tags werden erstellt...",
   "form.aiProgress.searchingDatabase": "Suche in Datenbank nach Zusatzinfos...",
-  "form.aiProgress.locatingProduct": "Lokalisiere Produkt im Bild...",
+  "form.aiProgress.locatingProduct": "Produkt im Bild wird lokalisiert...",
   "form.aiProgress.complete": "Analyse abgeschlossen!",
   "form.ingredients.title": "Zutaten & Ernährungsinfo",
   "form.ingredients.loading": "Zutatenliste wird gescannt...",
   "form.ingredients.ingredientsList": "Zutaten",
-  "form.ingredients.placeholder": "Keine Zutaten gefunden. Scanne den Barcode oder die Zutatenliste, um sie hinzuzufügen.",
+  "form.ingredients.placeholder": "Keine Zutaten gefunden. Scannen Sie den Barcode oder die Zutatenliste, um sie hinzuzufügen.",
   "form.allergens.title": "Allergene",
-  "form.dietary.title": "Ernährungsinformation",
+  "form.dietary.title": "Ernährungsinformationen",
   "form.dietary.lactoseFree": "Laktosefrei",
   "form.dietary.vegan": "Vegan",
   "form.dietary.glutenFree": "Glutenfrei",
-  "form.share.title": "Mit der Community teilen",
-  "form.share.description": "Wenn du diesen Eintrag öffentlich machst, können andere ihn sehen.",
+  "form.share.title": "Freigabeoptionen",
+  "form.share.description": "Wähle aus, wer diesen Eintrag sehen kann.",
+  "form.share.private": "Privat",
+  "form.share.privateDesc": "Nur du kannst dies sehen.",
+  "form.share.community": "Community",
+  "form.share.communityDesc": "Für jeden sichtbar.",
+  "form.share.group": "Gruppe",
+  "form.share.groupDesc": "Mit einer Gruppe teilen.",
+  "form.share.selectGroup": "Gruppe auswählen",
   "list.empty.title": "Deine Liste ist leer!",
-  "list.empty.description": "Füge ein Lebensmittel über das obige Formular hinzu, um deine Vorlieben zu speichern.",
+  "list.empty.description": "Füge ein Lebensmittel über das Formular hinzu, um deine Vorlieben zu verfolgen.",
   "list.resultsFor": "Ergebnisse für \"{searchTerm}\"",
-  "card.deleteAria": "Lösche {name}",
-  "card.editAria": "Bearbeite {name}",
-  "card.shareAria": "Teile {name}",
+  "card.deleteAria": "{name} löschen",
+  "card.editAria": "{name} bearbeiten",
+  "card.shareAria": "{name} teilen",
   "card.lactoseFreeTooltip": "Laktosefrei",
   "card.veganTooltip": "Vegan",
   "card.glutenFreeTooltip": "Glutenfrei",
   "card.productTooltip": "Verpacktes Produkt",
-  "card.dishTooltip": "Restaurantgericht",
+  "card.dishTooltip": "Gericht im Restaurant",
   "card.publicTooltip": "Mit der Community geteilt",
   "card.privateTooltip": "Privater Eintrag",
+  "card.groupTooltip": "Mit einer Gruppe geteilt",
   "card.dishAt": "bei {restaurant}",
   "share.title": "Schau dir dieses Produkt an: {name}",
-  "share.text": "Ich habe \"{name}\" mit {rating}/5 Sternen bewertet. Sieh dir meine Meinung in der Lebensmittel-Tracker App an!",
-  "share.text_unrated": "Schau dir \"{name}\" in der Lebensmittel-Tracker App an!",
+  "share.text": "Ich habe \"{name}\" eine {rating}/5 Sterne Bewertung gegeben. Sieh dir meine Gedanken in der Food Memory Tracker App an!",
+  "share.text_unrated": "Schau dir \"{name}\" in der Food Memory Tracker App an!",
   "camera.title": "Foto aufnehmen",
   "camera.error": "Konnte nicht auf die Kamera zugreifen. Bitte überprüfe die Berechtigungen und versuche es erneut.",
-  "camera.error.permission": "Der Kamerazugriff wurde verweigert. Bitte überprüfen Sie Ihre Browser- und Systemeinstellungen, um die Erlaubnis zu erteilen.",
+  "camera.error.permission": "Kamerazugriff verweigert. Bitte überprüfe deine Browser- und Systemeinstellungen, um die Erlaubnis zu erteilen.",
   "camera.captureButton": "Foto aufnehmen",
   "barcodeScanner.title": "Barcode scannen",
   "barcodeScanner.description": "Richte deine Kamera auf den Barcode des Produkts.",
-  "barcodeScanner.error.permission": "Kamerazugriff verweigert. Bitte erlauben Sie den Kamerazugriff in Ihren Browsereinstellungen.",
+  "barcodeScanner.error.permission": "Kamerazugriff verweigert. Bitte erlaube den Kamerazugriff in deinen Browsereinstellungen.",
   "cropper.title": "Zuschnitt anpassen",
   "cropper.description": "Passe die von der KI vorgeschlagene Auswahl an oder brich ab, um das ganze Bild zu verwenden.",
   "cropper.button.cancel": "Abbrechen (Ganzes Bild)",
   "cropper.button.confirm": "Zuschnitt bestätigen",
   "modal.image.closeAria": "Bildansicht schließen",
   "modal.duplicate.title": "Mögliches Duplikat gefunden",
-  "modal.duplicate.description": "Ein Produkt mit dem Namen \"{itemName}\" existiert bereits. Bitte überprüfe die unten stehenden Produkte.",
+  "modal.duplicate.description": "Ein Eintrag mit dem Namen \"{itemName}\" existiert bereits. Bitte überprüfe die folgenden Einträge.",
   "modal.duplicate.button.goBack": "Zurück & Bearbeiten",
   "modal.duplicate.button.addAnyway": "Trotzdem hinzufügen",
-  "modal.shared.title": "Geteiltes Lebensmittel",
-  "modal.shared.description": "Jemand hat diesen Artikel mit dir geteilt. Möchtest du ihn zu deiner Liste hinzufügen?",
+  "modal.shared.title": "Geteilter Eintrag",
+  "modal.shared.description": "Jemand hat diesen Eintrag mit dir geteilt. Möchtest du ihn zu deiner Liste hinzufügen?",
   "modal.shared.addToList": "Zu meiner Liste hinzufügen",
   "modal.shared.close": "Schließen",
-  "modal.shared.summaryNotice": "Hinweis: Dies ist eine Zusammenfassung. Einige Details wie Notizen, Zutaten oder Allergene sind möglicherweise nicht im geteilten Inhalt enthalten.",
+  "modal.shared.summaryNotice": "Hinweis: Dies ist eine Zusammenfassung. Details wie Notizen, Zutaten oder Allergene sind möglicherweise nicht enthalten.",
   "modal.itemType.title": "Was fügst du hinzu?",
   "modal.itemType.product": "Verpacktes Produkt",
-  "modal.itemType.dish": "Restaurantgericht",
-  "speechModal.title": "Name diktieren",
-  "speechModal.description": "Sprechen Sie einfach, und der Name wird transkribiert.",
+  "modal.itemType.dish": "Gericht im Restaurant",
+  "speechModal.title": "Namen diktieren",
+  "speechModal.description": "Beginne zu sprechen, und der Name wird transkribiert.",
   "speechModal.listening": "Höre zu...",
   "settings.title": "Einstellungen",
   "settings.closeAria": "Einstellungen schließen",
-  "settings.theme.title": "Design",
+  "settings.theme.title": "Thema",
   "settings.theme.light": "Hell",
   "settings.theme.dark": "Dunkel",
   "settings.theme.system": "System",
@@ -424,20 +450,20 @@ const deTranslations = {
   "settings.ai.title": "KI-Funktionen",
   "settings.ai.description": "Aktiviere die KI-Analyse, um Details automatisch aus Fotos auszufüllen.",
   "settings.barcodeScanner.title": "Barcode-Scanner",
-  "settings.barcodeScanner.description": "Aktiviere die Barcode-Scanner-Funktion, um Produkte nachzuschlagen.",
+  "settings.barcodeScanner.description": "Aktiviere den Barcode-Scanner, um Produkte nachzuschlagen.",
   "settings.offSearch.title": "Lebensmittel-Datenbanksuche",
-  "settings.offSearch.description": "Automatische Suche nach Produktinformationen in der Open Food Facts-Datenbank aktivieren.",
+  "settings.offSearch.description": "Aktiviere die automatische Suche nach Produktinformationen in der Open Food Facts-Datenbank.",
   "settings.button.done": "Fertig",
   "settings.session.title": "Konto",
-  "settings.session.loggedInAs": "Eingeloggt als:",
-  "settings.session.logout": "Ausloggen",
+  "settings.session.loggedInAs": "Angemeldet als:",
+  "settings.session.logout": "Abmelden",
   "auth.emailPlaceholder": "E-Mail",
   "auth.passwordPlaceholder": "Passwort",
   "auth.signIn": "Anmelden",
   "auth.signUp": "Registrieren",
-  "auth.magicLink": "Magic-Link senden",
+  "auth.magicLink": "Magischen Link senden",
   "auth.magicLinkSuccess": "Überprüfe deine E-Mails für den Anmelde-Link!",
-  "auth.toggle.signUp": "Noch kein Konto? Registrieren",
+  "auth.toggle.signUp": "Kein Konto? Registrieren",
   "auth.toggle.signIn": "Bereits ein Konto? Anmelden",
   "auth.error.generic": "Authentifizierung fehlgeschlagen. Bitte versuche es erneut.",
   "allergen.gluten": "Enthält Gluten",
@@ -452,7 +478,7 @@ const deTranslations = {
   "detail.tagsTitle": "Tags",
   "detail.ingredientsTitle": "Zutaten",
   "detail.allergensTitle": "Allergene",
-  "detail.dietaryTitle": "Ernährungsinformation",
+  "detail.dietaryTitle": "Ernährungsinformationen",
   "detail.status": "Status",
   "detail.statusPublic": "Öffentlich",
   "detail.statusPrivate": "Privat",
@@ -460,70 +486,74 @@ const deTranslations = {
   "detail.noComments": "Sei der Erste, der einen Kommentar hinterlässt!",
   "detail.addCommentPlaceholder": "Einen Kommentar hinzufügen...",
   "detail.sendComment": "Senden",
-  "offline.message": "Sie sind derzeit offline. Änderungen werden gespeichert und synchronisiert, wenn Sie wieder online sind.",
+  "offline.message": "Du bist derzeit offline. Änderungen werden gespeichert und synchronisiert, wenn du wieder online bist.",
   "offline.syncComplete": "Wieder online! Deine Daten wurden synchronisiert."
 };
 
-// Type for the translation function
-type TFunction = (key: string, options?: Record<string, string | number>) => string;
+type Translations = typeof enTranslations;
 
-// Define the context shape
-interface I18nContextType {
-  t: TFunction;
-  setLanguage: (lang: 'en' | 'de') => void;
+const I18nContext = createContext<{
   language: 'en' | 'de';
-}
+  setLanguage: (lang: 'en' | 'de') => void;
+  t: (key: keyof Translations, replacements?: Record<string, string | number>) => string;
+} | undefined>(undefined);
 
-const I18nContext = createContext<I18nContextType | undefined>(undefined);
-
-const translationsData: Record<'en' | 'de', Record<string, string>> = {
+const translations: Record<'en' | 'de', Translations> = {
   en: enTranslations,
   de: deTranslations,
 };
 
-const getInitialLocale = (): 'en' | 'de' => {
-  const browserLang = navigator.language.split('-')[0];
-  if (browserLang in translationsData) {
-    return browserLang as 'en' | 'de';
-  }
-  return 'en';
-};
-
-export const I18nProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<'en' | 'de'>(() => {
-    const savedLang = localStorage.getItem('language');
-    if (savedLang === 'en' || savedLang === 'de') {
-      return savedLang;
+// Function to handle pluralization and replacements
+const translate = (key: keyof Translations, lang: 'en' | 'de', replacements: Record<string, string | number> = {}): string => {
+  let translation = translations[lang][key] || translations['en'][key];
+  
+  // Basic replacement
+  Object.keys(replacements).forEach(placeholder => {
+    // Basic pluralization for {count}
+    if (placeholder === 'count' && typeof replacements[placeholder] === 'number') {
+        const count = replacements[placeholder] as number;
+        const pluralRules = new Intl.PluralRules(lang);
+        const pluralCategory = pluralRules.select(count);
+        
+        // Attempt to find a pluralized version of the key
+        const pluralKey = `${key}.${pluralCategory}`;
+        if (translations[lang][pluralKey as keyof Translations]) {
+            translation = translations[lang][pluralKey as keyof Translations];
+        }
     }
-    return getInitialLocale();
+    
+    const regex = new RegExp(`{${placeholder}}`, 'g');
+    translation = translation.replace(regex, String(replacements[placeholder]));
   });
 
-  const t: TFunction = useCallback((key, options) => {
-    const translationSet = translationsData[language];
-    let translation = translationSet[key] || key;
-    if (options) {
-      Object.keys(options).forEach(optionKey => {
-        translation = translation.replace(`{${optionKey}}`, String(options[optionKey]));
-      });
-    }
-    return translation;
-  }, [language]);
-  
-  const handleSetLanguage = useCallback((lang: 'en' | 'de') => {
-      setLanguage(lang);
-      localStorage.setItem('language', lang);
+  return translation;
+};
+
+
+export const I18nProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [language, setLanguageState] = useState<'en' | 'de'>(() => {
+    const savedLang = localStorage.getItem('language') as 'en' | 'de';
+    if (savedLang) return savedLang;
+    
+    const browserLang = navigator.language.split('-')[0];
+    return browserLang === 'de' ? 'de' : 'en';
+  });
+
+  const setLanguage = useCallback((lang: 'en' | 'de') => {
+    setLanguageState(lang);
+    localStorage.setItem('language', lang);
   }, []);
 
-  useEffect(() => {
-      document.documentElement.lang = language;
+  const t = useCallback((key: keyof Translations, replacements?: Record<string, string | number>) => {
+    return translate(key, language, replacements);
   }, [language]);
 
-  const value = useMemo(() => ({ t, setLanguage: handleSetLanguage, language }), [t, handleSetLanguage, language]);
+  const value = useMemo(() => ({ language, setLanguage, t }), [language, setLanguage, t]);
 
   return React.createElement(I18nContext.Provider, { value }, children);
 };
 
-export const useTranslation = (): I18nContextType => {
+export const useTranslation = () => {
   const context = useContext(I18nContext);
   if (context === undefined) {
     throw new Error('useTranslation must be used within an I18nProvider');

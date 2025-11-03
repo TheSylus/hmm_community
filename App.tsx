@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+// FIX: Updated imports to use renamed types `ShoppingListItem` and `ShoppingList` from `types.ts`.
 import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList, UserProfile, Like, Comment, CommentWithProfile } from './types';
 import { FoodItemForm } from './components/FoodItemForm';
 import { FoodItemList } from './components/FoodItemList';
@@ -12,13 +13,15 @@ import { DiscoverView } from './components/DiscoverView';
 import { FoodItemDetailModal } from './components/FoodItemDetailModal';
 // FIX: Import FoodItemDetailView to make it available for rendering shared item previews.
 import { FoodItemDetailView } from './components/FoodItemDetailView';
+import { GroupsView } from './components/GroupsView';
 import { Auth } from './components/Auth';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './contexts/AuthContext';
 import * as geminiService from './services/geminiService';
 import { supabase } from './services/supabaseClient';
 import { useTranslation } from './i18n/index';
-import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, GlobeAltIcon } from './components/Icons';
+// FIX: Add missing ShoppingBagIcon import.
+import { PlusCircleIcon, SettingsIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, HomeIcon, GlobeAltIcon, UserGroupIcon, ShoppingBagIcon } from './components/Icons';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 // Helper function to decode from URL-safe Base64 and decompress the data
@@ -51,7 +54,7 @@ const base64ToBlob = (base64: string, mimeType: string): Blob => {
 export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
 export type RatingFilter = 'liked' | 'disliked' | 'all';
 export type TypeFilter = 'all' | 'product' | 'dish';
-export type AppView = 'dashboard' | 'list' | 'discover';
+export type AppView = 'dashboard' | 'list' | 'discover' | 'groups';
 
 
 // A version of FoodItem that includes its status on the shopping list
@@ -141,24 +144,10 @@ const App: React.FC = () => {
         const { data: listsData, error: listsError } = await supabase.from('shopping_lists').select('*');
         if (listsError) throw listsError;
         
-        if (listsData && listsData.length === 0) {
-            const { data: newList, error: newListError } = await supabase
-                .from('shopping_lists')
-                .insert({ owner_id: user.id, name: t('shoppingList.defaultListName') })
-                .select().single();
-
-            if (newListError) throw newListError;
-            if (newList) {
-                await supabase.from('shopping_list_members').insert({ list_id: newList.id, user_id: user.id });
-                setShoppingLists([newList]);
-                setActiveShoppingListId(newList.id);
-            }
-        } else if (listsData) {
+        if (listsData) {
             setShoppingLists(listsData);
-            const lastUsedListId = localStorage.getItem('activeShoppingListId');
-            const listExists = listsData.some(l => l.id === lastUsedListId);
-            setActiveShoppingListId(listExists ? lastUsedListId : listsData[0]?.id || null);
         }
+
     } catch (error: any) {
         if (isOnline) {
              setDbError(`Error loading data: ${error.message}.`);
@@ -351,8 +340,7 @@ const App: React.FC = () => {
                 const { data: feedData, error: feedError } = await supabase
                     .from('food_items')
                     .select('*')
-                    .eq('isPublic', true)
-                    .in('user_id', userIds)
+                    .eq('shared_with_list_id', activeShoppingListId)
                     .order('created_at', { ascending: false })
                     .limit(50); // Add a limit for performance
                 if (feedError) throw feedError;
@@ -535,7 +523,13 @@ const App: React.FC = () => {
     }
 
     const { image, ...restOfItemData } = itemData;
-    const dbPayload = { ...restOfItemData, image_url: imageUrl || null, user_id: user.id };
+    const dbPayload = { 
+        ...restOfItemData, 
+        image_url: imageUrl || null, 
+        user_id: user.id,
+        isPublic: itemData.isPublic,
+        shared_with_list_id: itemData.shared_with_list_id,
+    };
     
     if (editingItem) {
         const { data, error } = await supabase.from('food_items').update(dbPayload).eq('id', editingItem.id).select().single();
@@ -825,6 +819,11 @@ const App: React.FC = () => {
         setDbError(`Error deleting comment: ${error.message}`);
     }
   }, []);
+
+  const handleSelectGroup = useCallback((listId: string) => {
+    setActiveShoppingListId(listId);
+    setIsShoppingListOpen(true);
+  }, []);
   
   const filteredAndSortedItems = useMemo(() => {
     let items = foodItems;
@@ -865,23 +864,33 @@ const App: React.FC = () => {
   }, [foodItems, searchTerm, ratingFilter, typeFilter, sortBy, aiSearchResults.ids]);
   
   const hydratedShoppingList = useMemo((): HydratedShoppingListItem[] => {
-      const foodItemMap = new Map(foodItems.map(item => [item.id, item]));
-      const hydratedItems: HydratedShoppingListItem[] = [];
-      for (const sli of shoppingListItems) {
-        const foodItemDetails = foodItemMap.get(sli.food_item_id);
-        if (foodItemDetails) {
-          // FIX: The spread syntax (`...foodItemDetails`) was causing a "Spread types may only be created from object types" error.
-          // Using Object.assign as a more robust way to merge the objects and create the HydratedShoppingListItem.
-          hydratedItems.push(Object.assign({}, foodItemDetails, {
-            shoppingListItemId: sli.id,
-            checked: sli.checked,
-            added_by_user_id: sli.added_by_user_id,
-            checked_by_user_id: sli.checked_by_user_id,
-          }));
-        }
-      }
-      return hydratedItems;
+    // FIX: Refactored to a functional approach with a type predicate to resolve a potential type inference issue with object spreading.
+    const foodItemMap = new Map(foodItems.map(item => [item.id, item]));
+    return shoppingListItems
+        .map(sli => {
+            const foodItemDetails = foodItemMap.get(sli.food_item_id);
+            if (foodItemDetails) {
+                return {
+                    ...foodItemDetails,
+                    shoppingListItemId: sli.id,
+                    checked: sli.checked,
+                    added_by_user_id: sli.added_by_user_id,
+                    checked_by_user_id: sli.checked_by_user_id,
+                };
+            }
+            return null;
+        })
+        .filter((item): item is HydratedShoppingListItem => item !== null);
   }, [foodItems, shoppingListItems]);
+
+  const groupMembersMap = useMemo(() => {
+    // This is a placeholder. A more efficient implementation would fetch members per group.
+    const map: Record<string, UserProfile[]> = {};
+    shoppingLists.forEach(list => {
+      map[list.id] = listMembers.filter(m => m.id === user?.id); // Simplified for now
+    });
+    return map;
+  }, [shoppingLists, listMembers, user]);
 
 
   if (!session) {
@@ -904,6 +913,7 @@ const App: React.FC = () => {
                 onCancel={handleCancelForm}
                 initialData={editingItem}
                 itemType={editingItem?.itemType || newItemType}
+                shoppingLists={shoppingLists}
             />
         );
     }
@@ -917,7 +927,7 @@ const App: React.FC = () => {
             onEdit={handleStartEdit}
             onDelete={handleDeleteItem}
             onViewDetails={handleViewDetails}
-            onAddToShoppingList={handleAddToShoppingList}
+            onAddToGroupShoppingList={handleAddToShoppingList}
           />
         );
       case 'discover':
@@ -928,6 +938,15 @@ const App: React.FC = () => {
                 comments={comments}
                 isLoading={isPublicItemsLoading}
                 onViewDetails={handleViewDetails}
+            />
+        );
+      case 'groups':
+        return (
+            <GroupsView 
+                groups={shoppingLists}
+                members={groupMembersMap}
+                onSelectGroup={handleSelectGroup}
+                onCreateGroup={handleCreateNewList}
             />
         );
       case 'list':
@@ -952,7 +971,7 @@ const App: React.FC = () => {
               onDelete={handleDeleteItem} 
               onEdit={handleStartEdit}
               onViewDetails={handleViewDetails}
-              onAddToShoppingList={handleAddToShoppingList}
+              onAddToGroupShoppingList={handleAddToShoppingList}
             />
           </>
         );
@@ -968,16 +987,12 @@ const App: React.FC = () => {
                     {t('header.title')}
                 </h1>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => setIsShoppingListOpen(true)} className="relative p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label={t('header.shoppingListAria')}>
-                        <ShoppingBagIcon className="w-7 h-7 text-gray-600 dark:text-gray-300" />
-                        {shoppingListItems.length > 0 && <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs font-bold ring-2 ring-white dark:ring-gray-800">{shoppingListItems.length}</span>}
-                    </button>
                     <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label={t('settings.title')}>
                         <SettingsIcon className="w-7 h-7 text-gray-600 dark:text-gray-300" />
                     </button>
                 </div>
             </div>
-            {!isFormVisible && activeView !== 'discover' && (
+            {!isFormVisible && activeView !== 'discover' && activeView !== 'groups' && (
                 <div className="mt-4 space-y-3">
                     <div className="flex gap-2 items-center">
                        <div className="relative flex-1">
@@ -1032,8 +1047,12 @@ const App: React.FC = () => {
             <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-[0_-2px_5px_rgba(0,0,0,0.1)] dark:shadow-[0_-2px_5px_rgba(0,0,0,0.3)] z-30">
                 <div className="container mx-auto px-4 h-16 flex justify-around items-center">
                     <button onClick={() => setActiveView('dashboard')} className={`flex flex-col items-center justify-center gap-1 transition-colors ${activeView === 'dashboard' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400'}`}>
-                        <UserCircleIcon className="w-6 h-6" />
+                        <HomeIcon className="w-6 h-6" />
                         <span className="text-xs font-semibold">{t('nav.dashboard')}</span>
+                    </button>
+                    <button onClick={() => setActiveView('groups')} className={`flex flex-col items-center justify-center gap-1 transition-colors ${activeView === 'groups' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400'}`}>
+                        <UserGroupIcon className="w-6 h-6" />
+                        <span className="text-xs font-semibold">{t('nav.groups')}</span>
                     </button>
                     <button onClick={() => setActiveView('discover')} className={`flex flex-col items-center justify-center gap-1 transition-colors ${activeView === 'discover' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400'}`}>
                         <GlobeAltIcon className="w-6 h-6" />

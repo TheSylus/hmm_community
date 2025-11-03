@@ -10,7 +10,7 @@ interface FoodItemCardProps {
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onViewDetails: (item: FoodItem) => void;
-  onAddToShoppingList: (item: FoodItem) => void;
+  onAddToGroupShoppingList: (item: FoodItem) => void;
   isPreview?: boolean;
   likes?: Like[];
   comments?: Comment[];
@@ -67,7 +67,7 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
     );
 }
 
-export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, isPreview = false, likes = [], comments = [] }) => {
+export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToGroupShoppingList, isPreview = false, likes = [], comments = [] }) => {
   const { t } = useTranslation();
   const displayItem = useTranslatedItem(item);
 
@@ -165,7 +165,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                     <LockClosedIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                 )}
                 <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    {t(displayItem.isPublic ? 'card.publicTooltip' : 'card.privateTooltip')}
+                    {t(displayItem.isPublic ? 'card.publicTooltip' : (displayItem.shared_with_group_id ? 'card.groupTooltip' : 'card.privateTooltip'))}
                 </span>
             </div>
         </div>
@@ -186,9 +186,9 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                         <div className="flex items-center gap-1 flex-shrink-0">
                             {displayItem.itemType === 'product' && (
                                 <button
-                                onClick={(e) => { e.stopPropagation(); onAddToShoppingList(item); }}
+                                onClick={(e) => { e.stopPropagation(); onAddToGroupShoppingList(item); }}
                                 className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors"
-                                aria-label={t('shoppingList.addAria', { name: displayItem.name })}
+                                aria-label={t('group.addAria', { name: displayItem.name })}
                                 >
                                 <ShoppingBagIcon className="w-5 h-5" />
                             </button>

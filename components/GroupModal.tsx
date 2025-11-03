@@ -1,33 +1,33 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n/index';
-// FIX: Add UserCircleIcon to imports.
 import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, UserGroupIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
-// FIX: Correctly import HydratedShoppingListItem from App.tsx.
+// FIX: Correctly import HydratedShoppingListItem, as HydratedGroupShoppingListItem is not exported.
 import { HydratedShoppingListItem } from '../App';
-// FIX: Use renamed ShoppingList type.
-import { ShoppingList, UserProfile, FoodItem, Like, CommentWithProfile } from '../types';
+// FIX: Use renamed ShoppingList type (aliased as FoodGroup for minimal changes) and other types.
+import { ShoppingList as FoodGroup, UserProfile, FoodItem, Like, CommentWithProfile } from '../types';
 import { User } from '@supabase/supabase-js';
 import { FoodItemCard } from './FoodItemCard';
 
-interface ShoppingListModalProps {
-  allLists: ShoppingList[];
-  activeListId: string | null;
+interface GroupModalProps {
+  allGroups: FoodGroup[];
+  activeGroupId: string | null;
   listData: HydratedShoppingListItem[];
   listMembers: UserProfile[];
   currentUser: User | null;
   groupFeedItems: FoodItem[];
   likes: Like[];
   comments: CommentWithProfile[];
-  onRemove: (shoppingListItemId: string) => void;
+  onRemove: (groupShoppingListItemId: string) => void;
   onClear: () => void;
   onClose: () => void;
-  onToggleChecked: (shoppingListItemId: string, isChecked: boolean) => void;
-  onSelectList: (listId: string) => void;
-  onCreateList: (name: string) => void;
-  onDeleteList: (listId: string) => void;
-  onLeaveList: (listId: string) => void;
+  onToggleChecked: (groupShoppingListItemId: string, isChecked: boolean) => void;
+  onSelectGroup: (groupId: string) => void;
+  onCreateGroup: (name: string) => void;
+  onDeleteGroup: (groupId: string) => void;
+  onLeaveGroup: (groupId: string) => void;
   onViewDetails: (item: FoodItem) => void;
+  onAddToGroupShoppingList: (item: FoodItem) => void;
 }
 
 const ActivityLog: React.FC<{
@@ -42,12 +42,12 @@ const ActivityLog: React.FC<{
   const isCurrentUser = currentUser?.id === userId;
   
   const name = isCurrentUser 
-    ? t('shoppingList.collaboration.you') 
-    : (member?.display_name.split('@')[0] || t('shoppingList.collaboration.someone'));
+    ? t('group.collaboration.you') 
+    : (member?.display_name.split('@')[0] || t('group.collaboration.someone'));
   
   const actionText = action === 'added' 
-    ? t('shoppingList.collaboration.addedBy', { name })
-    : t('shoppingList.collaboration.checkedBy', { name });
+    ? t('group.collaboration.addedBy', { name })
+    : t('group.collaboration.checkedBy', { name });
 
   const Icon = action === 'added' ? UserCircleIcon : CheckCircleIcon;
 
@@ -60,7 +60,8 @@ const ActivityLog: React.FC<{
 };
 
 
-const ShoppingListItemFC: React.FC<{
+const GroupShoppingListItemFC: React.FC<{
+  // FIX: Use the correct HydratedShoppingListItem type.
   item: HydratedShoppingListItem;
   onRemove: (id: string) => void;
   onToggleChecked: (id: string, isChecked: boolean) => void;
@@ -79,9 +80,11 @@ const ShoppingListItemFC: React.FC<{
         <div className="flex items-center justify-between p-3">
             <div className="flex items-center overflow-hidden flex-1">
                 <input
+                    // FIX: Use shoppingListItemId property from the correct type.
                     id={`item-${displayItem.shoppingListItemId}`}
                     type="checkbox"
                     checked={displayItem.checked}
+                    // FIX: Use shoppingListItemId property from the correct type.
                     onChange={() => onToggleChecked(displayItem.shoppingListItemId, !displayItem.checked)}
                     className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0"
                 />
@@ -93,16 +96,17 @@ const ShoppingListItemFC: React.FC<{
             </div>
             <div className="flex items-center gap-1 pl-2">
                 <button
+                    // FIX: Use shoppingListItemId property from the correct type.
                     onClick={() => onRemove(displayItem.shoppingListItemId)}
                     className="p-1.5 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                    aria-label={t('shoppingList.removeAria', { name: displayItem.name })}
+                    aria-label={t('group.removeAria', { name: displayItem.name })}
                 >
                     <TrashIcon className="w-5 h-5" />
                 </button>
                 <button
                     onClick={() => onExpand(displayItem.id)}
                     className="p-1.5 rounded-full text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                    aria-label={t('shoppingList.toggleDetailsAria')}
+                    aria-label={t('group.toggleDetailsAria')}
                 >
                     <ChevronDownIcon className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
@@ -137,8 +141,8 @@ const ShoppingListItemFC: React.FC<{
 }
 
 
-export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ 
-  allLists, activeListId, listData, listMembers, currentUser, groupFeedItems, likes, comments, onRemove, onClear, onClose, onToggleChecked, onSelectList, onCreateList, onDeleteList, onLeaveList, onViewDetails
+export const GroupModal: React.FC<GroupModalProps> = ({ 
+  allGroups, activeGroupId, listData, listMembers, currentUser, groupFeedItems, likes, comments, onRemove, onClear, onClose, onToggleChecked, onSelectGroup, onCreateGroup, onDeleteGroup, onLeaveGroup, onViewDetails, onAddToGroupShoppingList
 }) => {
   const { t } = useTranslation();
   const [view, setView] = useState<'list' | 'feed'>('list');
@@ -148,8 +152,8 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
   const manageMenuRef = useRef<HTMLDivElement>(null);
 
 
-  const activeList = useMemo(() => allLists.find(l => l.id === activeListId), [allLists, activeListId]);
-  const isOwner = useMemo(() => currentUser && activeList && currentUser.id === activeList.owner_id, [currentUser, activeList]);
+  const activeGroup = useMemo(() => allGroups.find(l => l.id === activeGroupId), [allGroups, activeGroupId]);
+  const isOwner = useMemo(() => currentUser && activeGroup && currentUser.id === activeGroup.owner_id, [currentUser, activeGroup]);
 
 
   const handleExpand = useCallback((foodItemId: string) => {
@@ -157,35 +161,35 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
   }, []);
 
   const handleDelete = () => {
-    if (!activeList) return;
-    if (window.confirm(t('shoppingList.delete.confirm', { listName: activeList.name }))) {
-        onDeleteList(activeList.id);
+    if (!activeGroup) return;
+    if (window.confirm(t('group.delete.confirm', { groupName: activeGroup.name }))) {
+        onDeleteGroup(activeGroup.id);
         setIsManageMenuOpen(false);
     }
   };
 
   const handleLeave = () => {
-    if (!activeList) return;
-    if (window.confirm(t('shoppingList.leave.confirm', { listName: activeList.name }))) {
-        onLeaveList(activeList.id);
+    if (!activeGroup) return;
+    if (window.confirm(t('group.leave.confirm', { groupName: activeGroup.name }))) {
+        onLeaveGroup(activeGroup.id);
         setIsManageMenuOpen(false);
     }
   };
 
-  const handleShareList = useCallback(async () => {
-    if (!activeListId) return;
+  const handleShareGroup = useCallback(async () => {
+    if (!activeGroupId) return;
     setShareStatus('copying');
-    const inviteUrl = `${window.location.origin}${window.location.pathname}?join_list=${activeListId}`;
+    const inviteUrl = `${window.location.origin}${window.location.pathname}?join_group=${activeGroupId}`;
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setShareStatus('copied');
       setTimeout(() => setShareStatus('idle'), 2000); // Reset after 2 seconds
     } catch (err) {
       console.error('Failed to copy share link:', err);
-      alert(t('shoppingList.share.copyFailed'));
+      alert(t('group.share.copyFailed'));
       setShareStatus('idle');
     }
-  }, [activeListId, t]);
+  }, [activeGroupId, t]);
 
   const getInitials = (name: string) => {
       if (!name) return '?';
@@ -197,7 +201,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
   };
 
   const groupedItems = useMemo(() => {
-    const uncategorizedKey = t('shoppingList.uncategorized');
+    const uncategorizedKey = t('group.uncategorized');
     return listData.reduce((acc, item) => {
       const key = item.purchaseLocation || uncategorizedKey;
       if (!acc[key]) {
@@ -209,7 +213,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
   }, [listData, t]);
 
   const sortedGroupNames = useMemo(() => {
-      const uncategorizedKey = t('shoppingList.uncategorized');
+      const uncategorizedKey = t('group.uncategorized');
       return Object.keys(groupedItems).sort((a, b) => {
           if (a === uncategorizedKey) return 1;
           if (b === uncategorizedKey) return -1;
@@ -235,14 +239,14 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="list-modal-title"
+      aria-labelledby="group-modal-title"
     >
       <div
         className="relative bg-white dark:bg-gray-800 p-6 rounded-lg shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
-            <h2 id="list-modal-title" className="text-2xl font-bold text-gray-900 dark:text-white">{activeList?.name || t('shoppingList.title')}</h2>
+            <h2 id="group-modal-title" className="text-2xl font-bold text-gray-900 dark:text-white">{activeGroup?.name || t('group.title')}</h2>
             <button
               onClick={onClose}
               className="p-1 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -255,20 +259,20 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
         <div className="mb-4 space-y-4 shrink-0">
              <div className="space-y-2">
                  <div ref={manageMenuRef} className="relative w-min ml-auto -mb-2">
-                    <button onClick={() => setIsManageMenuOpen(prev => !prev)} className="p-2 h-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors" title={t('shoppingList.manage.buttonTitle')}>
+                    <button onClick={() => setIsManageMenuOpen(prev => !prev)} className="p-2 h-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors" title={t('group.manage.buttonTitle')}>
                         <EllipsisVerticalIcon className="w-5 h-5"/>
                     </button>
-                    {isManageMenuOpen && activeList && (
+                    {isManageMenuOpen && activeGroup && (
                         <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10 animate-fade-in-fast">
                             {isOwner ? (
                                 <button onClick={handleDelete} className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center gap-2 transition-colors">
                                     <TrashIcon className="w-4 h-4" />
-                                    {t('shoppingList.delete.button')}
+                                    {t('group.delete.button')}
                                 </button>
                             ) : (
                                 <button onClick={handleLeave} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 transition-colors">
                                     <XMarkIcon className="w-4 h-4" />
-                                    {t('shoppingList.leave.button')}
+                                    {t('group.leave.button')}
                                 </button>
                             )}
                         </div>
@@ -277,7 +281,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
 
             <div className="bg-gray-100 dark:bg-gray-700/50 p-3 rounded-lg space-y-3">
                  <div>
-                    <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">{t('shoppingList.collaboration.members')}</h3>
+                    <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">{t('group.collaboration.members')}</h3>
                     <div className="flex flex-wrap items-center gap-2">
                         {listMembers.map(member => (
                             <div key={member.id} className="group relative">
@@ -285,23 +289,23 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                     {getInitials(member.display_name)}
                                 </div>
                                 <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                    {member.id === currentUser?.id ? `${member.display_name} (${t('shoppingList.collaboration.you')})` : member.display_name}
+                                    {member.id === currentUser?.id ? `${member.display_name} (${t('group.collaboration.you')})` : member.display_name}
                                 </span>
                             </div>
                         ))}
                     </div>
                 </div>
-                 <button onClick={handleShareList} disabled={shareStatus !== 'idle'} className="w-full flex items-center justify-center gap-2 text-sm bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-70">
+                 <button onClick={handleShareGroup} disabled={shareStatus !== 'idle'} className="w-full flex items-center justify-center gap-2 text-sm bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-70">
                     {shareStatus === 'copying' && <SpinnerIcon className="w-5 h-5" />}
                     {shareStatus === 'copied' && <CheckCircleIcon className="w-5 h-5" />}
                     {shareStatus === 'idle' && <UserPlusIcon className="w-5 h-5"/>}
-                    <span>{shareStatus === 'copied' ? t('shoppingList.share.linkCopied') : t('shoppingList.share.inviteButton')}</span>
+                    <span>{shareStatus === 'copied' ? t('group.share.linkCopied') : t('group.share.inviteButton')}</span>
                 </button>
             </div>
             
             <div className="flex border-b border-gray-200 dark:border-gray-700">
-                <button onClick={() => setView('list')} className={`flex-1 text-center px-4 py-2 font-semibold transition-colors ${view === 'list' ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>{t('shoppingList.tab.checklist')}</button>
-                <button onClick={() => setView('feed')} className={`flex-1 text-center px-4 py-2 font-semibold transition-colors ${view === 'feed' ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>{t('shoppingList.tab.feed')}</button>
+                <button onClick={() => setView('list')} className={`flex-1 text-center px-4 py-2 font-semibold transition-colors ${view === 'list' ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>{t('group.tab.checklist')}</button>
+                <button onClick={() => setView('feed')} className={`flex-1 text-center px-4 py-2 font-semibold transition-colors ${view === 'feed' ? 'border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>{t('group.tab.feed')}</button>
             </div>
         </div>
 
@@ -317,7 +321,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                     </h3>
                                     <ul className="space-y-3">
                                         {groupedItems[groupName].map(item => (
-                                            <ShoppingListItemFC
+                                            <GroupShoppingListItemFC
                                                 key={item.shoppingListItemId}
                                                 item={item}
                                                 onRemove={onRemove}
@@ -335,7 +339,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
                             <ShoppingBagIcon className="w-16 h-16 mb-4" />
-                            <p>{t('shoppingList.empty')}</p>
+                            <p>{t('group.empty')}</p>
                         </div>
                     )}
                 </>
@@ -352,7 +356,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                     onDelete={() => {}} 
                                     onEdit={() => {}}
                                     onViewDetails={onViewDetails}
-                                    onAddToGroupShoppingList={() => {}}
+                                    onAddToGroupShoppingList={onAddToGroupShoppingList}
                                     isPreview={true}
                                     likes={likes.filter(l => l.food_item_id === item.id)}
                                     comments={comments.filter(c => c.food_item_id === item.id)}
@@ -362,7 +366,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                     ) : (
                          <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
                             <UserGroupIcon className="w-16 h-16 mb-4" />
-                            <p>{t('shoppingList.feed.empty')}</p>
+                            <p>{t('group.feed.empty')}</p>
                         </div>
                     )}
                 </>
@@ -377,7 +381,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                     disabled={checkedItemsCount === 0}
                     className="w-full px-6 py-2 bg-red-600 text-white rounded-md font-semibold hover:bg-red-700 transition-colors disabled:bg-red-400 dark:disabled:bg-gray-600"
                 >
-                    {t('shoppingList.clear')} ({checkedItemsCount})
+                    {t('group.clear')} ({checkedItemsCount})
                 </button>
             </div>
         )}
