@@ -84,6 +84,7 @@ const App: React.FC = () => {
   const [activeShoppingListId, setActiveShoppingListId] = useState<string | null>(null);
   const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
   const [listMembers, setListMembers] = useState<UserProfile[]>([]);
+  const [groupFeedItems, setGroupFeedItems] = useState<FoodItem[]>([]);
   const [likes, setLikes] = useState<Like[]>([]);
   const [comments, setComments] = useState<CommentWithProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -190,9 +191,29 @@ const App: React.FC = () => {
                 if (likesError) throw likesError;
                 setLikes(likesData || []);
 
-                const { data: commentsData, error: commentsError } = await supabase.from('comments').select('*, profiles(display_name)').in('food_item_id', publicItemIds).order('created_at', { ascending: true });
+                // FIX: Perform two separate queries to avoid relationship error.
+                // 1. Fetch comments.
+                const { data: commentsOnly, error: commentsError } = await supabase.from('comments').select('*').in('food_item_id', publicItemIds).order('created_at', { ascending: true });
                 if (commentsError) throw commentsError;
-                setComments((commentsData as CommentWithProfile[]) || []);
+
+                if (commentsOnly && commentsOnly.length > 0) {
+                    // 2. Fetch profiles for the users who commented.
+                    const userIds = [...new Set(commentsOnly.map(c => c.user_id))];
+                    const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('id, display_name').in('id', userIds);
+                    if (profilesError) throw profilesError;
+
+                    // 3. Manually join the data.
+                    const profilesMap = new Map(profilesData?.map(p => [p.id, p.display_name]));
+                    const commentsData = commentsOnly.map(comment => ({
+                        ...comment,
+                        profiles: {
+                            display_name: profilesMap.get(comment.user_id) || 'User'
+                        }
+                    }));
+                    setComments((commentsData as CommentWithProfile[]) || []);
+                } else {
+                    setComments([]);
+                }
             }
         }
       } catch (error: any) {
@@ -297,6 +318,7 @@ const App: React.FC = () => {
     if (!activeShoppingListId || !user || activeShoppingListId.startsWith('temp_')) {
       setShoppingListItems([]);
       setListMembers([]);
+      setGroupFeedItems([]);
       return;
     }
     localStorage.setItem('activeShoppingListId', activeShoppingListId);
@@ -324,8 +346,22 @@ const App: React.FC = () => {
                     return userProfile || { id, display_name: 'Unknown User' };
                 });
                 setListMembers(memberProfiles as UserProfile[]);
+
+                // Fetch group feed items
+                const { data: feedData, error: feedError } = await supabase
+                    .from('food_items')
+                    .select('*')
+                    .eq('isPublic', true)
+                    .in('user_id', userIds)
+                    .order('created_at', { ascending: false })
+                    .limit(50); // Add a limit for performance
+                if (feedError) throw feedError;
+                const mappedFeedData = feedData.map(({ image_url, ...rest }) => ({ ...rest, image: image_url || undefined }));
+                setGroupFeedItems(mappedFeedData as FoodItem[]);
+
             } else {
                 setListMembers([]);
+                setGroupFeedItems([]);
             }
         }
       } catch(error: any) {
@@ -834,7 +870,8 @@ const App: React.FC = () => {
       for (const sli of shoppingListItems) {
         const foodItemDetails = foodItemMap.get(sli.food_item_id);
         if (foodItemDetails) {
-          // FIX: The spread syntax was causing a "Spread types may only be created from object types" error. Replaced with Object.assign to correctly merge the objects.
+          // FIX: The spread syntax (`...foodItemDetails`) was causing a "Spread types may only be created from object types" error.
+          // Using Object.assign as a more robust way to merge the objects and create the HydratedShoppingListItem.
           hydratedItems.push(Object.assign({}, foodItemDetails, {
             shoppingListItemId: sli.id,
             checked: sli.checked,
@@ -1042,6 +1079,9 @@ const App: React.FC = () => {
             listData={hydratedShoppingList} 
             listMembers={listMembers}
             currentUser={user}
+            groupFeedItems={groupFeedItems}
+            likes={likes}
+            comments={comments}
             onRemove={handleRemoveFromShoppingList} 
             onClear={handleClearCompletedShoppingList} 
             onToggleChecked={handleToggleCheckedItem} 
@@ -1050,6 +1090,7 @@ const App: React.FC = () => {
             onCreateList={handleCreateNewList}
             onDeleteList={handleDeleteList}
             onLeaveList={handleLeaveList}
+            onViewDetails={handleViewDetails}
         />
       }
 
