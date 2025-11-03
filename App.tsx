@@ -863,24 +863,24 @@ const App: React.FC = () => {
     });
   }, [foodItems, searchTerm, ratingFilter, typeFilter, sortBy, aiSearchResults.ids]);
   
+  // FIX: Resolve "Spread types may only be created from object types" error by using `reduce`.
+  // This approach is more explicit about the accumulator's type, which can prevent
+  // type inference issues that sometimes occur with complex `map` and `filter` chains.
   const hydratedShoppingList = useMemo((): HydratedShoppingListItem[] => {
-    // FIX: Refactored to a functional approach with a type predicate to resolve a potential type inference issue with object spreading.
     const foodItemMap = new Map(foodItems.map(item => [item.id, item]));
-    return shoppingListItems
-        .map(sli => {
-            const foodItemDetails = foodItemMap.get(sli.food_item_id);
-            if (foodItemDetails) {
-                return {
-                    ...foodItemDetails,
-                    shoppingListItemId: sli.id,
-                    checked: sli.checked,
-                    added_by_user_id: sli.added_by_user_id,
-                    checked_by_user_id: sli.checked_by_user_id,
-                };
-            }
-            return null;
-        })
-        .filter((item): item is HydratedShoppingListItem => item !== null);
+    return shoppingListItems.reduce<HydratedShoppingListItem[]>((acc, sli) => {
+      const foodItemDetails = foodItemMap.get(sli.food_item_id);
+      if (foodItemDetails) {
+        acc.push({
+          ...foodItemDetails,
+          shoppingListItemId: sli.id,
+          checked: sli.checked,
+          added_by_user_id: sli.added_by_user_id,
+          checked_by_user_id: sli.checked_by_user_id,
+        });
+      }
+      return acc;
+    }, []);
   }, [foodItems, shoppingListItems]);
 
   const groupMembersMap = useMemo(() => {
