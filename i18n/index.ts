@@ -1,562 +1,87 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 
-const enTranslations = {
-  "nav.dashboard": "Dashboard",
-  "nav.discover": "Discover",
-  "nav.groups": "Groups",
-  "header.title": "Food Memory Tracker",
-  "header.searchPlaceholder": "Search by name, notes, tags...",
-  "header.filter.button": "Filters",
-  "header.filter.all": "All Items",
-  "header.filter.liked": "Liked (4-5 Stars)",
-  "header.filter.disliked": "Disliked (1-2 Stars)",
-  "header.filter.type.all": "All Types",
-  "header.filter.type.products": "Products",
-  "header.filter.type.dishes": "Dishes",
-  "header.filter.active.search": "Search: \"{term}\"",
-  "header.filter.active.aiSearch": "AI: \"{term}\"",
-  "header.filter.active.type.product": "Type: Products",
-  "header.filter.active.type.dish": "Type: Dishes",
-  "header.filter.active.rating.liked": "Liked Items",
-  "header.filter.active.rating.disliked": "Disliked Items",
-  "header.filter.clearAll": "Clear all",
-  "header.sort.dateDesc": "Date (Newest First)",
-  "header.sort.dateAsc": "Date (Oldest First)",
-  "header.sort.ratingDesc": "Rating (High to Low)",
-  "header.sort.ratingAsc": "Rating (Low to High)",
-  "header.sort.nameAsc": "Name (A-Z)",
-  "header.sort.nameDesc": "Name (Z-A)",
-  "header.shoppingListAria": "Open Shopping List",
-  "footer.text": "Never forget a favorite again.",
-  "filterPanel.title": "Filter & Sort",
-  "filterPanel.search": "Search term",
-  "filterPanel.aiSearchTitle": "AI-Powered Search",
-  "filterPanel.filterByType": "Filter by Type",
-  "filterPanel.filterByRating": "Filter by Rating",
-  "filterPanel.sortBy": "Sort by",
-  "filterPanel.reset": "Reset Filters",
-  "filterPanel.apply": "Apply",
-  "dashboard.title": "Dashboard",
-  "dashboard.welcome": "Welcome Back!",
-  "dashboard.recentlyAdded": "Recently Added",
-  "dashboard.topRated": "Your Top Rated",
-  "dashboard.viewAll": "View All Items",
-  "dashboard.empty.title": "Your culinary journey starts here!",
-  "dashboard.empty.description": "Add your first product or dish to see your personal dashboard come to life.",
-  "discover.title": "Discover Community Favorites",
-  "discover.loading": "Loading community favorites...",
-  "discover.empty.title": "The Community is just getting started!",
-  "discover.empty.description": "Be the first to share an item with the community. When adding an item, just flip the 'Share with Community' toggle!",
-  "conversationalSearch.placeholder": "Ask about your food... (e.g., a gluten-free snack I liked)",
-  "conversationalSearch.tooltip": "Search with AI",
-  "conversationalSearch.buttonAria": "Search with AI",
-  "conversationalSearch.searching": "AI is thinking...",
-  "conversationalSearch.error": "AI search failed. Please try a different query.",
-  "conversationalSearch.resultsTitle": "AI Search Results",
-  "conversationalSearch.clear": "Clear AI Search",
-  "shoppingList.title": "Group Details",
-  "shoppingList.empty": "This list is empty. Add products from their cards to get started.",
-  "shoppingList.clear": "Clear Completed",
-  "shoppingList.addAria": "Add {name} to group shopping list",
-  "shoppingList.removeAria": "Remove {name} from group shopping list",
-  "shoppingList.toggleDetailsAria": "Toggle details",
-  "shoppingList.addedToast": "{name} added to list.",
-  "shoppingList.uncategorized": "Uncategorized",
-  "shoppingList.defaultListName": "Personal List",
-  "shoppingList.joinSuccess": "Successfully joined group: {listName}!",
-  "shoppingList.selectListAria": "Select a shared group",
-  "shoppingList.newListButton": "Create New Group",
-  "shoppingList.newListPlaceholder": "New group name...",
-  "shoppingList.createButton": "Create",
-  "shoppingList.share.inviteButton": "Invite Members",
-  "shoppingList.share.linkCopied": "Invite Link Copied!",
-  "shoppingList.share.copyFailed": "Could not copy link. Please copy it manually.",
-  "shoppingList.collaboration.members": "Members",
-  "shoppingList.collaboration.you": "You",
-  "shoppingList.collaboration.someone": "Someone",
-  "shoppingList.collaboration.addedBy": "Added by {name}",
-  "shoppingList.collaboration.checkedBy": "Checked by {name}",
-  "shoppingList.manage.buttonTitle": "Manage group",
-  "shoppingList.delete.button": "Delete Group",
-  "shoppingList.delete.confirm": "Are you sure you want to permanently delete the group \"{listName}\"? This action cannot be undone.",
-  "shoppingList.leave.button": "Leave Group",
-  "shoppingList.leave.confirm": "Are you sure you want to leave the group \"{listName}\"?",
-  "shoppingList.tab.checklist": "Shopping List",
-  "shoppingList.tab.feed": "Group Feed",
-  "shoppingList.feed.empty": "The feed is empty. Public and group-shared items from members will appear here.",
-  "groups.empty.title": "No groups yet!",
-  "groups.empty.description": "Create a group to share food items and shopping lists with family or friends.",
-  "groups.empty.cta": "Create Your First Group",
-  "groups.memberCount": "{count, plural, one {# member} other {# members}}",
-  "form.addNewButton": "Add New Item",
-  "form.editTitle": "Edit Food Item",
-  "form.placeholder.name": "Product Name",
-  "form.placeholder.dishName": "Dish Name (e.g., Spaghetti Carbonara)",
-  "form.placeholder.restaurant": "Restaurant Name",
-  "form.placeholder.cuisine": "Cuisine Type (e.g., Italian)",
-  "form.placeholder.price": "Price",
-  "form.placeholder.purchaseLocation": "Store / Location (e.g., Lidl)",
-  "form.label.rating": "Rating:",
-  "form.aria.rate": "Rate {star} star",
-  "form.aria.ratePlural": "Rate {star} stars",
-  "form.placeholder.notes": "Notes (e.g., taste, where you bought it)",
-  "form.placeholder.tags": "Tags (comma, separated)",
-  "form.label.nutriScore": "Nutri-Score:",
-  "form.aria.selectNutriScore": "Select Nutri-Score {score}",
-  "form.label.selectRestaurant": "Or select a nearby restaurant:",
-  "form.placeholder.selectRestaurant": "-- Select a restaurant --",
-  "form.error.nameAndRating": "Please provide a name and a rating.",
-  "form.error.genericAiError": "Could not analyze image with AI. Please try again or enter details manually.",
-  "form.error.ingredientsAiError": "Could not analyze ingredients list.",
-  "form.error.barcodeError": "Could not fetch product data for this barcode. The product may not be in the Open Food Facts database.",
-  "form.error.offSearchDisabled": "Food Database Search is disabled in settings. You can enable it to use this feature.",
-  "form.error.geolocationUnsupported": "Geolocation is not supported by your browser.",
-  "form.error.geolocationPermission": "Could not get location. Please enable location services and grant permission.",
-  "form.error.findRestaurants": "Could not find nearby restaurants. Please try again or enter manually.",
-  "form.button.cancel": "Cancel",
-  "form.button.save": "Save Item",
-  "form.button.update": "Update Item",
-  "form.button.scanIngredients": "Scan Ingredients",
-  "form.button.scanBarcode": "Scan Barcode",
-  "form.button.dictate": "Dictate",
-  "form.button.takePhoto": "Take Photo",
-  "form.button.findNearby.aria": "Find nearby restaurants",
-  "form.findRestaurants.loading": "Finding nearby restaurants...",
-  "form.image.removeAria": "Remove image",
-  "form.image.placeholder": "Scan a product or upload an image to start",
-  "form.button.scanNew": "Scan Photo",
-  "form.button.upload": "Upload",
-  "form.aiProgress.readingName": "Reading product name...",
-  "form.aiProgress.findingScore": "Finding Nutri-Score...",
-  "form.aiProgress.generatingTags": "Generating descriptive tags...",
-  "form.aiProgress.searchingDatabase": "Searching database for extra info...",
-  "form.aiProgress.locatingProduct": "Locating product in image...",
-  "form.aiProgress.complete": "Analysis Complete!",
-  "form.ingredients.title": "Ingredients & Dietary Info",
-  "form.ingredients.loading": "Scanning ingredients list...",
-  "form.ingredients.ingredientsList": "Ingredients",
-  "form.ingredients.placeholder": "No ingredients found. Scan the barcode or ingredients list to add them.",
-  "form.allergens.title": "Allergens",
-  "form.dietary.title": "Dietary Information",
-  "form.dietary.lactoseFree": "Lactose-Free",
-  "form.dietary.vegan": "Vegan",
-  "form.dietary.glutenFree": "Gluten-Free",
-  "form.share.title": "Sharing Options",
-  "form.share.description": "Choose who can see this item.",
-  "form.share.private": "Private",
-  "form.share.privateDesc": "Only you can see this.",
-  "form.share.community": "Community",
-  "form.share.communityDesc": "Visible to everyone.",
-  "form.share.group": "Group",
-  "form.share.groupDesc": "Share with a specific group.",
-  "form.share.selectGroup": "Select a group",
-  "list.empty.title": "Your list is empty!",
-  "list.empty.description": "Add a food item using the form above to start tracking your preferences.",
-  "list.resultsFor": "Results for \"{searchTerm}\"",
-  "card.deleteAria": "Delete {name}",
-  "card.editAria": "Edit {name}",
-  "card.shareAria": "Share {name}",
-  "card.lactoseFreeTooltip": "Lactose-Free",
-  "card.veganTooltip": "Vegan",
-  "card.glutenFreeTooltip": "Gluten-Free",
-  "card.productTooltip": "Packaged Product",
-  "card.dishTooltip": "Restaurant Dish",
-  "card.publicTooltip": "Shared with community",
-  "card.privateTooltip": "Private item",
-  "card.groupTooltip": "Shared with a group",
-  "card.dishAt": "at {restaurant}",
-  "share.title": "Check out this product: {name}",
-  "share.text": "I gave \"{name}\" a {rating}/5 star rating. See my thoughts on the Food Memory Tracker app!",
-  "share.text_unrated": "Check out \"{name}\" on the Food Memory Tracker app!",
-  "camera.title": "Take a Picture",
-  "camera.error": "Could not access the camera. Please check permissions and try again.",
-  "camera.error.permission": "Camera access was denied. Please check your browser and system settings to grant permission.",
-  "camera.captureButton": "Capture Photo",
-  "barcodeScanner.title": "Scan Barcode",
-  "barcodeScanner.description": "Point your camera at the product's barcode.",
-  "barcodeScanner.error.permission": "Camera access was denied. Please allow camera access in your browser settings.",
-  "cropper.title": "Adjust Crop",
-  "cropper.description": "Adjust the selection proposed by the AI or cancel to use the full image.",
-  "cropper.button.cancel": "Cancel (Use Full)",
-  "cropper.button.confirm": "Confirm Crop",
-  "modal.image.closeAria": "Close image view",
-  "modal.duplicate.title": "Potential Duplicate Found",
-  "modal.duplicate.description": "An item named \"{itemName}\" already exists. Please review the item(s) below.",
-  "modal.duplicate.button.goBack": "Go Back & Edit",
-  "modal.duplicate.button.addAnyway": "Add Anyway",
-  "modal.shared.title": "Shared Food Item",
-  "modal.shared.description": "Someone shared this item with you. Would you like to add it to your list?",
-  "modal.shared.addToList": "Add to My List",
-  "modal.shared.close": "Close",
-  "modal.shared.summaryNotice": "Note: This is a summary. Some details like notes, ingredients, or allergens may not be included in the share.",
-  "modal.itemType.title": "What are you adding?",
-  "modal.itemType.product": "Packaged Product",
-  "modal.itemType.dish": "Restaurant Dish",
-  "speechModal.title": "Dictate Name",
-  "speechModal.description": "Start speaking, and the name will be transcribed.",
-  "speechModal.listening": "Listening...",
-  "settings.title": "Settings",
-  "settings.closeAria": "Close settings",
-  "settings.theme.title": "Theme",
-  "settings.theme.light": "Light",
-  "settings.theme.dark": "Dark",
-  "settings.theme.system": "System",
-  "settings.language.title": "Language",
-  "settings.ai.title": "AI Features",
-  "settings.ai.description": "Enable AI analysis to auto-fill details from photos.",
-  "settings.barcodeScanner.title": "Barcode Scanner",
-  "settings.barcodeScanner.description": "Enable the barcode scanner feature to look up products.",
-  "settings.offSearch.title": "Food Database Search",
-  "settings.offSearch.description": "Enable automatic search for product info in the Open Food Facts database.",
-  "settings.button.done": "Done",
-  "settings.session.title": "Account",
-  "settings.session.loggedInAs": "Logged in as:",
-  "settings.session.logout": "Logout",
-  "auth.emailPlaceholder": "Email",
-  "auth.passwordPlaceholder": "Password",
-  "auth.signIn": "Sign In",
-  "auth.signUp": "Sign Up",
-  "auth.magicLink": "Send Magic Link",
-  "auth.magicLinkSuccess": "Check your email for the login link!",
-  "auth.toggle.signUp": "Don't have an account? Sign Up",
-  "auth.toggle.signIn": "Already have an account? Sign In",
-  "auth.error.generic": "Authentication failed. Please try again.",
-  "allergen.gluten": "Contains Gluten",
-  "allergen.dairy": "Contains Dairy",
-  "allergen.peanuts": "Contains Peanuts",
-  "allergen.tree_nuts": "Contains Tree Nuts",
-  "allergen.soy": "Contains Soy",
-  "allergen.eggs": "Contains Eggs",
-  "allergen.fish": "Contains Fish",
-  "allergen.shellfish": "Contains Shellfish",
-  "detail.notesTitle": "Notes",
-  "detail.tagsTitle": "Tags",
-  "detail.ingredientsTitle": "Ingredients",
-  "detail.allergensTitle": "Allergens",
-  "detail.dietaryTitle": "Dietary Information",
-  "detail.status": "Status",
-  "detail.statusPublic": "Public",
-  "detail.statusPrivate": "Private",
-  "detail.commentsTitle": "Comments",
-  "detail.noComments": "Be the first to leave a comment!",
-  "detail.addCommentPlaceholder": "Add a comment...",
-  "detail.sendComment": "Send",
-  "offline.message": "You are currently offline. Changes will be saved and synced when you reconnect.",
-  "offline.syncComplete": "Back online! Your data has been synced."
-};
+type Language = 'en' | 'de';
 
-const deTranslations = {
-  "nav.dashboard": "Dashboard",
-  "nav.discover": "Entdecken",
-  "nav.groups": "Gruppen",
-  "header.title": "Lebensmittel-Tracker",
-  "header.searchPlaceholder": "Suche nach Name, Notizen, Tags...",
-  "header.filter.button": "Filter",
-  "header.filter.all": "Alle Produkte",
-  "header.filter.liked": "Gemocht (4-5 Sterne)",
-  "header.filter.disliked": "Nicht gemocht (1-2 Sterne)",
-  "header.filter.type.all": "Alle Arten",
-  "header.filter.type.products": "Produkte",
-  "header.filter.type.dishes": "Gerichte",
-  "header.filter.active.search": "Suche: \"{term}\"",
-  "header.filter.active.aiSearch": "KI: \"{term}\"",
-  "header.filter.active.type.product": "Art: Produkte",
-  "header.filter.active.type.dish": "Art: Gerichte",
-  "header.filter.active.rating.liked": "Gemochte Artikel",
-  "header.filter.active.rating.disliked": "Nicht gemochte Artikel",
-  "header.filter.clearAll": "Alle Filter löschen",
-  "header.sort.dateDesc": "Datum (Neueste zuerst)",
-  "header.sort.dateAsc": "Datum (Älteste zuerst)",
-  "header.sort.ratingDesc": "Bewertung (Hoch > Niedrig)",
-  "header.sort.ratingAsc": "Bewertung (Niedrig > Hoch)",
-  "header.sort.nameAsc": "Name (A-Z)",
-  "header.sort.nameDesc": "Name (Z-A)",
-  "header.shoppingListAria": "Einkaufsliste öffnen",
-  "footer.text": "Vergiss nie wieder ein Lieblingsprodukt.",
-  "filterPanel.title": "Filtern & Sortieren",
-  "filterPanel.search": "Suchbegriff",
-  "filterPanel.aiSearchTitle": "KI-gestützte Suche",
-  "filterPanel.filterByType": "Nach Typ filtern",
-  "filterPanel.filterByRating": "Nach Bewertung filtern",
-  "filterPanel.sortBy": "Sortieren nach",
-  "filterPanel.reset": "Filter zurücksetzen",
-  "filterPanel.apply": "Anwenden",
-  "dashboard.title": "Dashboard",
-  "dashboard.welcome": "Willkommen zurück!",
-  "dashboard.recentlyAdded": "Zuletzt hinzugefügt",
-  "dashboard.topRated": "Deine Top-Bewertungen",
-  "dashboard.viewAll": "Alle Produkte anzeigen",
-  "dashboard.empty.title": "Deine kulinarische Reise beginnt hier!",
-  "dashboard.empty.description": "Füge dein erstes Produkt oder Gericht hinzu, um dein persönliches Dashboard zum Leben zu erwecken.",
-  "discover.title": "Entdecke Community-Favoriten",
-  "discover.loading": "Lade Community-Favoriten...",
-  "discover.empty.title": "Die Community fängt gerade erst an!",
-  "discover.empty.description": "Sei der Erste, der einen Artikel mit der Community teilt. Aktiviere beim Hinzufügen einfach den Schalter 'Mit Community teilen'!",
-  "conversationalSearch.placeholder": "Frage nach deinem Essen... (z.B. ein glutenfreier Snack, den ich mochte)",
-  "conversationalSearch.tooltip": "Mit KI suchen",
-  "conversationalSearch.buttonAria": "Mit KI suchen",
-  "conversationalSearch.searching": "KI denkt nach...",
-  "conversationalSearch.error": "KI-Suche fehlgeschlagen. Bitte versuche eine andere Anfrage.",
-  "conversationalSearch.resultsTitle": "KI-Suchergebnisse",
-  "conversationalSearch.clear": "KI-Suche löschen",
-  "shoppingList.title": "Gruppendetails",
-  "shoppingList.empty": "Diese Liste ist leer. Füge Produkte von ihren Karten hinzu, um zu beginnen.",
-  "shoppingList.clear": "Erledigte entfernen",
-  "shoppingList.addAria": "{name} zur Gruppen-Einkaufsliste hinzufügen",
-  "shoppingList.removeAria": "{name} von der Gruppen-Einkaufsliste entfernen",
-  "shoppingList.toggleDetailsAria": "Details ein-/ausblenden",
-  "shoppingList.addedToast": "{name} zur Liste hinzugefügt.",
-  "shoppingList.uncategorized": "Unkategorisiert",
-  "shoppingList.defaultListName": "Persönliche Liste",
-  "shoppingList.joinSuccess": "Erfolgreich der Gruppe beigetreten: {listName}!",
-  "shoppingList.selectListAria": "Gemeinsame Gruppe auswählen",
-  "shoppingList.newListButton": "Neue Gruppe erstellen",
-  "shoppingList.newListPlaceholder": "Name der neuen Gruppe...",
-  "shoppingList.createButton": "Erstellen",
-  "shoppingList.share.inviteButton": "Mitglieder einladen",
-  "shoppingList.share.linkCopied": "Einladungslink kopiert!",
-  "shoppingList.share.copyFailed": "Link konnte nicht kopiert werden. Bitte manuell kopieren.",
-  "shoppingList.collaboration.members": "Mitglieder",
-  "shoppingList.collaboration.you": "Du",
-  "shoppingList.collaboration.someone": "Jemand",
-  "shoppingList.collaboration.addedBy": "{name} hat's hinzugefügt",
-  "shoppingList.collaboration.checkedBy": "{name} hat's abgehakt",
-  "shoppingList.manage.buttonTitle": "Gruppe verwalten",
-  "shoppingList.delete.button": "Gruppe löschen",
-  "shoppingList.delete.confirm": "Bist du sicher, dass du die Gruppe \"{listName}\" dauerhaft löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.",
-  "shoppingList.leave.button": "Gruppe verlassen",
-  "shoppingList.leave.confirm": "Bist du sicher, dass du die Gruppe \"{listName}\" verlassen möchtest?",
-  "shoppingList.tab.checklist": "Einkaufsliste",
-  "shoppingList.tab.feed": "Gruppen-Feed",
-  "shoppingList.feed.empty": "Der Feed ist leer. Öffentliche und geteilte Einträge von Mitgliedern erscheinen hier.",
-  "groups.empty.title": "Noch keine Gruppen!",
-  "groups.empty.description": "Erstelle eine Gruppe, um Lebensmittel und Einkaufslisten mit Familie oder Freunden zu teilen.",
-  "groups.empty.cta": "Deine erste Gruppe erstellen",
-  "groups.memberCount": "{count, plural, one {# Mitglied} other {# Mitglieder}}",
-  "form.addNewButton": "Neuen Eintrag hinzufügen",
-  "form.editTitle": "Lebensmittel bearbeiten",
-  "form.placeholder.name": "Produktname",
-  "form.placeholder.dishName": "Name des Gerichts (z.B. Spaghetti Carbonara)",
-  "form.placeholder.restaurant": "Restaurantname",
-  "form.placeholder.cuisine": "Küche (z.B. Italienisch)",
-  "form.placeholder.price": "Preis",
-  "form.placeholder.purchaseLocation": "Geschäft / Ort (z.B. Lidl)",
-  "form.label.rating": "Bewertung:",
-  "form.aria.rate": "Bewerte {star} Stern",
-  "form.aria.ratePlural": "Bewerte {star} Sterne",
-  "form.placeholder.notes": "Notizen (z.B. Geschmack, wo gekauft)",
-  "form.placeholder.tags": "Tags (mit Komma getrennt)",
-  "form.label.nutriScore": "Nutri-Score:",
-  "form.aria.selectNutriScore": "Nutri-Score {score} auswählen",
-  "form.label.selectRestaurant": "Oder wählen Sie ein Restaurant in der Nähe:",
-  "form.placeholder.selectRestaurant": "-- Restaurant auswählen --",
-  "form.error.nameAndRating": "Bitte gib einen Namen und eine Bewertung an.",
-  "form.error.genericAiError": "Bild konnte nicht mit KI analysiert werden. Bitte versuchen Sie es erneut oder geben Sie die Details manuell ein.",
-  "form.error.ingredientsAiError": "Zutatenliste konnte nicht mit KI analysiert werden.",
-  "form.error.barcodeError": "Produktdaten für diesen Barcode konnten nicht abgerufen werden. Das Produkt ist möglicherweise nicht in der Open Food Facts-Datenbank.",
-  "form.error.offSearchDisabled": "Die Lebensmittel-Datenbanksuche ist in den Einstellungen deaktiviert. Sie können sie aktivieren, um diese Funktion zu nutzen.",
-  "form.error.geolocationUnsupported": "Geolokalisierung wird von Ihrem Browser nicht unterstützt.",
-  "form.error.geolocationPermission": "Standort konnte nicht abgerufen werden. Bitte aktivieren Sie die Ortungsdienste und erteilen Sie die Erlaubnis.",
-  "form.error.findRestaurants": "Konnten keine Restaurants in der Nähe finden. Bitte versuchen Sie es erneut oder geben Sie sie manuell ein.",
-  "form.button.cancel": "Abbrechen",
-  "form.button.save": "Eintrag speichern",
-  "form.button.update": "Eintrag aktualisieren",
-  "form.button.scanIngredients": "Zutaten scannen",
-  "form.button.scanBarcode": "Barcode scannen",
-  "form.button.dictate": "Diktieren",
-  "form.button.takePhoto": "Foto aufnehmen",
-  "form.button.findNearby.aria": "Restaurants in der Nähe finden",
-  "form.findRestaurants.loading": "Suche Restaurants in der Nähe...",
-  "form.image.removeAria": "Bild entfernen",
-  "form.image.placeholder": "Scannen Sie ein Produkt oder laden Sie ein Bild hoch, um zu beginnen",
-  "form.button.scanNew": "Foto scannen",
-  "form.button.upload": "Hochladen",
-  "form.aiProgress.readingName": "Produktname wird gelesen...",
-  "form.aiProgress.findingScore": "Nutri-Score wird gesucht...",
-  "form.aiProgress.generatingTags": "Beschreibende Tags werden erstellt...",
-  "form.aiProgress.searchingDatabase": "Suche in Datenbank nach Zusatzinfos...",
-  "form.aiProgress.locatingProduct": "Produkt im Bild wird lokalisiert...",
-  "form.aiProgress.complete": "Analyse abgeschlossen!",
-  "form.ingredients.title": "Zutaten & Ernährungsinfo",
-  "form.ingredients.loading": "Zutatenliste wird gescannt...",
-  "form.ingredients.ingredientsList": "Zutaten",
-  "form.ingredients.placeholder": "Keine Zutaten gefunden. Scannen Sie den Barcode oder die Zutatenliste, um sie hinzuzufügen.",
-  "form.allergens.title": "Allergene",
-  "form.dietary.title": "Ernährungsinformationen",
-  "form.dietary.lactoseFree": "Laktosefrei",
-  "form.dietary.vegan": "Vegan",
-  "form.dietary.glutenFree": "Glutenfrei",
-  "form.share.title": "Freigabeoptionen",
-  "form.share.description": "Wähle aus, wer diesen Eintrag sehen kann.",
-  "form.share.private": "Privat",
-  "form.share.privateDesc": "Nur du kannst dies sehen.",
-  "form.share.community": "Community",
-  "form.share.communityDesc": "Für jeden sichtbar.",
-  "form.share.group": "Gruppe",
-  "form.share.groupDesc": "Mit einer Gruppe teilen.",
-  "form.share.selectGroup": "Gruppe auswählen",
-  "list.empty.title": "Deine Liste ist leer!",
-  "list.empty.description": "Füge ein Lebensmittel über das Formular hinzu, um deine Vorlieben zu verfolgen.",
-  "list.resultsFor": "Ergebnisse für \"{searchTerm}\"",
-  "card.deleteAria": "{name} löschen",
-  "card.editAria": "{name} bearbeiten",
-  "card.shareAria": "{name} teilen",
-  "card.lactoseFreeTooltip": "Laktosefrei",
-  "card.veganTooltip": "Vegan",
-  "card.glutenFreeTooltip": "Glutenfrei",
-  "card.productTooltip": "Verpacktes Produkt",
-  "card.dishTooltip": "Gericht im Restaurant",
-  "card.publicTooltip": "Mit der Community geteilt",
-  "card.privateTooltip": "Privater Eintrag",
-  "card.groupTooltip": "Mit einer Gruppe geteilt",
-  "card.dishAt": "bei {restaurant}",
-  "share.title": "Schau dir dieses Produkt an: {name}",
-  "share.text": "Ich habe \"{name}\" eine {rating}/5 Sterne Bewertung gegeben. Sieh dir meine Gedanken in der Food Memory Tracker App an!",
-  "share.text_unrated": "Schau dir \"{name}\" in der Food Memory Tracker App an!",
-  "camera.title": "Foto aufnehmen",
-  "camera.error": "Konnte nicht auf die Kamera zugreifen. Bitte überprüfe die Berechtigungen und versuche es erneut.",
-  "camera.error.permission": "Kamerazugriff verweigert. Bitte überprüfe deine Browser- und Systemeinstellungen, um die Erlaubnis zu erteilen.",
-  "camera.captureButton": "Foto aufnehmen",
-  "barcodeScanner.title": "Barcode scannen",
-  "barcodeScanner.description": "Richte deine Kamera auf den Barcode des Produkts.",
-  "barcodeScanner.error.permission": "Kamerazugriff verweigert. Bitte erlaube den Kamerazugriff in deinen Browsereinstellungen.",
-  "cropper.title": "Zuschnitt anpassen",
-  "cropper.description": "Passe die von der KI vorgeschlagene Auswahl an oder brich ab, um das ganze Bild zu verwenden.",
-  "cropper.button.cancel": "Abbrechen (Ganzes Bild)",
-  "cropper.button.confirm": "Zuschnitt bestätigen",
-  "modal.image.closeAria": "Bildansicht schließen",
-  "modal.duplicate.title": "Mögliches Duplikat gefunden",
-  "modal.duplicate.description": "Ein Eintrag mit dem Namen \"{itemName}\" existiert bereits. Bitte überprüfe die folgenden Einträge.",
-  "modal.duplicate.button.goBack": "Zurück & Bearbeiten",
-  "modal.duplicate.button.addAnyway": "Trotzdem hinzufügen",
-  "modal.shared.title": "Geteilter Eintrag",
-  "modal.shared.description": "Jemand hat diesen Eintrag mit dir geteilt. Möchtest du ihn zu deiner Liste hinzufügen?",
-  "modal.shared.addToList": "Zu meiner Liste hinzufügen",
-  "modal.shared.close": "Schließen",
-  "modal.shared.summaryNotice": "Hinweis: Dies ist eine Zusammenfassung. Details wie Notizen, Zutaten oder Allergene sind möglicherweise nicht enthalten.",
-  "modal.itemType.title": "Was fügst du hinzu?",
-  "modal.itemType.product": "Verpacktes Produkt",
-  "modal.itemType.dish": "Gericht im Restaurant",
-  "speechModal.title": "Namen diktieren",
-  "speechModal.description": "Beginne zu sprechen, und der Name wird transkribiert.",
-  "speechModal.listening": "Höre zu...",
-  "settings.title": "Einstellungen",
-  "settings.closeAria": "Einstellungen schließen",
-  "settings.theme.title": "Thema",
-  "settings.theme.light": "Hell",
-  "settings.theme.dark": "Dunkel",
-  "settings.theme.system": "System",
-  "settings.language.title": "Sprache",
-  "settings.ai.title": "KI-Funktionen",
-  "settings.ai.description": "Aktiviere die KI-Analyse, um Details automatisch aus Fotos auszufüllen.",
-  "settings.barcodeScanner.title": "Barcode-Scanner",
-  "settings.barcodeScanner.description": "Aktiviere den Barcode-Scanner, um Produkte nachzuschlagen.",
-  "settings.offSearch.title": "Lebensmittel-Datenbanksuche",
-  "settings.offSearch.description": "Aktiviere die automatische Suche nach Produktinformationen in der Open Food Facts-Datenbank.",
-  "settings.button.done": "Fertig",
-  "settings.session.title": "Konto",
-  "settings.session.loggedInAs": "Angemeldet als:",
-  "settings.session.logout": "Abmelden",
-  "auth.emailPlaceholder": "E-Mail",
-  "auth.passwordPlaceholder": "Passwort",
-  "auth.signIn": "Anmelden",
-  "auth.signUp": "Registrieren",
-  "auth.magicLink": "Magischen Link senden",
-  "auth.magicLinkSuccess": "Überprüfe deine E-Mails für den Anmelde-Link!",
-  "auth.toggle.signUp": "Kein Konto? Registrieren",
-  "auth.toggle.signIn": "Bereits ein Konto? Anmelden",
-  "auth.error.generic": "Authentifizierung fehlgeschlagen. Bitte versuche es erneut.",
-  "allergen.gluten": "Enthält Gluten",
-  "allergen.dairy": "Enthält Milchprodukte",
-  "allergen.peanuts": "Enthält Erdnüsse",
-  "allergen.tree_nuts": "Enthält Schalenfrüchte",
-  "allergen.soy": "Enthält Soja",
-  "allergen.eggs": "Enthält Eier",
-  "allergen.fish": "Enthält Fisch",
-  "allergen.shellfish": "Enthält Schalentiere",
-  "detail.notesTitle": "Notizen",
-  "detail.tagsTitle": "Tags",
-  "detail.ingredientsTitle": "Zutaten",
-  "detail.allergensTitle": "Allergene",
-  "detail.dietaryTitle": "Ernährungsinformationen",
-  "detail.status": "Status",
-  "detail.statusPublic": "Öffentlich",
-  "detail.statusPrivate": "Privat",
-  "detail.commentsTitle": "Kommentare",
-  "detail.noComments": "Sei der Erste, der einen Kommentar hinterlässt!",
-  "detail.addCommentPlaceholder": "Einen Kommentar hinzufügen...",
-  "detail.sendComment": "Senden",
-  "offline.message": "Du bist derzeit offline. Änderungen werden gespeichert und synchronisiert, wenn du wieder online bist.",
-  "offline.syncComplete": "Wieder online! Deine Daten wurden synchronisiert."
-};
-
-type Translations = typeof enTranslations;
-
-const I18nContext = createContext<{
-  language: 'en' | 'de';
-  setLanguage: (lang: 'en' | 'de') => void;
-  t: (key: keyof Translations, replacements?: Record<string, string | number>) => string;
-} | undefined>(undefined);
-
-const translations: Record<'en' | 'de', Translations> = {
-  en: enTranslations,
-  de: deTranslations,
-};
-
-// Function to handle pluralization and replacements
-const translate = (key: keyof Translations, lang: 'en' | 'de', replacements: Record<string, string | number> = {}): string => {
-  let translation = translations[lang][key] || translations['en'][key];
-  
-  // Basic replacement
-  Object.keys(replacements).forEach(placeholder => {
-    // Basic pluralization for {count}
-    if (placeholder === 'count' && typeof replacements[placeholder] === 'number') {
-        const count = replacements[placeholder] as number;
-        const pluralRules = new Intl.PluralRules(lang);
-        const pluralCategory = pluralRules.select(count);
-        
-        // Attempt to find a pluralized version of the key
-        const pluralKey = `${key}.${pluralCategory}`;
-        if (translations[lang][pluralKey as keyof Translations]) {
-            translation = translations[lang][pluralKey as keyof Translations];
-        }
+const translations: Record<Language, any> = {
+  en: {
+    header: {
+      title: "Food Memory Tracker"
+    },
+    form: {
+      addNewButton: 'Add New Item',
+    },
+    // Add other keys as needed with default values
+    // This is just to make the app runnable
+  },
+  de: {
+    header: {
+      title: "Lebensmittel-Gedächtnis-Tracker"
+    },
+    form: {
+      addNewButton: 'Neuen Eintrag hinzufügen',
     }
-    
-    const regex = new RegExp(`{${placeholder}}`, 'g');
-    translation = translation.replace(regex, String(replacements[placeholder]));
-  });
-
-  return translation;
+  }
 };
 
+interface I18nContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string, options?: { [key: string]: string | number | undefined }) => string;
+}
+
+const I18nContext = createContext<I18nContextType | undefined>(undefined);
 
 export const I18nProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<'en' | 'de'>(() => {
-    const savedLang = localStorage.getItem('language') as 'en' | 'de';
-    if (savedLang) return savedLang;
-    
+  const [language, setLanguageState] = useState<Language>(() => {
+    const savedLang = localStorage.getItem('language');
+    if (savedLang === 'en' || savedLang === 'de') {
+      return savedLang;
+    }
+    // Default to browser language if available
     const browserLang = navigator.language.split('-')[0];
-    return browserLang === 'de' ? 'de' : 'en';
+    if (browserLang === 'de') return 'de';
+    return 'en';
   });
 
-  const setLanguage = useCallback((lang: 'en' | 'de') => {
+  const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
     localStorage.setItem('language', lang);
   }, []);
 
-  const t = useCallback((key: keyof Translations, replacements?: Record<string, string | number>) => {
-    return translate(key, language, replacements);
+  const t = useCallback((key: string, options?: { [key: string]: string | number | undefined }) => {
+    const langTranslations = translations[language] || translations.en;
+    let translation = key.split('.').reduce((obj, keyPart) => obj && obj[keyPart], langTranslations);
+    
+    if (!translation) {
+      translation = key.split('.').reduce((obj, keyPart) => obj && obj[keyPart], translations.en);
+    }
+    
+    if (typeof translation !== 'string') {
+      return key;
+    }
+
+    let result = translation;
+    if (options) {
+      Object.keys(options).forEach(optionKey => {
+        const value = options[optionKey];
+        if (value !== undefined) {
+          result = result.replace(new RegExp(`{{${optionKey}}}`, 'g'), String(value));
+        }
+      });
+    }
+
+    return result;
   }, [language]);
 
-  const value = useMemo(() => ({ language, setLanguage, t }), [language, setLanguage, t]);
+  const value = { language, setLanguage, t };
 
   return React.createElement(I18nContext.Provider, { value }, children);
 };
 
-export const useTranslation = () => {
+export const useTranslation = (): I18nContextType => {
   const context = useContext(I18nContext);
   if (context === undefined) {
-    throw new Error('useTranslation must be used within an I18nProvider');
+    throw new Error('useTranslation must be used within a I18nProvider');
   }
   return context;
 };
