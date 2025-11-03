@@ -2,16 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../services/supabaseClient';
 import { FoodItem, ShoppingList, ShoppingListItem, ShoppingListMember, UserProfile, HydratedShoppingListItem, Like, CommentWithProfile } from '../types';
 import { useToast } from '../contexts/ToastContext';
-// FIX: Added useState to the import from react.
 import { useMemo, useState } from 'react';
 
 // --- Query Keys Factory ---
 const queryKeys = {
     all: ['allData'] as const,
-    foodItems: (userId?: string) => [...queryKeys.all, 'foodItems', userId] as const,
-    publicItems: () => [...queryKeys.all, 'publicItems'] as const,
-    social: () => [...queryKeys.all, 'social'] as const, // likes and comments
-    groups: (userId?: string) => [...queryKeys.all, 'groups', userId] as const,
+    userData: (userId?: string) => [...queryKeys.all, 'userData', userId] as const,
+    publicData: () => [...queryKeys.all, 'publicData'] as const,
     profiles: () => [...queryKeys.all, 'profiles'] as const,
 };
 
@@ -38,7 +35,7 @@ export const useData = (userId?: string) => {
     // --- QUERIES (Data Fetching) ---
 
     const { data: allData, isLoading: isInitialLoading } = useQuery<AllUserData>({
-        queryKey: queryKeys.foodItems(userId),
+        queryKey: queryKeys.userData(userId),
         queryFn: async () => {
             if (!userId) return { foodItems: [], shoppingLists: [], shoppingListItems: [], memberships: [] };
             
@@ -78,7 +75,7 @@ export const useData = (userId?: string) => {
     });
     
     const { data: publicData, isLoading: isPublicLoading } = useQuery<PublicData>({
-        queryKey: queryKeys.publicItems(),
+        queryKey: queryKeys.publicData(),
         queryFn: async () => {
              const publicItemsPromise = supabase.from('food_items').select('*').eq('isPublic', true).neq('user_id', userId || '').order('created_at', { ascending: false }).limit(50);
              const likesPromise = supabase.from('likes').select('*');
@@ -128,65 +125,88 @@ export const useData = (userId?: string) => {
 
     // --- MUTATIONS (Data Modification) ---
 
-    const useGenericMutation = <TVariables, TContext>(
-        mutationFn: (variables: TVariables) => Promise<any>,
-        queryKey: readonly unknown[],
-        successMessage: string,
-        optimisticUpdate?: (variables: TVariables) => (oldData: TContext | undefined) => TContext | undefined
-    ) => {
-        return useMutation({
-            mutationFn,
-            onMutate: async (variables: TVariables) => {
-                if (!optimisticUpdate) return;
-                await queryClient.cancelQueries({ queryKey });
-                const previousData = queryClient.getQueryData<TContext>(queryKey);
-                queryClient.setQueryData<TContext>(queryKey, optimisticUpdate(variables));
-                return { previousData };
-            },
-            onError: (err, variables, context: any) => {
-                addToast({ message: `Error: ${(err as Error).message}`, type: 'error' });
-                if (context?.previousData) {
-                    queryClient.setQueryData(queryKey, context.previousData);
-                }
-            },
-            onSuccess: () => {
-                if (successMessage) {
-                    addToast({ message: successMessage, type: 'success' });
-                }
-            },
-            onSettled: () => {
-                queryClient.invalidateQueries({ queryKey });
-            },
-        });
-    };
-    
-    const addFoodItem = useGenericMutation<Omit<FoodItem, 'id' | 'user_id' | 'created_at'>, AllUserData>(
-        (newItem) => supabase.from('food_items').insert({ ...newItem, user_id: userId! }).select().single().then(res => { if (res.error) throw res.error; return res.data; }),
-        queryKeys.foodItems(userId),
-        "Item added successfully!",
-        (newItem) => (oldData) => {
-            if (!oldData) return oldData;
-            const optimisticItem: FoodItem = { ...newItem, id: `temp-${Date.now()}`, user_id: userId!, created_at: new Date().toISOString(), rating: newItem.rating || 0, itemType: newItem.itemType || 'product' };
-            return { ...oldData, foodItems: [optimisticItem, ...oldData.foodItems] };
-        }
-    );
-    
-    const updateFoodItem = useGenericMutation<{id: string} & Partial<FoodItem>, AllUserData>(
-        (updatedItem) => supabase.from('food_items').update(updatedItem).eq('id', updatedItem.id).select().single().then(res => { if (res.error) throw res.error; return res.data; }),
-        queryKeys.foodItems(userId),
-        "Item updated successfully!",
-        (updatedItem) => (oldData) => oldData ? { ...oldData, foodItems: oldData.foodItems.map(item => item.id === updatedItem.id ? { ...item, ...updatedItem } : item) } : oldData
-    );
+    const addFoodItem = useMutation({
+        mutationFn: (newItem: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) =>
+            supabase.from('food_items').insert({ ...newItem, user_id: userId! }).select().single().then(res => {
+                if (res.error) throw res.error;
+                return res.data as FoodItem;
+            }),
+        onMutate: async (newItem) => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.userData(userId) });
+            const previousData = queryClient.getQueryData<AllUserData>(queryKeys.userData(userId));
+            queryClient.setQueryData<AllUserData>(queryKeys.userData(userId), (oldData) => {
+                if (!oldData) return undefined;
+                const optimisticItem: FoodItem = { ...newItem, id: `temp-${Date.now()}`, user_id: userId!, created_at: new Date().toISOString(), rating: newItem.rating || 0, itemType: newItem.itemType || 'product' };
+                return { ...oldData, foodItems: [optimisticItem, ...oldData.foodItems] };
+            });
+            return { previousData };
+        },
+        onSuccess: (data) => {
+            addToast({ message: "Item added successfully!", type: 'success' });
+            queryClient.setQueryData<AllUserData>(queryKeys.userData(userId), (oldData) => {
+                if (!oldData) return oldData;
+                const newItems = oldData.foodItems.filter(item => !item.id.toString().startsWith('temp-'));
+                newItems.unshift(data);
+                return { ...oldData, foodItems: newItems };
+            });
+        },
+        onError: (err, newItem, context) => {
+            addToast({ message: `Error: ${(err as Error).message}`, type: 'error' });
+            if (context?.previousData) {
+                queryClient.setQueryData(queryKeys.userData(userId), context.previousData);
+            }
+        },
+    });
 
-    const deleteFoodItem = useGenericMutation<string, AllUserData>(
-        (id) => supabase.from('food_items').delete().eq('id', id),
-        queryKeys.foodItems(userId),
-        "Item deleted.",
-        (id) => (oldData) => oldData ? { ...oldData, foodItems: oldData.foodItems.filter(item => item.id !== id) } : oldData
-    );
+    const updateFoodItem = useMutation({
+        mutationFn: (updatedItem: {id: string} & Partial<FoodItem>) => 
+            supabase.from('food_items').update(updatedItem).eq('id', updatedItem.id).select().single().then(res => {
+                if (res.error) throw res.error; return res.data as FoodItem;
+            }),
+        onMutate: async (updatedItem) => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.userData(userId) });
+            const previousData = queryClient.getQueryData<AllUserData>(queryKeys.userData(userId));
+            queryClient.setQueryData<AllUserData>(queryKeys.userData(userId), (oldData) =>
+                oldData ? { ...oldData, foodItems: oldData.foodItems.map(item => item.id === updatedItem.id ? { ...item, ...updatedItem } : item) } : oldData
+            );
+            return { previousData };
+        },
+        onSuccess: (data) => {
+            addToast({ message: "Item updated successfully!", type: 'success' });
+             queryClient.setQueryData<AllUserData>(queryKeys.userData(userId), (oldData) => {
+                if (!oldData) return oldData;
+                return { ...oldData, foodItems: oldData.foodItems.map(item => item.id === data.id ? data : item) };
+            });
+        },
+        onError: (err, updatedItem, context) => {
+            addToast({ message: `Error: ${(err as Error).message}`, type: 'error' });
+            if (context?.previousData) {
+                queryClient.setQueryData(queryKeys.userData(userId), context.previousData);
+            }
+        },
+    });
+
+    const deleteFoodItem = useMutation({
+        mutationFn: (id: string) => supabase.from('food_items').delete().eq('id', id),
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.userData(userId) });
+            const previousData = queryClient.getQueryData<AllUserData>(queryKeys.userData(userId));
+            queryClient.setQueryData<AllUserData>(queryKeys.userData(userId), (oldData) =>
+                oldData ? { ...oldData, foodItems: oldData.foodItems.filter(item => item.id !== id) } : oldData
+            );
+            return { previousData };
+        },
+        onSuccess: () => addToast({ message: "Item deleted.", type: 'success' }),
+        onError: (err, id, context) => {
+            addToast({ message: `Error: ${(err as Error).message}`, type: 'error' });
+            if (context?.previousData) {
+                queryClient.setQueryData(queryKeys.userData(userId), context.previousData);
+            }
+        },
+    });
     
-    const addShoppingList = useGenericMutation<string, AllUserData>(
-        (name) => supabase.from('shopping_lists').insert({ name, owner_id: userId! }).select().single().then(async (res) => {
+    const addShoppingList = useMutation({
+       mutationFn: (name: string) => supabase.from('shopping_lists').insert({ name, owner_id: userId! }).select().single().then(async (res) => {
             if (res.error) throw res.error;
             const newList = res.data;
             const { error: memberError } = await supabase.from('shopping_list_members').insert({ list_id: newList.id, user_id: userId! });
@@ -196,45 +216,91 @@ export const useData = (userId?: string) => {
             }
             return newList;
         }),
-        queryKeys.foodItems(userId),
-        "Group created successfully!"
-    );
+        onSuccess: () => {
+            addToast({ message: "Group created successfully!", type: 'success' });
+            queryClient.invalidateQueries({ queryKey: queryKeys.userData(userId) });
+        },
+        onError: (err) => addToast({ message: `Error: ${(err as Error).message}`, type: 'error' }),
+    });
 
-    const deleteShoppingList = useGenericMutation<string, AllUserData>(
-        (id) => supabase.from('shopping_lists').delete().eq('id', id),
-        queryKeys.foodItems(userId),
-        "Group deleted."
-    );
+    const deleteShoppingList = useMutation({
+        mutationFn: (id: string) => supabase.from('shopping_lists').delete().eq('id', id),
+        onSuccess: () => {
+            addToast({ message: "Group deleted.", type: 'success' });
+            queryClient.invalidateQueries({ queryKey: queryKeys.userData(userId) });
+        },
+        onError: (err) => addToast({ message: `Error: ${(err as Error).message}`, type: 'error' }),
+    });
     
-    const leaveShoppingList = useGenericMutation<string, AllUserData>(
-         (id) => supabase.from('shopping_list_members').delete().eq('list_id', id).eq('user_id', userId!),
-         queryKeys.foodItems(userId),
-        "You have left the group."
-    );
+    const leaveShoppingList = useMutation({
+        mutationFn: (id: string) => supabase.from('shopping_list_members').delete().eq('list_id', id).eq('user_id', userId!),
+        onSuccess: () => {
+            addToast({ message: "You have left the group.", type: 'success' });
+            queryClient.invalidateQueries({ queryKey: queryKeys.userData(userId) });
+        },
+        onError: (err) => addToast({ message: `Error: ${(err as Error).message}`, type: 'error' }),
+    });
 
-    const toggleListItemChecked = useGenericMutation<{id: string, isChecked: boolean, userId: string | null}, AllUserData>(
-        ({id, isChecked, userId}) => supabase.from('shopping_list_items').update({ checked: isChecked, checked_by_user_id: isChecked ? userId : null }).eq('id', id),
-        queryKeys.foodItems(userId),
-        "List updated.",
-        ({id, isChecked, userId}) => (oldData) => oldData ? { ...oldData, shoppingListItems: oldData.shoppingListItems.map(item => item.id === id ? {...item, checked: isChecked, checked_by_user_id: isChecked ? userId : null} : item) } : oldData
-    );
+    const toggleListItemChecked = useMutation({
+        mutationFn: ({id, isChecked, userId}: {id: string, isChecked: boolean, userId: string | null}) => 
+            supabase.from('shopping_list_items').update({ checked: isChecked, checked_by_user_id: isChecked ? userId : null }).eq('id', id),
+        onMutate: async (variables) => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.userData(userId) });
+            const previousData = queryClient.getQueryData<AllUserData>(queryKeys.userData(userId));
+            queryClient.setQueryData<AllUserData>(queryKeys.userData(userId), (oldData) => 
+                oldData ? { ...oldData, shoppingListItems: oldData.shoppingListItems.map(item => item.id === variables.id ? {...item, checked: variables.isChecked, checked_by_user_id: variables.isChecked ? variables.userId : null} : item) } : oldData
+            );
+            return { previousData };
+        },
+        onSuccess: () => addToast({ message: "List updated.", type: 'success' }),
+        onError: (err, variables, context) => {
+            addToast({ message: `Error: ${(err as Error).message}`, type: 'error' });
+            if (context?.previousData) {
+                queryClient.setQueryData(queryKeys.userData(userId), context.previousData);
+            }
+        },
+    });
 
-    const removeListItem = useGenericMutation<string, AllUserData>(
-        (id) => supabase.from('shopping_list_items').delete().eq('id', id),
-        queryKeys.foodItems(userId),
-        "Item removed from list.",
-        (id) => (oldData) => oldData ? { ...oldData, shoppingListItems: oldData.shoppingListItems.filter(item => item.id !== id)} : oldData
-    );
+    const removeListItem = useMutation({
+        mutationFn: (id: string) => supabase.from('shopping_list_items').delete().eq('id', id),
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.userData(userId) });
+            const previousData = queryClient.getQueryData<AllUserData>(queryKeys.userData(userId));
+            queryClient.setQueryData<AllUserData>(queryKeys.userData(userId), (oldData) => 
+                oldData ? { ...oldData, shoppingListItems: oldData.shoppingListItems.filter(item => item.id !== id)} : oldData
+            );
+            return { previousData };
+        },
+        onSuccess: () => addToast({ message: "Item removed from list.", type: 'success' }),
+        onError: (err, id, context) => {
+            addToast({ message: `Error: ${(err as Error).message}`, type: 'error' });
+            if (context?.previousData) {
+                queryClient.setQueryData(queryKeys.userData(userId), context.previousData);
+            }
+        },
+    });
     
-    const clearCheckedListItems = useGenericMutation<string, AllUserData>(
-        (listId) => supabase.from('shopping_list_items').delete().eq('list_id', listId).eq('checked', true),
-        queryKeys.foodItems(userId),
-        "Checked items cleared.",
-        (listId) => (oldData) => oldData ? { ...oldData, shoppingListItems: oldData.shoppingListItems.filter(item => !(item.list_id === listId && item.checked)) } : oldData
-    );
+    const clearCheckedListItems = useMutation({
+        mutationFn: (listId: string) => supabase.from('shopping_list_items').delete().eq('list_id', listId).eq('checked', true),
+        onMutate: async (listId) => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.userData(userId) });
+            const previousData = queryClient.getQueryData<AllUserData>(queryKeys.userData(userId));
+            queryClient.setQueryData<AllUserData>(queryKeys.userData(userId), (oldData) => 
+                oldData ? { ...oldData, shoppingListItems: oldData.shoppingListItems.filter(item => !(item.list_id === listId && item.checked)) } : oldData
+            );
+            return { previousData };
+        },
+        onSuccess: () => addToast({ message: "Checked items cleared.", type: 'success' }),
+        onError: (err, listId, context) => {
+            addToast({ message: `Error: ${(err as Error).message}`, type: 'error' });
+            if (context?.previousData) {
+                queryClient.setQueryData(queryKeys.userData(userId), context.previousData);
+            }
+        },
+    });
 
-    const toggleLike = useGenericMutation<{foodItemId: string, userId: string}, PublicData>(
-        async ({ foodItemId, userId }) => {
+    const toggleLike = useMutation({
+        mutationFn: async ({ foodItemId, userId }: {foodItemId: string, userId: string}) => {
             const existingLike = (publicData?.likes || []).find(l => l.food_item_id === foodItemId && l.user_id === userId);
             if (existingLike) {
                 return supabase.from('likes').delete().eq('id', existingLike.id);
@@ -242,42 +308,88 @@ export const useData = (userId?: string) => {
                 return supabase.from('likes').insert({ food_item_id: foodItemId, user_id: userId });
             }
         },
-        queryKeys.publicItems(),
-        "", // Muted success message for likes
-        ({foodItemId, userId}) => (oldData) => {
-            if (!oldData) return oldData;
-            const existingLike = oldData.likes.find(l => l.food_item_id === foodItemId && l.user_id === userId);
-            const newLikes = existingLike
-                ? oldData.likes.filter(l => l.id !== existingLike.id)
-                : [...oldData.likes, { id: `temp-${Date.now()}`, food_item_id: foodItemId, user_id: userId, created_at: new Date().toISOString() }];
-            return { ...oldData, likes: newLikes };
+        onMutate: async ({foodItemId, userId}) => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.publicData() });
+            const previousData = queryClient.getQueryData<PublicData>(queryKeys.publicData());
+            queryClient.setQueryData<PublicData>(queryKeys.publicData(), (oldData) => {
+                if (!oldData) return oldData;
+                const existingLike = oldData.likes.find(l => l.food_item_id === foodItemId && l.user_id === userId);
+                const newLikes = existingLike
+                    ? oldData.likes.filter(l => l.id !== existingLike.id)
+                    : [...oldData.likes, { id: `temp-${Date.now()}`, food_item_id: foodItemId, user_id: userId, created_at: new Date().toISOString() }];
+                return { ...oldData, likes: newLikes };
+            });
+            return { previousData };
+        },
+        onError: (err, variables, context) => {
+            addToast({ message: `Error: ${(err as Error).message}`, type: 'error' });
+            if (context?.previousData) {
+                queryClient.setQueryData(queryKeys.publicData(), context.previousData);
+            }
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: queryKeys.publicData() });
         }
-    );
+    });
 
-    const addComment = useGenericMutation<{foodItemId: string, content: string, userId: string}, PublicData>(
-        ({ foodItemId, content, userId }) => supabase.from('comments').insert({ food_item_id: foodItemId, content, user_id: userId }),
-        queryKeys.publicItems(),
-        "Comment posted.",
-        ({ foodItemId, content, userId }) => (oldData) => {
-            if (!oldData) return oldData;
-            const optimisticComment: CommentWithProfile = { 
-                id: `temp-${Date.now()}`, 
-                food_item_id: foodItemId, 
-                content, 
-                user_id: userId, 
-                created_at: new Date().toISOString(), 
-                profiles: { display_name: allProfiles[userId]?.display_name || 'You' } 
-            };
-            return { ...oldData, comments: [...oldData.comments, optimisticComment] };
+    const addComment = useMutation({
+        mutationFn: ({ foodItemId, content, userId }: {foodItemId: string, content: string, userId: string}) => 
+            supabase.from('comments').insert({ food_item_id: foodItemId, content, user_id: userId }).select(`*, profiles(display_name)`).single().then(res => {
+                if (res.error) throw res.error;
+                return res.data as CommentWithProfile;
+            }),
+        onMutate: async ({ foodItemId, content, userId }) => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.publicData() });
+            const previousData = queryClient.getQueryData<PublicData>(queryKeys.publicData());
+            queryClient.setQueryData<PublicData>(queryKeys.publicData(), (oldData) => {
+                if (!oldData) return oldData;
+                const optimisticComment: CommentWithProfile = { 
+                    id: `temp-${Date.now()}`, 
+                    food_item_id: foodItemId, 
+                    content, 
+                    user_id: userId, 
+                    created_at: new Date().toISOString(), 
+                    profiles: { display_name: allProfiles[userId]?.display_name || 'You' } 
+                };
+                return { ...oldData, comments: [...oldData.comments, optimisticComment] };
+            });
+            return { previousData };
+        },
+        onSuccess: (data) => {
+            addToast({ message: "Comment posted.", type: 'success' });
+            queryClient.setQueryData<PublicData>(queryKeys.publicData(), (oldData) => {
+                if (!oldData) return oldData;
+                 const newComments = oldData.comments.filter(c => !c.id.toString().startsWith('temp-'));
+                 newComments.push(data);
+                return { ...oldData, comments: newComments };
+            });
+        },
+        onError: (err, variables, context) => {
+             addToast({ message: `Error: ${(err as Error).message}`, type: 'error' });
+            if (context?.previousData) {
+                queryClient.setQueryData(queryKeys.publicData(), context.previousData);
+            }
         }
-    );
+    });
     
-    const deleteComment = useGenericMutation<string, PublicData>(
-        (id) => supabase.from('comments').delete().eq('id', id),
-        queryKeys.publicItems(),
-        "Comment deleted.",
-        (id) => (oldData) => oldData ? { ...oldData, comments: oldData.comments.filter(c => c.id !== id) } : oldData
-    );
+    const deleteComment = useMutation({
+        mutationFn: (id: string) => supabase.from('comments').delete().eq('id', id),
+        onMutate: async (id) => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.publicData() });
+            const previousData = queryClient.getQueryData<PublicData>(queryKeys.publicData());
+            queryClient.setQueryData<PublicData>(queryKeys.publicData(), (oldData) => 
+                oldData ? { ...oldData, comments: oldData.comments.filter(c => c.id !== id) } : oldData
+            );
+            return { previousData };
+        },
+        onSuccess: () => addToast({ message: "Comment deleted.", type: 'success' }),
+        onError: (err, id, context) => {
+            addToast({ message: `Error: ${(err as Error).message}`, type: 'error' });
+            if (context?.previousData) {
+                queryClient.setQueryData(queryKeys.publicData(), context.previousData);
+            }
+        },
+    });
     
      // --- Active Shopping List Data Hydration ---
     const [activeListId, setActiveListId] = useState<string | null>(null);
