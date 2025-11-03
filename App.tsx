@@ -376,8 +376,29 @@ const App: React.FC = () => {
                 {view === 'list' && <FoodItemList items={filteredItems} onDelete={handleDeleteItem} onEdit={(id) => openForm(userFoodItems.find(i=>i.id===id)!.itemType, userFoodItems.find(i => i.id === id))} onViewDetails={setIsDetailModalOpen} onAddToGroupShoppingList={handleAddToGroupShoppingList} />}
                 {view === 'discover' && <DiscoverView items={publicFoodItems} isLoading={isPublicItemsLoading} onViewDetails={setIsDetailModalOpen} likes={likes} comments={comments} />}
                 {view === 'groups' && <GroupsView shoppingLists={shoppingLists} members={shoppingListMembers} onSelectList={selectShoppingList} onCreateList={async (name) => {
-                    const { data } = await supabase.from('shopping_lists').insert({ name, owner_id: user!.id }).select().single();
-                    if(data) fetchData();
+                    if (!user) return;
+                    const { data: newList, error: listError } = await supabase
+                        .from('shopping_lists')
+                        .insert({ name, owner_id: user.id })
+                        .select()
+                        .single();
+
+                    if (listError) {
+                        console.error('Error creating list:', listError);
+                        return;
+                    }
+                    
+                    if (newList) {
+                        const { error: memberError } = await supabase
+                            .from('shopping_list_members')
+                            .insert({ list_id: newList.id, user_id: user.id });
+
+                        if (memberError) {
+                            console.error('Error adding owner as member:', memberError);
+                        }
+                        
+                        fetchData();
+                    }
                 }} />}
             </main>
             

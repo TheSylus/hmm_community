@@ -1,11 +1,11 @@
 import React from 'react';
-import { ShoppingList, ShoppingListMember } from '../types';
+import { ShoppingList, UserProfile } from '../types';
 import { useTranslation } from '../i18n';
 import { UserGroupIcon, PlusCircleIcon } from './Icons';
 
 interface GroupsViewProps {
   shoppingLists: ShoppingList[];
-  members: Record<string, ShoppingListMember[]>;
+  members: Record<string, UserProfile[]>;
   onSelectList: (listId: string) => void;
   onCreateList: (name: string) => void;
 }
