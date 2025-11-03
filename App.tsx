@@ -377,28 +377,52 @@ const App: React.FC = () => {
                 {view === 'discover' && <DiscoverView items={publicFoodItems} isLoading={isPublicItemsLoading} onViewDetails={setIsDetailModalOpen} likes={likes} comments={comments} />}
                 {view === 'groups' && <GroupsView shoppingLists={shoppingLists} members={shoppingListMembers} onSelectList={selectShoppingList} onCreateList={async (name) => {
                     if (!user) return;
+                    
+                    // Step 1: Create the new shopping list
                     const { data: newList, error: listError } = await supabase
                         .from('shopping_lists')
                         .insert({ name, owner_id: user.id })
                         .select()
                         .single();
 
-                    if (listError) {
-                        console.error('Error creating list:', listError);
+                    if (listError || !newList) {
+                        console.error('Error creating list:', listError?.message || 'Returned data is null.');
+                        alert("Sorry, there was a problem creating the group. Please check your connection and try again.");
                         return;
                     }
                     
-                    if (newList) {
-                        const { error: memberError } = await supabase
-                            .from('shopping_list_members')
-                            .insert({ list_id: newList.id, user_id: user.id });
-
-                        if (memberError) {
-                            console.error('Error adding owner as member:', memberError);
-                        }
-                        
-                        fetchData();
+                    // Optimistically update the UI so the user sees the new group immediately
+                    setShoppingLists(prevLists => [...prevLists, newList]);
+                    const currentUserProfile = allProfiles[user.id];
+                    if (currentUserProfile) {
+                        setShoppingListMembers(prevMembers => ({
+                            ...prevMembers,
+                            [newList.id]: [currentUserProfile]
+                        }));
                     }
+
+                    // Step 2: Add the owner as the first member.
+                    // The insert method expects an array of objects.
+                    const { error: memberError } = await supabase
+                        .from('shopping_list_members')
+                        .insert([{ list_id: newList.id, user_id: user.id }]);
+
+                    if (memberError) {
+                        console.error('Critical error: Failed to add creator as a group member:', memberError.message);
+                        alert("The group was created, but we couldn't add you as a member. The group will not be visible. This might be a permissions issue (RLS).");
+                        
+                        // Rollback the optimistic update
+                        setShoppingLists(prevLists => prevLists.filter(l => l.id !== newList.id));
+                        setShoppingListMembers(prevMembers => {
+                            const updatedMembers = { ...prevMembers };
+                            delete updatedMembers[newList.id];
+                            return updatedMembers;
+                        });
+                        return;
+                    }
+                    
+                    // Call fetchData to ensure full consistency with the backend.
+                    await fetchData();
                 }} />}
             </main>
             
