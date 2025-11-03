@@ -40,36 +40,20 @@ export const useData = (userId?: string) => {
         queryFn: async () => {
             if (!userId) return { foodItems: [], shoppingLists: [], shoppingListItems: [], memberships: [] };
             
-            const foodItemsPromise = supabase.from('food_items').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-            const shoppingListsPromise = supabase.rpc('get_user_shopping_lists');
+            // Replaced the multi-query waterfall with a single, efficient RPC call.
+            const { data, error } = await supabase.rpc('get_all_user_data');
             
-            const [
-                { data: foodItems, error: foodError },
-                { data: shoppingLists, error: listError }
-            ] = await Promise.all([foodItemsPromise, shoppingListsPromise]);
-
-            if (foodError) throw foodError;
-            if (listError) throw listError;
+            if (error) {
+              console.error("Error fetching all user data:", error);
+              throw error;
+            }
             
-            const listIds = (shoppingLists || []).map(l => l.id);
-            if (listIds.length === 0) return { foodItems: foodItems || [], shoppingLists: shoppingLists || [], shoppingListItems: [], memberships: [] };
-            
-            const listItemsPromise = supabase.from('shopping_list_items').select('*').in('list_id', listIds);
-            const membershipsPromise = supabase.from('shopping_list_members').select('*').in('list_id', listIds);
-
-            const [
-                { data: shoppingListItems, error: listItemsError },
-                { data: memberships, error: membersError }
-            ] = await Promise.all([listItemsPromise, membershipsPromise]);
-
-            if (listItemsError) throw listItemsError;
-            if (membersError) throw membersError;
-
+            // The RPC returns a single JSON object with all the data structured correctly.
             return {
-                foodItems: foodItems || [],
-                shoppingLists: shoppingLists || [],
-                shoppingListItems: shoppingListItems || [],
-                memberships: memberships || []
+                foodItems: data.foodItems || [],
+                shoppingLists: data.shoppingLists || [],
+                shoppingListItems: data.shoppingListItems || [],
+                memberships: data.memberships || [],
             };
         },
         enabled: !!userId,
