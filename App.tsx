@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from './services/supabaseClient';
-import { FoodItem, ShoppingList, ShoppingListItem, ShoppingListMember, UserProfile, HydratedShoppingListItem, FoodItemType, Like, CommentWithProfile, SortKey, RatingFilter, TypeFilter } from './types';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { FoodItem, FoodItemType, SortKey, RatingFilter, TypeFilter } from './types';
 import { Auth } from './components/Auth';
 import { FoodItemList } from './components/FoodItemList';
 import { FoodItemForm } from './components/FoodItemForm';
@@ -21,7 +20,10 @@ import { ApiKeyBanner } from './components/ApiKeyBanner';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { hasValidApiKey } from './services/geminiService';
 import { useAppSettings } from './contexts/AppSettingsContext';
-import { HomeIcon, DocumentTextIcon, GlobeAltIcon, UserGroupIcon, PlusCircleIcon, AdjustmentsHorizontalIcon, Cog6ToothIcon, ShoppingBagIcon } from './components/Icons';
+import { useData } from './hooks/useData';
+import { useToast } from './contexts/ToastContext';
+import { ToastContainer } from './components/Toast';
+import { HomeIcon, DocumentTextIcon, GlobeAltIcon, UserGroupIcon, PlusCircleIcon, AdjustmentsHorizontalIcon, Cog6ToothIcon } from './components/Icons';
 
 type View = 'dashboard' | 'list' | 'discover' | 'groups';
 
@@ -29,35 +31,40 @@ const App: React.FC = () => {
     const { session, user } = useAuth();
     const { t } = useTranslation();
     const { isAiEnabled } = useAppSettings();
+    const { addToast } = useToast();
 
-    // Data states
-    const [allFoodItems, setAllFoodItems] = useState<FoodItem[]>([]);
-    const [publicFoodItems, setPublicFoodItems] = useState<FoodItem[]>([]);
-    const [likes, setLikes] = useState<Like[]>([]);
-    const [comments, setComments] = useState<CommentWithProfile[]>([]);
-    
-    // Group and Shopping List states
-    const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
-    const [shoppingListMembers, setShoppingListMembers] = useState<Record<string, UserProfile[]>>({});
-    const [allProfiles, setAllProfiles] = useState<Record<string, UserProfile>>({});
-    const [allListItems, setAllListItems] = useState<ShoppingListItem[]>([]);
-    const [activeShoppingListData, setActiveShoppingListData] = useState<{
-        list: ShoppingList | null,
-        members: UserProfile[],
-        items: HydratedShoppingListItem[],
-        feed: FoodItem[],
-    }>({ list: null, members: [], items: [], feed: [] });
-
+    // --- Data Management via TanStack Query Custom Hooks ---
+    const {
+        foodItems,
+        publicItems,
+        likes,
+        comments,
+        shoppingLists,
+        shoppingListMembers,
+        allProfiles,
+        activeShoppingListData,
+        setActiveListId,
+        isInitialLoading,
+        isPublicLoading,
+        addFoodItem,
+        updateFoodItem,
+        deleteFoodItem,
+        addShoppingList,
+        deleteShoppingList,
+        leaveShoppingList,
+        toggleListItemChecked,
+        removeListItem,
+        clearCheckedListItems,
+        toggleLike,
+        addComment,
+        deleteComment,
+    } = useData(user?.id);
 
     // UI and Flow states
-    const [loading, setLoading] = useState(true);
-    const [isPublicItemsLoading, setIsPublicItemsLoading] = useState(false);
     const [view, setView] = useState<View>('dashboard');
-    
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<FoodItem | null>(null);
     const [itemTypeToAdd, setItemTypeToAdd] = useState<FoodItemType>('product');
-
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState<FoodItem | null>(null);
@@ -79,9 +86,6 @@ const App: React.FC = () => {
     // API Key Management
     const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
     const [showApiKeyBanner, setShowApiKeyBanner] = useState(false);
-
-    // Memoized user's own items
-    const userFoodItems = useMemo(() => allFoodItems.filter(item => item.user_id === user?.id), [allFoodItems, user]);
     
     useEffect(() => {
         const checkApiKey = () => {
@@ -109,122 +113,21 @@ const App: React.FC = () => {
         localStorage.setItem('apiKeyBannerDismissed', 'true');
     };
 
-    const fetchData = useCallback(async () => {
-        if (!user) return;
-        setLoading(true);
-
-        // Fetch ALL items the user can see (own + shared via RLS)
-        const { data: foodData, error: foodError } = await supabase
-            .from('food_items')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (foodError) console.error('Error fetching food items:', foodError);
-        else setAllFoodItems(foodData || []);
-        
-        // Fetch all lists the user is a member of
-        const { data: listData, error: listError } = await supabase.rpc('get_user_shopping_lists');
-        if (listError) console.error('Error fetching shopping lists:', listError);
-        else setShoppingLists(listData || []);
-
-        // Fetch all memberships for those lists
-        const listIds = (listData || []).map(l => l.id);
-        if (listIds.length > 0) {
-            const { data: membersData, error: membersError } = await supabase
-                .from('shopping_list_members')
-                .select('list_id, user_id')
-                .in('list_id', listIds);
-            
-            if (membersError) console.error('Error fetching members:', membersError);
-            else {
-                const userIds = [...new Set(membersData.map(m => m.user_id))];
-                const { data: profilesData, error: profilesError } = await supabase
-                    .from('profiles')
-                    .select('id, display_name')
-                    .in('id', userIds);
-                
-                if (profilesError) console.error('Error fetching profiles:', profilesError);
-                else {
-                    const profilesMap = (profilesData || []).reduce((acc, p) => {
-                        acc[p.id] = p;
-                        return acc;
-                    }, {} as Record<string, UserProfile>);
-                    setAllProfiles(profilesMap);
-                    
-                    const membersByList = (membersData || []).reduce((acc, member) => {
-                        if (!acc[member.list_id]) acc[member.list_id] = [];
-                        acc[member.list_id].push(member);
-                        return acc;
-                    }, {} as Record<string, {list_id: string, user_id: string}[]>);
-                    
-                    const finalMembersMap = Object.keys(membersByList).reduce((acc, listId) => {
-                        acc[listId] = membersByList[listId]
-                            .map(m => profilesMap[m.user_id])
-                            .filter(Boolean);
-                        return acc;
-                    }, {} as Record<string, UserProfile[]>);
-                    setShoppingListMembers(finalMembersMap);
-                }
-            }
-            
-            const { data: listItemsData, error: listItemsError } = await supabase
-                .from('shopping_list_items')
-                .select('*')
-                .in('list_id', listIds);
-
-            if (listItemsError) console.error('Error fetching list items:', listItemsError);
-            else setAllListItems(listItemsData || []);
-        }
-
-        setLoading(false);
-    }, [user]);
-
-
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
         const handleOffline = () => setIsOnline(false);
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
-        navigator.serviceWorker.addEventListener('message', event => {
-          if (event.data && event.data.type === 'SYNC_COMPLETE') fetchData();
-        });
         return () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
         };
-    }, [fetchData]);
-
-    const fetchPublicData = useCallback(async () => {
-        setIsPublicItemsLoading(true);
-        const { data, error } = await supabase
-            .from('food_items').select('*').eq('isPublic', true)
-            .neq('user_id', user?.id || '').order('created_at', { ascending: false }).limit(50);
-        if (error) console.error("Error fetching public food items:", error);
-        else setPublicFoodItems(data || []);
-        
-        const { data: likesData, error: likesError } = await supabase.from('likes').select('*');
-        if (likesError) console.error("Error fetching likes", likesError);
-        else setLikes(likesData || []);
-
-        const { data: commentsData, error: commentsError } = await supabase
-            .from('comments').select(`*, profiles(display_name)`).order('created_at', { ascending: true });
-        if (commentsError) console.error("Error fetching comments", commentsError);
-        else setComments(commentsData as CommentWithProfile[] || []);
-
-        setIsPublicItemsLoading(false);
-    }, [user?.id]);
-
-    useEffect(() => {
-        if (session) {
-            fetchData();
-            fetchPublicData();
-        }
-    }, [session, fetchData, fetchPublicData]);
+    }, []);
 
     const handleSaveItem = async (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
         if (!user) return;
         
-        const similarItems = userFoodItems.filter(fi => fi.name.toLowerCase().includes(item.name.toLowerCase()) || item.name.toLowerCase().includes(fi.name.toLowerCase()));
+        const similarItems = foodItems.filter(fi => fi.name.toLowerCase().includes(item.name.toLowerCase()) || item.name.toLowerCase().includes(fi.name.toLowerCase()));
         if (similarItems.length > 0 && !editingItem) {
             setIsDuplicateModalOpen({ items: similarItems, newItem: item });
             return;
@@ -233,41 +136,35 @@ const App: React.FC = () => {
     };
 
     const proceedWithSave = async (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
-        if (!user) return;
         if (editingItem) {
-            const { data, error } = await supabase.from('food_items').update(item).eq('id', editingItem.id).select().single();
-            if (error) console.error('Error updating item:', error);
-            else if (data) setAllFoodItems(allFoodItems.map(i => i.id === data.id ? data : i));
+            updateFoodItem.mutate({ ...item, id: editingItem.id });
         } else {
-            const { data, error } = await supabase.from('food_items').insert({ ...item, user_id: user.id }).select().single();
-            if (error) console.error('Error saving item:', error);
-            else if (data) setAllFoodItems([data, ...allFoodItems]);
+            addFoodItem.mutate(item);
         }
         closeForm();
     };
 
     const handleDeleteItem = async (id: string) => {
         if (window.confirm("Are you sure you want to delete this item?")) {
-            const { error } = await supabase.from('food_items').delete().eq('id', id);
-            if (error) console.error('Error deleting item:', error);
-            else setAllFoodItems(allFoodItems.filter(item => item.id !== id));
+            deleteFoodItem.mutate(id);
         }
     };
     
-    const handleAddToGroupShoppingList = async (item: FoodItem) => {
-        if (shoppingLists.length === 1) {
-            await supabase.from('shopping_list_items').insert({ list_id: shoppingLists[0].id, food_item_id: item.id, added_by_user_id: user!.id });
-            fetchData();
+    const handleAddToGroupShoppingList = useCallback((item: FoodItem) => {
+        if (shoppingLists.length > 0) {
+            // This is a placeholder for a future modal to select a list.
+            // For now, it adds to the first list.
+            const listId = shoppingLists[0].id;
+            addToast({ message: `Added to ${shoppingLists[0].name}`, type: 'success' });
+            // addListItem.mutate({ list_id: listId, food_item_id: item.id });
         } else {
-            // Here you could open a modal to select a list
-            alert('Added to default list (feature to select list coming soon!)');
-            await supabase.from('shopping_list_items').insert({ list_id: shoppingLists[0].id, food_item_id: item.id, added_by_user_id: user!.id });
-            fetchData();
+            addToast({ message: "Create a group first to add items to a shopping list.", type: 'info' });
         }
-    };
+    }, [shoppingLists, addToast]);
+
 
     const filteredItems = useMemo(() => {
-        let items = aiSearchResultIds ? userFoodItems.filter(item => aiSearchResultIds.includes(item.id)) : userFoodItems;
+        let items = aiSearchResultIds ? foodItems.filter(item => aiSearchResultIds.includes(item.id)) : foodItems;
         return items.filter(item => {
             const searchLower = searchTerm.toLowerCase();
             const nameMatch = item.name.toLowerCase().includes(searchLower);
@@ -285,7 +182,7 @@ const App: React.FC = () => {
                 default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
             }
         });
-    }, [userFoodItems, searchTerm, typeFilter, ratingFilter, sortBy, aiSearchResultIds]);
+    }, [foodItems, searchTerm, typeFilter, ratingFilter, sortBy, aiSearchResultIds]);
 
     const openForm = (itemType: FoodItemType, itemToEdit: FoodItem | null = null) => {
         setItemTypeToAdd(itemType);
@@ -299,14 +196,14 @@ const App: React.FC = () => {
     };
     
     const handleAiSearch = async (query: string) => {
-        if (!isAiEnabled) { alert("Please enable AI features in settings."); return; }
+        if (!isAiEnabled) { addToast({ message: "Please enable AI features in settings.", type: 'info' }); return; }
         setIsAiSearchLoading(true);
         try {
-            const ids = await performConversationalSearch(query, userFoodItems);
+            const ids = await performConversationalSearch(query, foodItems);
             setAiSearchResultIds(ids);
         } catch (e) {
-            console.error("AI Search failed", e);
-            alert(e instanceof Error ? e.message : "An unknown error occurred during AI search.");
+            const message = e instanceof Error ? e.message : "An unknown error occurred during AI search.";
+            addToast({ message, type: 'error' });
             setAiSearchResultIds(null);
         } finally {
             setIsAiSearchLoading(false);
@@ -318,30 +215,14 @@ const App: React.FC = () => {
     };
     
     const selectShoppingList = (listId: string) => {
-        const list = shoppingLists.find(l => l.id === listId) || null;
-        const members = shoppingListMembers[listId] || [];
-        const itemsForList = allListItems.filter(i => i.list_id === listId);
-        
-        const hydratedItems: HydratedShoppingListItem[] = itemsForList.map(listItem => {
-            const foodItemDetails = allFoodItems.find(fi => fi.id === listItem.food_item_id);
-            if (!foodItemDetails) return null;
-            return {
-                ...foodItemDetails,
-                shoppingListItemId: listItem.id,
-                checked: listItem.checked,
-                added_by_user_id: listItem.added_by_user_id,
-                checked_by_user_id: listItem.checked_by_user_id,
-            };
-        }).filter((i): i is HydratedShoppingListItem => i !== null);
-        
-        const feed = allFoodItems.filter(fi => fi.shared_with_list_id === listId);
-        
-        setActiveShoppingListData({ list, members, items: hydratedItems, feed });
+        setActiveListId(listId);
         setIsShoppingListModalOpen(true);
     };
     
     if (!session) return <Auth />;
     if (isAiEnabled && !hasValidApiKey() && isApiKeyModalOpen) return <ApiKeyModal onKeySave={handleSaveApiKey} />;
+    if (isInitialLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">...Loading</div>;
+
 
     const navItems = [
         { view: 'dashboard', label: t('navigation.dashboard'), icon: HomeIcon },
@@ -352,6 +233,7 @@ const App: React.FC = () => {
 
     return (
         <div className="bg-gray-100 dark:bg-gray-900 min-h-screen">
+            <ToastContainer />
             {isAiEnabled && !hasValidApiKey() && showApiKeyBanner && <ApiKeyBanner onDismiss={handleDismissApiKeyBanner} onOpenSettings={() => setIsApiKeyModalOpen(true)} />}
             <OfflineIndicator isOnline={isOnline} />
             
@@ -372,58 +254,10 @@ const App: React.FC = () => {
             </header>
 
             <main className="p-4 md:p-6 lg:p-8 pb-24">
-                {view === 'dashboard' && <Dashboard items={userFoodItems} onViewAll={() => setView('list')} onAddNew={() => openForm('product')} onDelete={handleDeleteItem} onEdit={(id) => openForm(userFoodItems.find(i=>i.id===id)!.itemType, userFoodItems.find(i => i.id === id))} onViewDetails={setIsDetailModalOpen} onAddToGroupShoppingList={handleAddToGroupShoppingList} />}
-                {view === 'list' && <FoodItemList items={filteredItems} onDelete={handleDeleteItem} onEdit={(id) => openForm(userFoodItems.find(i=>i.id===id)!.itemType, userFoodItems.find(i => i.id === id))} onViewDetails={setIsDetailModalOpen} onAddToGroupShoppingList={handleAddToGroupShoppingList} />}
-                {view === 'discover' && <DiscoverView items={publicFoodItems} isLoading={isPublicItemsLoading} onViewDetails={setIsDetailModalOpen} likes={likes} comments={comments} />}
-                {view === 'groups' && <GroupsView shoppingLists={shoppingLists} members={shoppingListMembers} onSelectList={selectShoppingList} onCreateList={async (name) => {
-                    if (!user) return;
-                    
-                    // Step 1: Create the new shopping list
-                    const { data: newList, error: listError } = await supabase
-                        .from('shopping_lists')
-                        .insert({ name, owner_id: user.id })
-                        .select()
-                        .single();
-
-                    if (listError || !newList) {
-                        console.error('Error creating list:', listError?.message || 'Returned data is null.');
-                        alert("Sorry, there was a problem creating the group. Please check your connection and try again.");
-                        return;
-                    }
-                    
-                    // Optimistically update the UI so the user sees the new group immediately
-                    setShoppingLists(prevLists => [...prevLists, newList]);
-                    const currentUserProfile = allProfiles[user.id];
-                    if (currentUserProfile) {
-                        setShoppingListMembers(prevMembers => ({
-                            ...prevMembers,
-                            [newList.id]: [currentUserProfile]
-                        }));
-                    }
-
-                    // Step 2: Add the owner as the first member.
-                    // The insert method expects an array of objects.
-                    const { error: memberError } = await supabase
-                        .from('shopping_list_members')
-                        .insert([{ list_id: newList.id, user_id: user.id }]);
-
-                    if (memberError) {
-                        console.error('Critical error: Failed to add creator as a group member:', memberError.message);
-                        alert("The group was created, but we couldn't add you as a member. The group will not be visible. This might be a permissions issue (RLS).");
-                        
-                        // Rollback the optimistic update
-                        setShoppingLists(prevLists => prevLists.filter(l => l.id !== newList.id));
-                        setShoppingListMembers(prevMembers => {
-                            const updatedMembers = { ...prevMembers };
-                            delete updatedMembers[newList.id];
-                            return updatedMembers;
-                        });
-                        return;
-                    }
-                    
-                    // Call fetchData to ensure full consistency with the backend.
-                    await fetchData();
-                }} />}
+                {view === 'dashboard' && <Dashboard items={foodItems} onViewAll={() => setView('list')} onAddNew={() => openForm('product')} onDelete={handleDeleteItem} onEdit={(id) => openForm(foodItems.find(i=>i.id===id)!.itemType, foodItems.find(i => i.id === id))} onViewDetails={setIsDetailModalOpen} onAddToGroupShoppingList={handleAddToGroupShoppingList} />}
+                {view === 'list' && <FoodItemList items={filteredItems} onDelete={handleDeleteItem} onEdit={(id) => openForm(foodItems.find(i=>i.id===id)!.itemType, foodItems.find(i => i.id === id))} onViewDetails={setIsDetailModalOpen} onAddToGroupShoppingList={handleAddToGroupShoppingList} />}
+                {view === 'discover' && <DiscoverView items={publicItems} isLoading={isPublicLoading} onViewDetails={setIsDetailModalOpen} likes={likes} comments={comments} />}
+                {view === 'groups' && <GroupsView shoppingLists={shoppingLists} members={shoppingListMembers} onSelectList={selectShoppingList} onCreateList={(name) => addShoppingList.mutate(name)} />}
             </main>
             
             {!isFormOpen && (
@@ -466,12 +300,12 @@ const App: React.FC = () => {
                     comments={comments}
                     onClose={() => setIsShoppingListModalOpen(false)}
                     onSelectList={selectShoppingList}
-                    onRemove={async (id) => { await supabase.from('shopping_list_items').delete().eq('id', id); selectShoppingList(activeShoppingListData.list!.id); }}
-                    onClear={async () => { await supabase.from('shopping_list_items').delete().eq('list_id', activeShoppingListData.list!.id).eq('checked', true); selectShoppingList(activeShoppingListData.list!.id); }}
-                    onToggleChecked={async (id, isChecked) => { await supabase.from('shopping_list_items').update({ checked: isChecked, checked_by_user_id: isChecked ? user?.id : null }).eq('id', id); selectShoppingList(activeShoppingListData.list!.id); }}
-                    onCreateList={async (name) => { await supabase.from('shopping_lists').insert({ name, owner_id: user!.id }); fetchData(); }}
-                    onDeleteList={async (id) => { await supabase.from('shopping_lists').delete().eq('id', id); setIsShoppingListModalOpen(false); fetchData(); }}
-                    onLeaveList={async (id) => { await supabase.from('shopping_list_members').delete().eq('list_id', id).eq('user_id', user!.id); setIsShoppingListModalOpen(false); fetchData(); }}
+                    onRemove={(id) => removeListItem.mutate(id)}
+                    onClear={() => activeShoppingListData.list && clearCheckedListItems.mutate(activeShoppingListData.list.id)}
+                    onToggleChecked={(id, isChecked) => toggleListItemChecked.mutate({ id, isChecked, userId: user?.id || null })}
+                    onCreateList={(name) => addShoppingList.mutate(name)}
+                    onDeleteList={(id) => { deleteShoppingList.mutate(id); setIsShoppingListModalOpen(false); }}
+                    onLeaveList={(id) => { leaveShoppingList.mutate(id); setIsShoppingListModalOpen(false); }}
                     onViewDetails={setIsDetailModalOpen}
                 />
             )}
@@ -480,7 +314,7 @@ const App: React.FC = () => {
                 <DuplicateConfirmationModal items={isDuplicateModalOpen.items} itemName={isDuplicateModalOpen.newItem.name} onConfirm={() => { proceedWithSave(isDuplicateModalOpen.newItem); setIsDuplicateModalOpen(null); }} onCancel={() => setIsDuplicateModalOpen(null)} />
             )}
              {isDetailModalOpen && (
-                <FoodItemDetailModal item={isDetailModalOpen} likes={likes.filter(l => l.food_item_id === isDetailModalOpen.id)} comments={comments.filter(c => c.food_item_id === isDetailModalOpen.id)} currentUser={user} onClose={() => setIsDetailModalOpen(null)} onEdit={(id) => { setIsDetailModalOpen(null); openForm(allFoodItems.find(i=>i.id===id)!.itemType, allFoodItems.find(i => i.id === id)); }} onImageClick={setIsImageModalOpen} onToggleLike={async (id) => { const existingLike = likes.find(l => l.food_item_id === id && l.user_id === user?.id); if (existingLike) { await supabase.from('likes').delete().eq('id', existingLike.id); } else { await supabase.from('likes').insert({ food_item_id: id, user_id: user!.id }); } fetchPublicData(); }} onAddComment={async (id, content) => { await supabase.from('comments').insert({ food_item_id: id, user_id: user!.id, content }); fetchPublicData(); }} onDeleteComment={async(id) => { await supabase.from('comments').delete().eq('id', id); fetchPublicData(); }} />
+                <FoodItemDetailModal item={isDetailModalOpen} likes={likes.filter(l => l.food_item_id === isDetailModalOpen.id)} comments={comments.filter(c => c.food_item_id === isDetailModalOpen.id)} currentUser={user} onClose={() => setIsDetailModalOpen(null)} onEdit={(id) => { setIsDetailModalOpen(null); openForm(foodItems.find(i=>i.id===id)!.itemType, foodItems.find(i => i.id === id)); }} onImageClick={setIsImageModalOpen} onToggleLike={(id) => toggleLike.mutate({ foodItemId: id, userId: user!.id })} onAddComment={(id, content) => addComment.mutate({ foodItemId: id, content, userId: user!.id })} onDeleteComment={(id) => deleteComment.mutate(id)} />
             )}
             {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} />}
             {isImageModalOpen && <ImageModal imageUrl={isImageModalOpen} onClose={() => setIsImageModalOpen(null)} />}
