@@ -236,7 +236,9 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                 
                 <div className="flex items-center my-1.5">
                     {[1, 2, 3, 4, 5].map(star => (
-                        <StarIcon key={star} className={`w-5 h-5 ${displayItem.rating >= star ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} filled={displayItem.rating >= star} />
+                        <div key={star}>
+                            <StarIcon className={`w-5 h-5 ${displayItem.rating >= star ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} filled={displayItem.rating >= star} />
+                        </div>
                     ))}
                     
                     {displayItem.itemType === 'product' && displayItem.nutriScore && (

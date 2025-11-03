@@ -101,7 +101,9 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
 
           <div className="flex items-center my-1.5">
             {[1, 2, 3, 4, 5].map(star => (
-              <StarIcon key={star} className={`w-5 h-5 ${displayItem.rating >= star ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} filled={displayItem.rating >= star} />
+              <div key={star}>
+                <StarIcon className={`w-5 h-5 ${displayItem.rating >= star ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} filled={displayItem.rating >= star} />
+              </div>
             ))}
             {displayItem.itemType === 'product' && displayItem.nutriScore && (
               <div className={`ml-3 text-xs w-6 h-6 rounded-full text-white font-bold flex items-center justify-center flex-shrink-0 ${nutriScoreColors[displayItem.nutriScore]}`}>
