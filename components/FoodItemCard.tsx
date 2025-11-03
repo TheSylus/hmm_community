@@ -140,7 +140,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   
   const hasDietaryOrAllergens = displayItem.itemType === 'product' && (displayItem.isLactoseFree || displayItem.isVegan || displayItem.isGlutenFree || (displayItem.allergens && displayItem.allergens.length > 0));
   const hasTags = displayItem.tags && displayItem.tags.length > 0;
-  const isClickable = onViewDetails;
+  const isClickable = !!onViewDetails;
 
   return (
     <div 
@@ -165,7 +165,8 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                     <LockClosedIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                 )}
                 <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    {t(displayItem.isPublic ? 'card.publicTooltip' : (displayItem.shared_with_group_id ? 'card.groupTooltip' : 'card.privateTooltip'))}
+                    {/* FIX: Corrected typo from shared_with_group_id to shared_with_list_id to match the 'FoodItem' type definition. */}
+                    {t(displayItem.isPublic ? 'card.publicTooltip' : (displayItem.shared_with_list_id ? 'card.groupTooltip' : 'card.privateTooltip'))}
                 </span>
             </div>
         </div>

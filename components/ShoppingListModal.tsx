@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from '../i18n/index';
 import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, UserGroupIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
-import { HydratedShoppingListItem } from '../App';
+import { HydratedShoppingListItem } from '../types';
 import { ShoppingList, UserProfile, FoodItem, Like, CommentWithProfile } from '../types';
 import { User } from '@supabase/supabase-js';
 import { FoodItemCard } from './FoodItemCard';

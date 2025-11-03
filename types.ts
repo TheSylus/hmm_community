@@ -92,3 +92,16 @@ export interface CommentWithProfile extends Comment {
     display_name: string;
   } | null;
 }
+
+// Search and filter types, moved from App.tsx
+export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
+export type RatingFilter = 'all' | 'liked' | 'disliked';
+export type TypeFilter = 'all' | 'product' | 'dish';
+
+// A hydrated type for items on the shopping list, combining FoodItem and ShoppingListItem details.
+export interface HydratedShoppingListItem extends FoodItem {
+  shoppingListItemId: string;
+  checked: boolean;
+  added_by_user_id: string;
+  checked_by_user_id: string | null;
+}

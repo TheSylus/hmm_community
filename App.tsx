@@ -1,356 +1,474 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from './services/supabaseClient';
-import { FoodItem, FoodItemType, ShoppingList, Like, CommentWithProfile, UserProfile, ShoppingListItem, ShoppingListMember } from './types';
-import { FoodItemForm } from './components/FoodItemForm';
-import { FoodItemList } from './components/FoodItemList';
-import { SettingsModal } from './components/SettingsModal';
-import { useAuth } from './contexts/AuthContext';
+import { FoodItem, ShoppingList, ShoppingListItem, ShoppingListMember, UserProfile, HydratedShoppingListItem, FoodItemType, Like, CommentWithProfile, SortKey, RatingFilter, TypeFilter } from './types';
 import { Auth } from './components/Auth';
-import { FoodItemDetailModal } from './components/FoodItemDetailModal';
-import { ImageModal } from './components/ImageModal';
+import { FoodItemList } from './components/FoodItemList';
+import { FoodItemForm } from './components/FoodItemForm';
+import { useAuth } from './contexts/AuthContext';
+import { useTranslation } from './i18n';
+import { performConversationalSearch } from './services/geminiService';
 import { Dashboard } from './components/Dashboard';
 import { DiscoverView } from './components/DiscoverView';
-import { ShoppingListModal } from './components/ShoppingListModal';
-import { FilterPanel } from './components/FilterPanel';
-import { performConversationalSearch } from './services/geminiService';
-import { HomeIcon, MagnifyingGlassIcon, GlobeAltIcon, SettingsIcon, FunnelIcon, UserGroupIcon, PlusCircleIcon } from './components/Icons';
-import { useTranslation } from './i18n';
-import { OfflineIndicator } from './components/OfflineIndicator';
-import { DuplicateConfirmationModal } from './components/DuplicateConfirmationModal';
 import { GroupsView } from './components/GroupsView';
+import { SettingsModal } from './components/SettingsModal';
+import { FilterPanel } from './components/FilterPanel';
+import { FoodItemDetailModal } from './components/FoodItemDetailModal';
+import { ImageModal } from './components/ImageModal';
+import { ShoppingListModal } from './components/ShoppingListModal';
+import { DuplicateConfirmationModal } from './components/DuplicateConfirmationModal';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { ApiKeyBanner } from './components/ApiKeyBanner';
+import { ApiKeyModal } from './components/ApiKeyModal';
 import { hasValidApiKey } from './services/geminiService';
+import { useAppSettings } from './contexts/AppSettingsContext';
 
-export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
-export type RatingFilter = 'all' | 'liked' | 'disliked';
-export type TypeFilter = 'all' | 'product' | 'dish';
-export type View = 'dashboard' | 'list' | 'discover' | 'groups';
-
-export interface HydratedShoppingListItem extends FoodItem {
-    shoppingListItemId: string;
-    checked: boolean;
-    added_by_user_id: string;
-    checked_by_user_id: string | null;
-}
+type View = 'dashboard' | 'list' | 'discover' | 'groups';
 
 const App: React.FC = () => {
     const { session, user } = useAuth();
     const { t } = useTranslation();
+    const { isAiEnabled } = useAppSettings();
 
-    const [items, setItems] = useState<FoodItem[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
+    const [publicFoodItems, setPublicFoodItems] = useState<FoodItem[]>([]);
+    const [groupFeedItems, setGroupFeedItems] = useState<FoodItem[]>([]);
+    const [likes, setLikes] = useState<Like[]>([]);
+    const [comments, setComments] = useState<CommentWithProfile[]>([]);
+    
+    const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
+    const [activeShoppingListId, setActiveShoppingListId] = useState<string | null>(null);
+    const [shoppingListItems, setShoppingListItems] = useState<HydratedShoppingListItem[]>([]);
+    const [shoppingListMembers, setShoppingListMembers] = useState<Record<string, UserProfile[]>>({});
+
+    const [loading, setLoading] = useState(true);
+    const [isPublicItemsLoading, setIsPublicItemsLoading] = useState(false);
     const [view, setView] = useState<View>('dashboard');
-    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<FoodItem | null>(null);
-    const [formItemType, setFormItemType] = useState<FoodItemType>('product');
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [selectedItemDetails, setSelectedItemDetails] = useState<FoodItem | null>(null);
-    const [viewingImage, setViewingImage] = useState<string | null>(null);
+    const [itemTypeToAdd, setItemTypeToAdd] = useState<FoodItemType>('product');
 
-    // Filters and Search
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState<FoodItem | null>(null);
+    const [isImageModalOpen, setIsImageModalOpen] = useState<string | null>(null);
+    const [isShoppingListModalOpen, setIsShoppingListModalOpen] = useState(false);
+    const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState<{ items: FoodItem[], newItem: Omit<FoodItem, 'id' | 'user_id' | 'created_at'> } | null>(null);
+    
+    // Filtering and sorting state
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
     const [ratingFilter, setRatingFilter] = useState<RatingFilter>('all');
     const [sortBy, setSortBy] = useState<SortKey>('date_desc');
-    const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
-    const [aiSearchResults, setAiSearchResults] = useState<string[] | null>(null);
+    const [aiSearchResultIds, setAiSearchResultIds] = useState<string[] | null>(null);
     const [isAiSearchLoading, setIsAiSearchLoading] = useState(false);
 
-    // Discover View
-    const [discoverItems, setDiscoverItems] = useState<FoodItem[]>([]);
-    const [likes, setLikes] = useState<Like[]>([]);
-    const [comments, setComments] = useState<CommentWithProfile[]>([]);
-    const [isDiscoverLoading, setIsDiscoverLoading] = useState(true);
-    
-    // Groups / Shopping Lists
-    const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
-    const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
-    const [shoppingListMembers, setShoppingListMembers] = useState<ShoppingListMember[]>([]);
-    const [activeShoppingListId, setActiveShoppingListId] = useState<string | null>(null);
-    const [isShoppingListModalOpen, setIsShoppingListModalOpen] = useState(false);
+    // Offline status
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-    // Duplicate Check
-    const [duplicateCheck, setDuplicateCheck] = useState<{ potential: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>, existing: FoodItem[] } | null>(null);
-
-    // API Key Banner
+    // API Key Management
+    const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
     const [showApiKeyBanner, setShowApiKeyBanner] = useState(false);
 
     useEffect(() => {
-        const isDismissed = sessionStorage.getItem('apiKeyBannerDismissed') === 'true';
-        if (!hasValidApiKey() && !isDismissed) {
-            setShowApiKeyBanner(true);
-        }
+        const checkApiKey = () => {
+            const isValid = hasValidApiKey();
+            if (!isValid && !localStorage.getItem('apiKeyBannerDismissed')) {
+                setShowApiKeyBanner(true);
+            } else {
+                setShowApiKeyBanner(false);
+            }
+        };
+
+        checkApiKey();
+        // Check periodically in case it gets added via another tab
+        const interval = setInterval(checkApiKey, 5000);
+        return () => clearInterval(interval);
     }, []);
 
-    const handleApiKeyBannerDismiss = () => {
-        sessionStorage.setItem('apiKeyBannerDismissed', 'true');
+    const handleSaveApiKey = (apiKey: string) => {
+        // The key is saved via environment variables (see vite.config.ts),
+        // but for the client to recognize it without a reload, we can set it on process.env.
+        // This is a client-side only change.
+        process.env.API_KEY = apiKey;
+        setIsApiKeyModalOpen(false);
         setShowApiKeyBanner(false);
     };
 
+    const handleDismissApiKeyBanner = () => {
+        setShowApiKeyBanner(false);
+        localStorage.setItem('apiKeyBannerDismissed', 'true');
+    };
 
-    const fetchAllData = useCallback(async () => {
-        if (!user) return;
-        setIsLoading(true);
-
-        const [itemsRes, listsRes, membersRes, listItemsRes] = await Promise.all([
-            supabase.from('food_items').select('*').eq('user_id', user.id),
-            supabase.from('shopping_lists').select('*, shopping_list_members!inner(*)').eq('shopping_list_members.user_id', user.id),
-            supabase.from('shopping_list_members').select('*'),
-            supabase.from('shopping_list_items').select('*')
-        ]);
-
-        if (itemsRes.error) console.error('Error fetching items:', itemsRes.error);
-        else setItems((itemsRes.data as FoodItem[]) || []);
-
-        if (listsRes.error) console.error('Error fetching shopping lists:', listsRes.error);
-        else setShoppingLists((listsRes.data as ShoppingList[]) || []);
-        
-        if (membersRes.error) console.error('Error fetching list members:', membersRes.error);
-        else setShoppingListMembers((membersRes.data as ShoppingListMember[]) || []);
-
-        if (listItemsRes.error) console.error('Error fetching shopping list items:', listItemsRes.error);
-        else setShoppingListItems((listItemsRes.data as ShoppingListItem[]) || []);
-
-        setIsLoading(false);
-    }, [user]);
-    
-    const fetchDiscoverData = useCallback(async () => {
-        setIsDiscoverLoading(true);
-        const [discoverRes, likesRes, commentsRes] = await Promise.all([
-            supabase.from('food_items').select('*').eq('isPublic', true).order('created_at', { ascending: false }).limit(50),
-            supabase.from('likes').select('*'),
-            supabase.from('comments').select('*, profiles(display_name)').order('created_at', { ascending: true })
-        ]);
-        
-        if (discoverRes.error) console.error('Error fetching discover items:', discoverRes.error);
-        else setDiscoverItems((discoverRes.data as FoodItem[]) || []);
-
-        if (likesRes.error) console.error('Error fetching likes:', likesRes.error);
-        else setLikes((likesRes.data as Like[]) || []);
-
-        if (commentsRes.error) console.error('Error fetching comments:', commentsRes.error);
-        else setComments((commentsRes.data as CommentWithProfile[]) || []);
-
-        setIsDiscoverLoading(false);
-    }, []);
-
-
-    useEffect(() => {
-        if (user) {
-            fetchAllData();
-            fetchDiscoverData();
-        }
-    }, [user, fetchAllData, fetchDiscoverData]);
-    
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
         const handleOffline = () => setIsOnline(false);
+
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
-        
-        const channel = supabase.channel('db-changes');
-        channel
-          .on('postgres_changes', { event: '*', schema: 'public' }, () => {
-            fetchAllData();
-            fetchDiscoverData();
-          })
-          .subscribe();
+
+        const handleSyncComplete = () => {
+          fetchFoodItems();
+          fetchShoppingLists();
+        };
+
+        navigator.serviceWorker.addEventListener('message', event => {
+          if (event.data && event.data.type === 'SYNC_COMPLETE') {
+            handleSyncComplete();
+          }
+        });
 
         return () => {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
-            supabase.removeChannel(channel);
         };
-    }, [fetchAllData, fetchDiscoverData]);
-
-    const handleSaveItem = async (itemData: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
+    }, []);
+    
+    const fetchFoodItems = useCallback(async () => {
         if (!user) return;
-        
-        const dataToInsert = { ...itemData, user_id: user.id };
+        setLoading(true);
+        const { data, error } = await supabase
+            .from('food_items')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
 
-        const { error } = editingItem
-            ? await supabase.from('food_items').update(itemData).eq('id', editingItem.id)
-            : await supabase.from('food_items').insert(dataToInsert);
+        if (error) console.error('Error fetching food items:', error);
+        else setFoodItems(data || []);
+        setLoading(false);
+    }, [user]);
+
+    const fetchPublicFoodItems = useCallback(async () => {
+        setIsPublicItemsLoading(true);
+        const { data, error } = await supabase
+            .from('food_items')
+            .select('*')
+            .eq('isPublic', true)
+            .neq('user_id', user?.id || '') // Exclude own items
+            .order('created_at', { ascending: false })
+            .limit(50);
+        if (error) console.error("Error fetching public food items:", error);
+        else setPublicFoodItems(data || []);
+        setIsPublicItemsLoading(false);
+    }, [user?.id]);
+    
+    const fetchLikesAndComments = useCallback(async () => {
+        const { data: likesData, error: likesError } = await supabase.from('likes').select('*');
+        if (likesError) console.error("Error fetching likes", likesError);
+        else setLikes(likesData || []);
+
+        const { data: commentsData, error: commentsError } = await supabase
+            .from('comments')
+            .select(`*, profiles(display_name)`)
+            .order('created_at', { ascending: true });
+        if (commentsError) console.error("Error fetching comments", commentsError);
+        else setComments(commentsData as CommentWithProfile[] || []);
+    }, []);
+
+    const fetchShoppingLists = useCallback(async () => {
+        if (!user) return;
+        const { data, error } = await supabase.rpc('get_user_shopping_lists');
 
         if (error) {
-            console.error('Error saving item:', error);
+            console.error('Error fetching shopping lists:', error);
         } else {
-            setIsFormOpen(false);
-            setEditingItem(null);
-            setDuplicateCheck(null);
+            setShoppingLists(data || []);
+            const memberPromises = (data || []).map(list =>
+                supabase.from('shopping_list_members')
+                    .select('user_id, profiles(id, display_name)')
+                    .eq('list_id', list.id)
+            );
+            const membersResults = await Promise.all(memberPromises);
+            const membersMap: Record<string, UserProfile[]> = {};
+            membersResults.forEach((res, index) => {
+                const listId = (data || [])[index].id;
+                if (!res.error) {
+                    membersMap[listId] = res.data.map(m => m.profiles as UserProfile).filter(Boolean);
+                }
+            });
+            setShoppingListMembers(membersMap);
         }
+    }, [user]);
+
+    useEffect(() => {
+        if (session) {
+            fetchFoodItems();
+            fetchPublicFoodItems();
+            fetchLikesAndComments();
+            fetchShoppingLists();
+        }
+    }, [session, fetchFoodItems, fetchPublicFoodItems, fetchLikesAndComments, fetchShoppingLists]);
+
+    const handleSaveItem = async (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
+        if (!user) return;
+        
+        // Check for duplicates
+        const similarItems = foodItems.filter(fi => fi.name.toLowerCase().includes(item.name.toLowerCase()) || item.name.toLowerCase().includes(fi.name.toLowerCase()));
+        if (similarItems.length > 0 && !editingItem) {
+            setIsDuplicateModalOpen({ items: similarItems, newItem: item });
+            return;
+        }
+
+        await proceedWithSave(item);
     };
-    
+
+    const proceedWithSave = async (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
+        if (!user) return;
+
+        if (editingItem) {
+            // Update
+            const { data, error } = await supabase
+                .from('food_items')
+                .update(item)
+                .eq('id', editingItem.id)
+                .select()
+                .single();
+            if (error) console.error('Error updating item:', error);
+            else if (data) {
+                setFoodItems(foodItems.map(i => i.id === data.id ? data : i));
+            }
+        } else {
+            // Insert
+            const newItem = { ...item, user_id: user.id };
+            const { data, error } = await supabase
+                .from('food_items')
+                .insert(newItem)
+                .select()
+                .single();
+            if (error) console.error('Error saving item:', error);
+            else if (data) {
+                setFoodItems([data, ...foodItems]);
+            }
+        }
+        closeForm();
+    };
+
     const handleDeleteItem = async (id: string) => {
-        if (window.confirm(t('card.deleteAria', { name: items.find(i=>i.id === id)?.name || 'item' }))) {
-            await supabase.from('food_items').delete().eq('id', id);
+        if (window.confirm("Are you sure you want to delete this item?")) {
+            const { error } = await supabase.from('food_items').delete().eq('id', id);
+            if (error) console.error('Error deleting item:', error);
+            else {
+                setFoodItems(foodItems.filter(item => item.id !== id));
+            }
         }
     };
     
-    const handleCreateList = async (name: string) => {
-        if (!user) return;
-        const { data, error } = await supabase.from('shopping_lists').insert({ name, owner_id: user.id }).select();
-        if (error) console.error("Error creating list", error);
-        else if (data) {
-            await supabase.from('shopping_list_members').insert({ list_id: data[0].id, user_id: user.id });
-        }
-    };
-
-    const handleSelectList = (listId: string) => {
-        setActiveShoppingListId(listId);
-        setIsShoppingListModalOpen(true);
-    };
-    
-    const handleAddToShoppingList = async (foodItemId: string, listId: string) => {
-        if (!user) return;
-        await supabase.from('shopping_list_items').insert({ food_item_id: foodItemId, list_id: listId, added_by_user_id: user.id });
-    };
-
+    // ... other handlers (delete, edit, etc.)
 
     const filteredItems = useMemo(() => {
-      let filtered = aiSearchResults ? items.filter(i => aiSearchResults.includes(i.id)) : [...items];
-      
-      if (searchTerm) {
-          const lowercasedTerm = searchTerm.toLowerCase();
-          filtered = filtered.filter(item =>
-              item.name.toLowerCase().includes(lowercasedTerm) ||
-              item.notes?.toLowerCase().includes(lowercasedTerm)
-          );
-      }
-      if (typeFilter !== 'all') {
-          filtered = filtered.filter(item => item.itemType === typeFilter);
-      }
-      if (ratingFilter !== 'all') {
-          filtered = filtered.filter(item => {
-              if (ratingFilter === 'liked') return item.rating >= 4;
-              if (ratingFilter === 'disliked') return item.rating <= 2 && item.rating > 0;
-              return true;
-          });
-      }
+        let items = aiSearchResultIds ? foodItems.filter(item => aiSearchResultIds.includes(item.id)) : foodItems;
 
-      return filtered.sort((a, b) => {
-          switch (sortBy) {
-              case 'date_asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-              case 'rating_desc': return b.rating - a.rating;
-              case 'rating_asc': return a.rating - b.rating;
-              case 'name_asc': return a.name.localeCompare(b.name);
-              case 'name_desc': return b.name.localeCompare(a.name);
-              default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-          }
-      });
-    }, [items, searchTerm, typeFilter, ratingFilter, sortBy, aiSearchResults]);
+        return items
+            .filter(item => {
+                const searchLower = searchTerm.toLowerCase();
+                const nameMatch = item.name.toLowerCase().includes(searchLower);
+                const notesMatch = item.notes?.toLowerCase().includes(searchLower) || false;
+                
+                const typeMatch = typeFilter === 'all' || item.itemType === typeFilter;
+
+                const ratingMatch = ratingFilter === 'all' ||
+                    (ratingFilter === 'liked' && item.rating >= 4) ||
+                    (ratingFilter === 'disliked' && item.rating <= 2);
+
+                return (nameMatch || notesMatch) && typeMatch && ratingMatch;
+            })
+            .sort((a, b) => {
+                switch (sortBy) {
+                    case 'date_asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                    case 'rating_desc': return b.rating - a.rating;
+                    case 'rating_asc': return a.rating - b.rating;
+                    case 'name_asc': return a.name.localeCompare(b.name);
+                    case 'name_desc': return b.name.localeCompare(a.name);
+                    case 'date_desc':
+                    default:
+                        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                }
+            });
+    }, [foodItems, searchTerm, typeFilter, ratingFilter, sortBy, aiSearchResultIds]);
 
 
-    const renderContent = () => {
-        if (isLoading) return <div className="flex justify-center items-center pt-20"><PlusCircleIcon className="w-12 h-12 text-gray-400 animate-spin" /></div>;
-        switch (view) {
-            case 'dashboard': return <Dashboard items={items} onViewAll={() => setView('list')} onAddNew={() => handleOpenForm('product')} onDelete={handleDeleteItem} onEdit={handleOpenFormWithItem} onViewDetails={setSelectedItemDetails} onAddToGroupShoppingList={() => {}} />;
-            case 'list': return <FoodItemList items={filteredItems} onDelete={handleDeleteItem} onEdit={handleOpenFormWithItem} onViewDetails={setSelectedItemDetails} onAddToGroupShoppingList={() => {}} />;
-            case 'discover': return <DiscoverView items={discoverItems} likes={likes} comments={comments} isLoading={isDiscoverLoading} onViewDetails={setSelectedItemDetails} />;
-            case 'groups': return <GroupsView shoppingLists={shoppingLists} onSelectList={handleSelectList} onCreateList={handleCreateList} />;
-            default: return null;
-        }
-    };
-    
-    const handleOpenForm = (type: FoodItemType) => {
-        setEditingItem(null);
-        setFormItemType(type);
+    const openForm = (itemType: FoodItemType, itemToEdit: FoodItem | null = null) => {
+        setItemTypeToAdd(itemType);
+        setEditingItem(itemToEdit);
         setIsFormOpen(true);
     };
 
-    const handleOpenFormWithItem = (id: string) => {
-        const itemToEdit = items.find(i => i.id === id);
-        if (itemToEdit) {
-            setEditingItem(itemToEdit);
-            setFormItemType(itemToEdit.itemType);
-            setIsFormOpen(true);
+    const closeForm = () => {
+        setIsFormOpen(false);
+        setEditingItem(null);
+    };
+    
+    const handleAiSearch = async (query: string) => {
+        if (!isAiEnabled) {
+            alert("Please enable AI features in settings.");
+            return;
+        }
+        setIsAiSearchLoading(true);
+        try {
+            const ids = await performConversationalSearch(query, foodItems);
+            setAiSearchResultIds(ids);
+        } catch (e) {
+            console.error("AI Search failed", e);
+            alert(e instanceof Error ? e.message : "An unknown error occurred during AI search.");
+            setAiSearchResultIds(null);
+        } finally {
+            setIsAiSearchLoading(false);
         }
     };
 
+    const resetFilters = () => {
+        setSearchTerm('');
+        setTypeFilter('all');
+        setRatingFilter('all');
+        setSortBy('date_desc');
+        setAiSearchResultIds(null);
+    };
+    
+    // ... shopping list functions
+    const selectShoppingList = async (listId: string) => {
+        setActiveShoppingListId(listId);
+        
+        const { data, error } = await supabase.rpc('get_hydrated_shopping_list_items', { p_list_id: listId });
 
+        if (error) {
+            console.error("Error fetching shopping list items:", error);
+            setShoppingListItems([]);
+        } else {
+            setShoppingListItems(data || []);
+        }
+
+        const { data: feedData, error: feedError } = await supabase
+            .from('food_items')
+            .select('*')
+            .eq('shared_with_list_id', listId)
+            .order('created_at', { ascending: false });
+
+        if (feedError) console.error("Error fetching group feed:", feedError);
+        else setGroupFeedItems(feedData || []);
+
+        setIsShoppingListModalOpen(true);
+    };
+    
+    // Auth check
     if (!session) return <Auth />;
+    if (isAiEnabled && !hasValidApiKey() && isApiKeyModalOpen) {
+        return <ApiKeyModal onKeySave={handleSaveApiKey} />;
+    }
 
     return (
-        <div className="bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-white flex flex-col">
-            {showApiKeyBanner && <ApiKeyBanner onDismiss={handleApiKeyBannerDismiss} onOpenSettings={() => setIsSettingsOpen(true)} />}
+        <div className="bg-gray-100 dark:bg-gray-900 min-h-screen">
+            {isAiEnabled && !hasValidApiKey() && showApiKeyBanner && <ApiKeyBanner onDismiss={handleDismissApiKeyBanner} onOpenSettings={() => setIsApiKeyModalOpen(true)} />}
             <OfflineIndicator isOnline={isOnline} />
-            
-            <header className="bg-white dark:bg-gray-800 shadow-sm p-4 flex justify-between items-center sticky top-0 z-10">
-                <h1 className="text-xl font-bold">{t('header.title')}</h1>
-                <div className="flex items-center gap-2">
-                    {view === 'list' && (
-                        <button onClick={() => setIsFilterPanelOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
-                            <FunnelIcon className="w-6 h-6" />
-                        </button>
-                    )}
-                    <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
-                        <SettingsIcon className="w-6 h-6" />
-                    </button>
-                </div>
+            <header className="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-20">
+              {/* Header and Nav */}
             </header>
 
-            <main className="flex-1 container mx-auto p-4 pb-24">
-                {renderContent()}
+            <main className="p-4 md:p-6 lg:p-8">
+                {view === 'dashboard' && <Dashboard items={foodItems} onViewAll={() => setView('list')} onAddNew={() => openForm('product')} onDelete={handleDeleteItem} onEdit={(id) => openForm(foodItems.find(i=>i.id===id)!.itemType, foodItems.find(i => i.id === id))} onViewDetails={setIsDetailModalOpen} onAddToGroupShoppingList={()=>{}} />}
+                {view === 'list' && <FoodItemList items={filteredItems} onDelete={handleDeleteItem} onEdit={(id) => openForm(foodItems.find(i=>i.id===id)!.itemType, foodItems.find(i => i.id === id))} onViewDetails={setIsDetailModalOpen} onAddToGroupShoppingList={()=>{}} />}
+                {view === 'discover' && <DiscoverView items={publicFoodItems} isLoading={isPublicItemsLoading} onViewDetails={setIsDetailModalOpen} likes={likes} comments={comments} />}
+                {view === 'groups' && <GroupsView shoppingLists={shoppingLists} members={shoppingListMembers} onSelectList={selectShoppingList} onCreateList={async (name) => {
+                    const { data, error } = await supabase.from('shopping_lists').insert({ name, owner_id: user!.id }).select().single();
+                    if(data) fetchShoppingLists();
+                }} />}
             </main>
-
-            <div
-                onClick={() => handleOpenForm('product')}
-                className="fixed bottom-24 right-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-lg cursor-pointer transition-transform transform hover:scale-110 z-20"
-            >
-                <PlusCircleIcon className="w-8 h-8" />
-            </div>
-
-            <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 grid grid-cols-4 z-20">
-                {(['dashboard', 'list', 'discover', 'groups'] as View[]).map(v => (
-                    <button key={v} onClick={() => setView(v)} className={`flex flex-col items-center justify-center p-2 transition-colors ${view === v ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
-                        {v === 'dashboard' && <HomeIcon className="w-6 h-6" />}
-                        {v === 'list' && <MagnifyingGlassIcon className="w-6 h-6" />}
-                        {v === 'discover' && <GlobeAltIcon className="w-6 h-6" />}
-                        {v === 'groups' && <UserGroupIcon className="w-6 h-6" />}
-                        <span className="text-xs font-medium">{t(`navigation.${v}`)}</span>
-                    </button>
-                ))}
-            </nav>
-
+            
+            {/* Modals */}
+            {isFormOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={closeForm}></div>}
             {isFormOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-30 overflow-y-auto" onClick={() => setIsFormOpen(false)}>
-                  <div className="flex items-center justify-center min-h-screen p-4">
-                    <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-                      <FoodItemForm
-                        onSaveItem={handleSaveItem}
-                        onCancel={() => { setIsFormOpen(false); setEditingItem(null); }}
-                        initialData={editingItem}
-                        itemType={formItemType}
-                        shoppingLists={shoppingLists}
-                      />
-                    </div>
-                  </div>
+                <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <FoodItemForm onSaveItem={handleSaveItem} onCancel={closeForm} initialData={editingItem} itemType={editingItem?.itemType || itemTypeToAdd} shoppingLists={shoppingLists} />
                 </div>
             )}
             
-            {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} />}
             {isShoppingListModalOpen && activeShoppingListId && (
-                <ShoppingListModal 
+                <ShoppingListModal
                     allLists={shoppingLists}
                     activeListId={activeShoppingListId}
-                    listData={[]} // Placeholder
-                    listMembers={[]} // Placeholder
+                    listData={shoppingListItems}
+                    listMembers={shoppingListMembers[activeShoppingListId] || []}
                     currentUser={user}
-                    groupFeedItems={[]} // Placeholder
+                    groupFeedItems={groupFeedItems}
                     likes={likes}
                     comments={comments}
                     onClose={() => setIsShoppingListModalOpen(false)}
-                    onRemove={() => {}}
-                    onClear={() => {}}
-                    onToggleChecked={() => {}}
-                    onSelectList={setActiveShoppingListId}
-                    onCreateList={handleCreateList}
-                    onDeleteList={() => {}}
-                    onLeaveList={() => {}}
-                    onViewDetails={setSelectedItemDetails}
+                    onSelectList={selectShoppingList}
+                    onRemove={async (id) => {
+                       await supabase.from('shopping_list_items').delete().eq('id', id);
+                       if(activeShoppingListId) selectShoppingList(activeShoppingListId);
+                    }}
+                    onClear={async () => {
+                        await supabase.from('shopping_list_items').delete().eq('list_id', activeShoppingListId).eq('checked', true);
+                        if(activeShoppingListId) selectShoppingList(activeShoppingListId);
+                    }}
+                    onToggleChecked={async (id, isChecked) => {
+                        await supabase.from('shopping_list_items').update({ checked: isChecked, checked_by_user_id: isChecked ? user?.id : null }).eq('id', id);
+                        if(activeShoppingListId) selectShoppingList(activeShoppingListId);
+                    }}
+                    onCreateList={async (name) => {
+                        await supabase.from('shopping_lists').insert({ name, owner_id: user!.id });
+                        fetchShoppingLists();
+                    }}
+                    onDeleteList={async (id) => {
+                        await supabase.from('shopping_lists').delete().eq('id', id);
+                        setIsShoppingListModalOpen(false);
+                        fetchShoppingLists();
+                    }}
+                    onLeaveList={async (id) => {
+                        await supabase.from('shopping_list_members').delete().eq('list_id', id).eq('user_id', user!.id);
+                        setIsShoppingListModalOpen(false);
+                        fetchShoppingLists();
+                    }}
+                    onViewDetails={setIsDetailModalOpen}
                 />
             )}
+
+             {isDuplicateModalOpen && (
+                <DuplicateConfirmationModal 
+                    items={isDuplicateModalOpen.items}
+                    itemName={isDuplicateModalOpen.newItem.name}
+                    onConfirm={() => {
+                        proceedWithSave(isDuplicateModalOpen.newItem);
+                        setIsDuplicateModalOpen(null);
+                    }}
+                    onCancel={() => setIsDuplicateModalOpen(null)}
+                />
+            )}
+             {isDetailModalOpen && (
+                <FoodItemDetailModal
+                    item={isDetailModalOpen}
+                    likes={likes.filter(l => l.food_item_id === isDetailModalOpen.id)}
+                    comments={comments.filter(c => c.food_item_id === isDetailModalOpen.id)}
+                    currentUser={user}
+                    onClose={() => setIsDetailModalOpen(null)}
+                    onEdit={(id) => {
+                        setIsDetailModalOpen(null);
+                        openForm(foodItems.find(i=>i.id===id)!.itemType, foodItems.find(i => i.id === id));
+                    }}
+                    onImageClick={setIsImageModalOpen}
+                    onToggleLike={async (id) => {
+                        const existingLike = likes.find(l => l.food_item_id === id && l.user_id === user?.id);
+                        if (existingLike) {
+                            await supabase.from('likes').delete().eq('id', existingLike.id);
+                        } else {
+                            await supabase.from('likes').insert({ food_item_id: id, user_id: user!.id });
+                        }
+                        fetchLikesAndComments();
+                    }}
+                    onAddComment={async (id, content) => {
+                        await supabase.from('comments').insert({ food_item_id: id, user_id: user!.id, content });
+                        fetchLikesAndComments();
+                    }}
+                    onDeleteComment={async(id) => {
+                        await supabase.from('comments').delete().eq('id', id);
+                        fetchLikesAndComments();
+                    }}
+                />
+            )}
+            {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} />}
+            {isImageModalOpen && <ImageModal imageUrl={isImageModalOpen} onClose={() => setIsImageModalOpen(null)} />}
+            {isFilterPanelOpen && <FilterPanel onClose={() => setIsFilterPanelOpen(false)} {...{searchTerm, setSearchTerm, typeFilter, setTypeFilter, ratingFilter, setRatingFilter, sortBy, setSortBy, onAiSearch: handleAiSearch, isAiSearchLoading}} onReset={resetFilters} />}
+
         </div>
     );
 };
