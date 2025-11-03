@@ -49,8 +49,8 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
     const { t } = useTranslation();
     const icons = {
         lactoseFree: <LactoseFreeIcon className={`${className} text-blue-600 dark:text-blue-400`} />,
-        vegan: <VeganIcon className={`${className}`} />,
-        glutenFree: <GlutenFreeIcon className={`${className}`} />,
+        vegan: <VeganIcon className={`${className} text-green-600 dark:text-green-400`} />,
+        glutenFree: <GlutenFreeIcon className={`${className} text-amber-600 dark:text-amber-400`} />,
     };
     const tooltips = {
         lactoseFree: t('card.lactoseFreeTooltip'),
