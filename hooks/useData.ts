@@ -170,11 +170,12 @@ export const useData = (userId?: string) => {
         onMutate: async (newItemData) => {
             await queryClient.cancelQueries({ queryKey: queryKeys.userData(userId) });
             const previousData = queryClient.getQueryData<AllUserData>(queryKeys.userData(userId));
+            const optimisticItemId = `optimistic-${Date.now()}`;
 
             if (previousData) {
                 const optimisticItem: FoodItem = {
                     ...newItemData,
-                    id: `optimistic-${Date.now()}`,
+                    id: optimisticItemId,
                     user_id: userId!,
                     created_at: new Date().toISOString(),
                     rating: newItemData.rating || 0,
@@ -185,19 +186,19 @@ export const useData = (userId?: string) => {
                     foodItems: [optimisticItem, ...previousData.foodItems],
                 });
             }
-            return { previousData };
+            return { previousData, optimisticItemId };
         },
-        onSuccess: (newItemFromServer) => {
+        onSuccess: (newItemFromServer, _variables, context) => {
             addToast({ message: `'${newItemFromServer.name}' added!`, type: 'success' });
             queryClient.setQueryData<AllUserData>(queryKeys.userData(userId), (oldData) => {
-                if (!oldData) return oldData;
-                return {
-                    ...oldData,
-                    foodItems: oldData.foodItems.map(item => item.id.startsWith('optimistic-') ? newItemFromServer : item),
-                };
+                if (!oldData) return;
+                const newFoodItems = oldData.foodItems.map(item => 
+                    item.id === context?.optimisticItemId ? newItemFromServer : item
+                );
+                return { ...oldData, foodItems: newFoodItems };
             });
         },
-        onError: (err, _, context) => {
+        onError: (err, _variables, context) => {
             if (context?.previousData) {
                 queryClient.setQueryData(queryKeys.userData(userId), context.previousData);
             }
@@ -211,23 +212,61 @@ export const useData = (userId?: string) => {
             if (error) throw error;
             return data;
         },
-        onSuccess: () => {
-            addToast({ message: 'Item updated!', type: 'success' });
-            queryClient.invalidateQueries({ queryKey: queryKeys.userData(userId) });
+        onMutate: async (updatedItem) => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.userData(userId) });
+            const previousData = queryClient.getQueryData<AllUserData>(queryKeys.userData(userId));
+            if (previousData) {
+                queryClient.setQueryData<AllUserData>(queryKeys.userData(userId), {
+                    ...previousData,
+                    foodItems: previousData.foodItems.map(item => item.id === updatedItem.id ? { ...item, ...updatedItem } : item)
+                });
+            }
+            return { previousData };
         },
-        onError: (err) => addToast({ message: `Update failed: ${err.message}`, type: 'error' }),
+        onSuccess: (updatedItemFromServer) => {
+            addToast({ message: 'Item updated!', type: 'success' });
+            queryClient.setQueryData<AllUserData>(queryKeys.userData(userId), (oldData) => {
+                if (!oldData) return;
+                return {
+                    ...oldData,
+                    foodItems: oldData.foodItems.map(item => item.id === updatedItemFromServer.id ? updatedItemFromServer : item),
+                };
+            });
+        },
+        onError: (err, _variables, context) => {
+            if (context?.previousData) {
+                queryClient.setQueryData(queryKeys.userData(userId), context.previousData);
+            }
+            addToast({ message: `Update failed: ${err.message}`, type: 'error' });
+        },
     });
 
     const deleteFoodItem = useMutation({
         mutationFn: async (id: string) => {
             const { error } = await supabase.from('food_items').delete().eq('id', id);
             if (error) throw error;
+            return id;
+        },
+        onMutate: async (idToDelete) => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.userData(userId) });
+            const previousData = queryClient.getQueryData<AllUserData>(queryKeys.userData(userId));
+            if (previousData) {
+                 queryClient.setQueryData<AllUserData>(queryKeys.userData(userId), {
+                    ...previousData,
+                    foodItems: previousData.foodItems.filter(item => item.id !== idToDelete)
+                });
+            }
+            return { previousData };
         },
         onSuccess: () => {
             addToast({ message: 'Item deleted.', type: 'info' });
-            queryClient.invalidateQueries({ queryKey: queryKeys.userData(userId) });
         },
-        onError: (err) => addToast({ message: `Delete failed: ${err.message}`, type: 'error' }),
+        onError: (err, _variables, context) => {
+            if (context?.previousData) {
+                queryClient.setQueryData(queryKeys.userData(userId), context.previousData);
+            }
+            addToast({ message: `Delete failed: ${err.message}`, type: 'error' });
+        },
     });
 
     // Shopping Lists
@@ -241,11 +280,12 @@ export const useData = (userId?: string) => {
                 await supabase.from('shopping_lists').delete().eq('id', newList.id); // Rollback
                 throw memberError;
             }
+            // Manually refetch user data to get all new list details correctly
+            await queryClient.invalidateQueries({ queryKey: queryKeys.userData(userId) });
             return newList;
         },
         onSuccess: () => {
             addToast({ message: 'New group created!', type: 'success' });
-            queryClient.invalidateQueries({ queryKey: queryKeys.userData(userId) });
         },
         onError: (err) => addToast({ message: `Failed to create group: ${err.message}`, type: 'error' }),
     });
@@ -311,21 +351,45 @@ export const useData = (userId?: string) => {
             if (data) { // Like exists, so delete it
                 const { error: deleteError } = await supabase.from('likes').delete().eq('id', data.id);
                 if (deleteError) throw deleteError;
+                return { liked: false, likeId: data.id };
             } else { // No like, so insert it
-                const { error: insertError } = await supabase.from('likes').insert({ food_item_id: foodItemId, user_id: userId });
+                const { data: newLike, error: insertError } = await supabase.from('likes').insert({ food_item_id: foodItemId, user_id: userId }).select().single();
                 if (insertError) throw insertError;
+                return { liked: true, newLike };
             }
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.publicData() }),
-        onError: (err) => addToast({ message: `Action failed: ${err.message}`, type: 'error' }),
+        onMutate: async ({ foodItemId, userId }) => {
+            await queryClient.cancelQueries({ queryKey: queryKeys.publicData() });
+            const previousData = queryClient.getQueryData<PublicData>(queryKeys.publicData());
+            if (previousData) {
+                const hasLiked = previousData.likes.some(l => l.food_item_id === foodItemId && l.user_id === userId);
+                const newLikes = hasLiked
+                    ? previousData.likes.filter(l => !(l.food_item_id === foodItemId && l.user_id === userId))
+                    : [...previousData.likes, { id: `optimistic-${Date.now()}`, food_item_id: foodItemId, user_id: userId, created_at: new Date().toISOString() }];
+                queryClient.setQueryData<PublicData>(queryKeys.publicData(), { ...previousData, likes: newLikes });
+            }
+            return { previousData };
+        },
+        onError: (err, _vars, context) => {
+            if (context?.previousData) {
+                queryClient.setQueryData(queryKeys.publicData(), context.previousData);
+            }
+            addToast({ message: `Action failed: ${err.message}`, type: 'error' });
+        },
+        onSettled: () => {
+             queryClient.invalidateQueries({ queryKey: queryKeys.publicData() });
+        }
     });
 
     const addComment = useMutation({
         mutationFn: async ({ foodItemId, content, userId }: { foodItemId: string; content: string, userId: string }) => {
-            const { error } = await supabase.from('comments').insert({ food_item_id: foodItemId, content, user_id: userId });
+            const { data, error } = await supabase.from('comments').insert({ food_item_id: foodItemId, content, user_id: userId }).select('*, profiles(display_name)').single();
             if (error) throw error;
+            return data as CommentWithProfile;
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.publicData() }),
+        onSuccess: () => {
+             queryClient.invalidateQueries({ queryKey: queryKeys.publicData() });
+        },
         onError: (err) => addToast({ message: `Failed to comment: ${err.message}`, type: 'error' }),
     });
     
