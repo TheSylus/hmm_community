@@ -285,9 +285,28 @@ export const useData = (userId?: string) => {
             }
             return newList;
         },
-        onSuccess: (newList) => {
+        onSuccess: (newListFromServer) => {
             addToast({ message: 'New group created!', type: 'success' });
-            queryClient.invalidateQueries({ queryKey: queryKeys.userData(userId) });
+            queryClient.setQueryData<AllUserData>(queryKeys.userData(userId), (oldData) => {
+                if (!oldData) return { 
+                    foodItems: [], 
+                    shoppingLists: [newListFromServer], 
+                    shoppingListItems: [], 
+                    memberships: [{ list_id: newListFromServer.id, user_id: userId!, created_at: new Date().toISOString() }] 
+                };
+                
+                const newMembership: ShoppingListMember = {
+                    list_id: newListFromServer.id,
+                    user_id: userId!,
+                    created_at: newListFromServer.created_at,
+                };
+
+                return {
+                    ...oldData,
+                    shoppingLists: [...oldData.shoppingLists, newListFromServer],
+                    memberships: [...oldData.memberships, newMembership]
+                };
+            });
         },
         onError: (err) => addToast({ message: `Failed to create group: ${err.message}`, type: 'error' }),
     });
