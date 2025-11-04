@@ -1,4 +1,3 @@
-// FIX: Implemented the main App component, including state management for views and modals, to resolve module errors and provide a functioning application structure.
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Auth } from './components/Auth';
 import { useAuth } from './contexts/AuthContext';
@@ -18,7 +17,7 @@ import { ToastContainer } from './components/Toast';
 import { performConversationalSearch } from './services/geminiService';
 import { useToast } from './contexts/ToastContext';
 import { DuplicateConfirmationModal } from './components/DuplicateConfirmationModal';
-import { SpinnerIcon, AdjustmentsHorizontalIcon, Cog6ToothIcon, ShoppingCartIcon } from './components/Icons';
+import { SpinnerIcon, AdjustmentsHorizontalIcon, Cog6ToothIcon, ShoppingBagIcon } from './components/Icons';
 import { FilterPanel } from './components/FilterPanel';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { AddToListModal } from './components/AddToListModal';
@@ -149,10 +148,14 @@ const MainApp = () => {
   }, [shoppingLists, setLastUsedShoppingListId]);
 
   const handleQuickAccessShoppingList = useCallback(() => {
-    if (shoppingLists.length === 0) return;
+    if (shoppingLists.length === 0) {
+      setView('groups');
+      addToast({ message: t('toast.noShoppingLists'), type: 'info' });
+      return;
+    }
     const targetListId = lastUsedShoppingListId || shoppingLists[0].id;
     handleOpenShoppingMode(targetListId);
-  }, [shoppingLists, lastUsedShoppingListId, handleOpenShoppingMode]);
+  }, [shoppingLists, lastUsedShoppingListId, handleOpenShoppingMode, setView, addToast, t]);
 
   const handleConfirmAddItemToList = async (listId: string, quantity: number) => {
     if (!currentItem) return;
@@ -253,11 +256,9 @@ const MainApp = () => {
                         <AdjustmentsHorizontalIcon className="w-6 h-6" />
                     </button>
                 )}
-                {shoppingLists.length > 0 && (
-                  <button onClick={handleQuickAccessShoppingList} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full" aria-label={t('header.button.shoppingList')}>
-                      <ShoppingCartIcon className="w-6 h-6" />
-                  </button>
-                )}
+                <button onClick={handleQuickAccessShoppingList} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full" aria-label={t('header.button.shoppingList')}>
+                    <ShoppingBagIcon className="w-6 h-6" />
+                </button>
                 <button onClick={() => setModal('settings')} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full" aria-label={t('header.button.settings')}>
                     <Cog6ToothIcon className="w-6 h-6" />
                 </button>
