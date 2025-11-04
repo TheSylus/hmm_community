@@ -221,6 +221,7 @@ const en = {
     "shoppingMode.menu.manageMembers": "Manage Members",
     "shoppingMode.menu.leaveList": "Leave List",
     "shoppingMode.menu.deleteList": "Delete List",
+    "shoppingMode.category.other": "Other",
     "filter.buttonText": "Filter"
 };
 
@@ -435,6 +436,7 @@ const de: Record<string, string> = {
     "shoppingMode.menu.manageMembers": "Mitglieder verwalten",
     "shoppingMode.menu.leaveList": "Liste verlassen",
     "shoppingMode.menu.deleteList": "Liste löschen",
+    "shoppingMode.category.other": "Sonstige",
     "filter.buttonText": "Filter"
 };
 

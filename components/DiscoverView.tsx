@@ -42,7 +42,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ items, isLoading, on
               item={item}
               onDelete={() => {}} // No delete action on discover view
               onEdit={() => {}}   // No edit action on discover view
-              onAddToGroupShoppingList={() => {}} // No add to list action on discover view
+              onAddToShoppingList={() => {}} // No add to list action on discover view
               onViewDetails={onViewDetails}
               isPreview={true}
               likes={likes.filter(l => l.food_item_id === item.id)}
