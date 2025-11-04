@@ -64,9 +64,9 @@ const MainApp = () => {
   const { 
     foodItems, isLoadingItems, addFoodItem, updateFoodItem, deleteFoodItem, 
     publicFoodItems, isLoadingPublicItems, likes, comments,
-    shoppingLists, createShoppingList, groupMembers, addShoppingListItem,
+    shoppingLists, allShoppingListItems, createShoppingList, groupMembers, addShoppingListItem,
     lastUsedShoppingListId, setLastUsedShoppingListId,
-    getShoppingListItems, toggleShoppingListItem,
+    toggleShoppingListItem,
   } = useData();
 
   const [view, setView] = useState<View>('list');
@@ -86,7 +86,33 @@ const MainApp = () => {
   const [itemToSave, setItemToSave] = useState<Omit<FoodItem, 'id' | 'user_id' | 'created_at'> | null>(null);
   
   const [shoppingModeList, setShoppingModeList] = useState<ShoppingList | null>(null);
-  const { data: shoppingModeItems, isLoading: isLoadingShoppingModeItems } = getShoppingListItems(shoppingModeList?.id);
+
+  const shoppingModeItems = useMemo(() => {
+    if (!shoppingModeList) return [];
+    return allShoppingListItems
+        .filter(item => item.list_id === shoppingModeList.id)
+        .map(item => {
+            // Hydrate with food item details if available
+            const foodItem = foodItems.find(fi => fi.id === item.food_item_id);
+            return {
+                ...foodItem, // Spread the full food item
+                shoppingListItemId: item.id, // This is the unique ID of the item on the list
+                name: item.name,
+                quantity: item.quantity,
+                checked: item.checked,
+                added_by: item.added_by,
+                // Ensure required FoodItem fields have fallbacks if no foodItem is found
+                id: foodItem?.id || item.food_item_id || item.id,
+                user_id: foodItem?.user_id || '',
+                created_at: foodItem?.created_at || item.created_at,
+                rating: foodItem?.rating || 0,
+                itemType: foodItem?.itemType || 'product',
+                isPublic: foodItem?.isPublic || false,
+                image: item.image, // Use the image from the RPC call
+            };
+        });
+  }, [shoppingModeList, allShoppingListItems, foodItems]);
+
 
   useEffect(() => {
     const keyExists = hasValidApiKey();
@@ -165,8 +191,7 @@ const MainApp = () => {
   };
 
   const handleToggleShoppingListItem = async (itemId: string, checked: boolean) => {
-    if (!shoppingModeList) return;
-    await toggleShoppingListItem({ listId: shoppingModeList.id, itemId, checked });
+    await toggleShoppingListItem({ itemId, checked });
   };
 
   const filteredItems = useMemo(() => {
@@ -332,7 +357,7 @@ const MainApp = () => {
       {modal === 'details' && currentItem && <FoodItemDetailModal item={currentItem} onClose={() => { setModal(null); setCurrentItem(null); }} />}
       {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} />}
       {modal === 'duplicates' && <DuplicateConfirmationModal items={potentialDuplicates} itemName={itemToSave?.name || ''} onConfirm={() => itemToSave && onSaveItem(itemToSave)} onCancel={() => setModal(null)} />}
-      {shoppingModeList && <ShoppingMode list={shoppingModeList} items={shoppingModeItems || []} isLoading={isLoadingShoppingModeItems} onClose={() => setShoppingModeList(null)} onItemToggle={handleToggleShoppingListItem} onAddItem={() => {}} />}
+      {shoppingModeList && <ShoppingMode list={shoppingModeList} items={shoppingModeItems} isLoading={isLoadingItems} onClose={() => setShoppingModeList(null)} onItemToggle={handleToggleShoppingListItem} onAddItem={() => {}} />}
       {modal === 'addToList' && currentItem && <AddToListModal item={currentItem} lists={shoppingLists} onAdd={handleConfirmAddItemToList} onClose={() => { setModal(null); setCurrentItem(null); }} />}
     </div>
   );
