@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { FoodItem, NutriScore } from "../types";
+import { FoodItem, NutriScore, HydratedShoppingListItem } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -293,4 +293,60 @@ export const performConversationalSearch = async (query: string, items: FoodItem
     }
     throw new Error("Could not perform AI search.");
   }
+};
+
+export type CategorizedResult = {
+  categoryName: string;
+  itemIds: string[];
+}[];
+
+export const categorizeShoppingListItems = async (items: HydratedShoppingListItem[], language: 'en' | 'de'): Promise<CategorizedResult> => {
+    if (items.length === 0) {
+        return [];
+    }
+    
+    const compactItems = items.map(item => ({ id: item.shoppingListItemId, name: item.name, tags: item.tags || [] }));
+    const langName = language === 'de' ? 'German' : 'English';
+    
+    const textPrompt = `Analyze the following list of grocery items. Group them into common supermarket categories. The category names should be in ${langName}. Use these categories: Fruits & Vegetables, Dairy & Eggs, Bakery, Meat & Fish, Pantry, Frozen Foods, Drinks, Household, and Other. Return ONLY the JSON object.
+
+    Items: ${JSON.stringify(compactItems)}
+    `;
+    
+    try {
+        const gemini = getAiClient();
+        const response = await gemini.models.generateContent({
+            model: "gemini-2.5-flash",
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        categories: {
+                            type: Type.ARRAY,
+                            description: "An array of category objects.",
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    categoryName: { type: Type.STRING, description: `The name of the category in ${langName}.` },
+                                    itemIds: { type: Type.ARRAY, items: { type: Type.STRING }, description: "An array of item IDs belonging to this category." }
+                                },
+                                required: ["categoryName", "itemIds"]
+                            }
+                        }
+                    },
+                    required: ["categories"]
+                },
+            },
+            contents: { parts: [{ text: textPrompt }] },
+        });
+
+        const result = JSON.parse(response.text);
+        return result.categories || [];
+
+    } catch (error) {
+        console.error("Error categorizing shopping list:", error);
+        // Fallback to a single "Uncategorized" list on error
+        return [{ categoryName: "Uncategorized", itemIds: items.map(i => i.shoppingListItemId) }];
+    }
 };

@@ -309,25 +309,16 @@ const translations: Record<Language, any> = {
         addCommentPlaceholder: "Add a comment...",
         sendComment: "Send"
     },
-    shoppingList: {
-        title: "Shopping List",
-        uncategorized: "Uncategorized",
+    shoppingMode: {
+        title: "Shopping Mode",
+        categorizing: "Organizing your list with AI...",
         empty: "This list is empty. Add items from your collection!",
-        clear: "Clear Checked Items",
+        completed: "Completed Items",
         removeAria: "Remove {{name}} from list",
-        toggleDetailsAria: "Toggle details",
-        collaboration: {
-            members: "Members",
-            you: "You",
-            someone: "Someone",
-            addedBy: "Added by {{name}}",
-            checkedBy: "Checked by {{name}}",
-        },
-        share: {
-            inviteButton: "Invite Members",
-            linkCopied: "Invite link copied!",
-            copyFailed: "Could not copy link."
-        },
+        members: "Members",
+        inviteButton: "Invite Members",
+        linkCopied: "Invite link copied!",
+        copyFailed: "Could not copy link.",
         manage: {
             buttonTitle: "Manage list",
         },
@@ -338,13 +329,6 @@ const translations: Record<Language, any> = {
         leave: {
             button: "Leave List",
             confirm: "Are you sure you want to leave the list '{{listName}}'?"
-        },
-        tab: {
-            checklist: "Checklist",
-            feed: "Group Feed"
-        },
-        feed: {
-            empty: "No one has shared anything with this group yet."
         }
     },
     group: {
@@ -674,25 +658,16 @@ const translations: Record<Language, any> = {
         addCommentPlaceholder: "Einen Kommentar hinzufügen...",
         sendComment: "Senden"
     },
-    shoppingList: {
-        title: "Einkaufsliste",
-        uncategorized: "Unkategorisiert",
+    shoppingMode: {
+        title: "Einkaufsmodus",
+        categorizing: "Organisiere deine Liste mit KI...",
         empty: "Diese Liste ist leer. Füge Artikel aus deiner Sammlung hinzu!",
-        clear: "Abgehakte Artikel entfernen",
+        completed: "Erledigte Artikel",
         removeAria: "{{name}} von der Liste entfernen",
-        toggleDetailsAria: "Details umschalten",
-        collaboration: {
-            members: "Mitglieder",
-            you: "Du",
-            someone: "Jemand",
-            addedBy: "Von {{name}} hinzugefügt",
-            checkedBy: "Von {{name}} abgehakt",
-        },
-        share: {
-            inviteButton: "Mitglieder einladen",
-            linkCopied: "Einladungslink kopiert!",
-            copyFailed: "Link konnte nicht kopiert werden."
-        },
+        members: "Mitglieder",
+        inviteButton: "Mitglieder einladen",
+        linkCopied: "Einladungslink kopiert!",
+        copyFailed: "Link konnte nicht kopiert werden.",
         manage: {
             buttonTitle: "Liste verwalten",
         },
@@ -703,13 +678,6 @@ const translations: Record<Language, any> = {
         leave: {
             button: "Liste verlassen",
             confirm: "Bist du sicher, dass du die Liste '{{listName}}' verlassen möchtest?"
-        },
-        tab: {
-            checklist: "Checkliste",
-            feed: "Gruppen-Feed"
-        },
-        feed: {
-            empty: "Noch hat niemand etwas mit dieser Gruppe geteilt."
         }
     },
     group: {

@@ -13,7 +13,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { FilterPanel } from './components/FilterPanel';
 import { FoodItemDetailModal } from './components/FoodItemDetailModal';
 import { ImageModal } from './components/ImageModal';
-import { ShoppingListModal } from './components/ShoppingListModal';
+import { ShoppingMode } from './components/ShoppingMode';
 import { DuplicateConfirmationModal } from './components/DuplicateConfirmationModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { ApiKeyBanner } from './components/ApiKeyBanner';
@@ -71,7 +71,7 @@ const App: React.FC = () => {
     const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState<FoodItem | null>(null);
     const [isImageModalOpen, setIsImageModalOpen] = useState<string | null>(null);
-    const [isShoppingListModalOpen, setIsShoppingListModalOpen] = useState(false);
+    const [shoppingModeListId, setShoppingModeListId] = useState<string | null>(null);
     const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState<{ items: FoodItem[], newItem: Omit<FoodItem, 'id' | 'user_id' | 'created_at'> } | null>(null);
     
     // Filtering and sorting state
@@ -216,18 +216,18 @@ const App: React.FC = () => {
         setSearchTerm(''); setTypeFilter('all'); setRatingFilter('all'); setSortBy('date_desc'); setAiSearchResultIds(null);
     };
     
-    const selectShoppingList = (listId: string) => {
+    const openShoppingMode = (listId: string) => {
         setActiveListId(listId);
-        setIsShoppingListModalOpen(true);
+        setShoppingModeListId(listId);
     };
 
-    const handleOpenShoppingList = () => {
+    const handleOpenShoppingListShortcut = () => {
         // If a valid active list is already set (from localStorage), use it.
         if (activeListId && shoppingLists.some(l => l.id === activeListId)) {
-            selectShoppingList(activeListId);
+            openShoppingMode(activeListId);
         } else if (shoppingLists.length > 0) {
             // Otherwise, default to the first list.
-            selectShoppingList(shoppingLists[0].id);
+            openShoppingMode(shoppingLists[0].id);
         }
     };
     
@@ -255,7 +255,7 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-2">
                     {shoppingLists && shoppingLists.length > 0 && (
                         <button
-                            onClick={handleOpenShoppingList}
+                            onClick={handleOpenShoppingListShortcut}
                             className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
                             aria-label={t('header.shoppingListAria')}
                         >
@@ -278,7 +278,7 @@ const App: React.FC = () => {
                 {view === 'dashboard' && <Dashboard items={foodItems} onViewAll={() => setView('list')} onAddNew={() => openForm('product')} onDelete={handleDeleteItem} onEdit={(id) => openForm(foodItems.find(i=>i.id===id)!.itemType, foodItems.find(i => i.id === id))} onViewDetails={setIsDetailModalOpen} onAddToGroupShoppingList={handleAddToGroupShoppingList} />}
                 {view === 'list' && <FoodItemList items={filteredItems} onDelete={handleDeleteItem} onEdit={(id) => openForm(foodItems.find(i=>i.id===id)!.itemType, foodItems.find(i => i.id === id))} onViewDetails={setIsDetailModalOpen} onAddToGroupShoppingList={handleAddToGroupShoppingList} />}
                 {view === 'discover' && <DiscoverView items={publicItems} isLoading={isPublicLoading} onViewDetails={setIsDetailModalOpen} likes={likes} comments={comments} />}
-                {view === 'groups' && <GroupsView shoppingLists={shoppingLists} members={shoppingListMembers} onSelectList={selectShoppingList} onCreateList={(name) => addShoppingList.mutate(name)} />}
+                {view === 'groups' && <GroupsView shoppingLists={shoppingLists} members={shoppingListMembers} onSelectList={openShoppingMode} onCreateList={(name) => addShoppingList.mutate(name)} />}
             </main>
             
             {!isFormOpen && (
@@ -309,25 +309,20 @@ const App: React.FC = () => {
                 </div>
             )}
             
-            {isShoppingListModalOpen && activeShoppingListData.list && (
-                <ShoppingListModal
+            {shoppingModeListId && activeShoppingListData.list && (
+                <ShoppingMode
                     allLists={shoppingLists}
-                    activeListId={activeShoppingListData.list.id}
+                    activeList={activeShoppingListData.list}
                     listData={activeShoppingListData.items}
                     listMembers={activeShoppingListData.members}
                     currentUser={user}
-                    groupFeedItems={activeShoppingListData.feed}
-                    likes={likes}
-                    comments={comments}
-                    onClose={() => setIsShoppingListModalOpen(false)}
-                    onSelectList={selectShoppingList}
+                    onClose={() => setShoppingModeListId(null)}
+                    onSelectList={openShoppingMode}
                     onRemove={(id) => removeListItem.mutate(id)}
                     onClear={() => activeShoppingListData.list && clearCheckedListItems.mutate(activeShoppingListData.list.id)}
                     onToggleChecked={(id, isChecked) => toggleListItemChecked.mutate({ id, isChecked, userId: user?.id || null })}
-                    onCreateList={(name) => addShoppingList.mutate(name)}
-                    onDeleteList={(id) => { deleteShoppingList.mutate(id); setIsShoppingListModalOpen(false); }}
-                    onLeaveList={(id) => { leaveShoppingList.mutate(id); setIsShoppingListModalOpen(false); }}
-                    onViewDetails={setIsDetailModalOpen}
+                    onDeleteList={(id) => { deleteShoppingList.mutate(id); setShoppingModeListId(null); }}
+                    onLeaveList={(id) => { leaveShoppingList.mutate(id); setShoppingModeListId(null); }}
                 />
             )}
 
