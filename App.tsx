@@ -9,7 +9,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { ApiKeyBanner } from './components/ApiKeyBanner';
 import { useAppSettings } from './contexts/AppSettingsContext';
 import { hasValidApiKey } from './services/geminiService';
-import { FoodItem, FoodItemType, SortKey, TypeFilter, RatingFilter, ShoppingList, UserProfile } from './types';
+import { FoodItem, FoodItemType, SortKey, TypeFilter, RatingFilter, ShoppingList, UserProfile, HydratedShoppingListItem } from './types';
 import { ToastContainer } from './components/Toast';
 import { performConversationalSearch } from './services/geminiService';
 import { useToast } from './contexts/ToastContext';
@@ -87,31 +87,47 @@ const MainApp = () => {
   
   const [shoppingModeList, setShoppingModeList] = useState<ShoppingList | null>(null);
 
-  const shoppingModeItems = useMemo(() => {
+  const shoppingModeItems = useMemo((): HydratedShoppingListItem[] => {
     if (!shoppingModeList) return [];
+    
+    // The new `allShoppingListItems` from the hook already contains joined `food_items` data.
+    // We just need to filter and map it to the `HydratedShoppingListItem` shape.
     return allShoppingListItems
         .filter(item => item.list_id === shoppingModeList.id)
         .map(item => {
-            // Hydrate with food item details if available
-            const foodItem = foodItems.find(fi => fi.id === item.food_item_id);
+            const foodItemData = item.food_items || {};
             return {
-                ...foodItem, // Spread the full food item
-                shoppingListItemId: item.id, // This is the unique ID of the item on the list
-                name: item.name,
+                // Base FoodItem properties, preferring the joined data but with fallbacks
+                id: foodItemData.id || item.food_item_id || item.id,
+                user_id: foodItemData.user_id || '',
+                created_at: foodItemData.created_at || item.created_at,
+                name: item.name, // The name on the list item is the source of truth
+                rating: foodItemData.rating || 0,
+                notes: foodItemData.notes,
+                image: foodItemData.image,
+                tags: foodItemData.tags,
+                itemType: foodItemData.itemType || 'product',
+                isPublic: foodItemData.isPublic || false,
+                shared_with_list_id: foodItemData.shared_with_list_id,
+                nutriScore: foodItemData.nutriScore,
+                purchaseLocation: foodItemData.purchaseLocation,
+                ingredients: foodItemData.ingredients,
+                allergens: foodItemData.allergens,
+                isLactoseFree: foodItemData.isLactoseFree,
+                isVegan: foodItemData.isVegan,
+                isGlutenFree: foodItemData.isGlutenFree,
+                restaurantName: foodItemData.restaurantName,
+                cuisineType: foodItemData.cuisineType,
+                price: foodItemData.price,
+                
+                // Hydrated properties
+                shoppingListItemId: item.id,
                 quantity: item.quantity,
                 checked: item.checked,
                 added_by: item.added_by,
-                // Ensure required FoodItem fields have fallbacks if no foodItem is found
-                id: foodItem?.id || item.food_item_id || item.id,
-                user_id: foodItem?.user_id || '',
-                created_at: foodItem?.created_at || item.created_at,
-                rating: foodItem?.rating || 0,
-                itemType: foodItem?.itemType || 'product',
-                isPublic: foodItem?.isPublic || false,
-                image: item.image, // Use the image from the RPC call
             };
         });
-  }, [shoppingModeList, allShoppingListItems, foodItems]);
+  }, [shoppingModeList, allShoppingListItems]);
 
 
   useEffect(() => {
@@ -171,8 +187,10 @@ const MainApp = () => {
       setView('groups');
       return;
     }
-    const targetListId = lastUsedShoppingListId || shoppingLists[0].id;
-    handleOpenShoppingMode(targetListId);
+    const targetListId = lastUsedShoppingListId || shoppingLists[0]?.id;
+    if (targetListId) {
+        handleOpenShoppingMode(targetListId);
+    }
   }, [shoppingLists, lastUsedShoppingListId, handleOpenShoppingMode, addToast, t]);
 
   const handleConfirmAddItemToList = async (listId: string, quantity: number) => {
