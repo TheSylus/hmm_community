@@ -232,23 +232,32 @@ const MainApp = () => {
                 <button onClick={handleQuickAccessShoppingList} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full" aria-label={t('header.button.shoppingList')}>
                     <ShoppingBagIcon className="w-6 h-6" />
                 </button>
-                <button onClick={() => setIsFilterPanelOpen(true)} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full" aria-label={t('header.button.filter')}>
-                    <AdjustmentsHorizontalIcon className="w-6 h-6" />
+                <button onClick={() => setModal('settings')} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full" aria-label={t('header.button.settings')}>
+                    <Cog6ToothIcon className="w-6 h-6" />
                 </button>
             </div>
         </header>
         <div className="container mx-auto px-4 pb-4">
-             <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
+            <div className="flex gap-2 items-center">
+                <div className="relative flex-grow">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <input
+                        type="text"
+                        placeholder={t('header.searchPlaceholder')}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full bg-gray-100 dark:bg-gray-700 border-transparent rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3 pl-10"
+                    />
                 </div>
-                <input
-                    type="text"
-                    placeholder={t('header.searchPlaceholder')}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2 pl-10"
-                />
+                <button 
+                    onClick={() => setIsFilterPanelOpen(true)} 
+                    className="flex-shrink-0 flex items-center gap-2 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                >
+                    <AdjustmentsHorizontalIcon className="w-5 h-5" />
+                    <span>{t('filter.buttonText')}</span>
+                </button>
             </div>
         </div>
       </div>

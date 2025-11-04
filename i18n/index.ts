@@ -108,7 +108,7 @@ const en = {
     "filterPanel.sortBy": "Sort By",
     "filterPanel.reset": "Reset",
     "filterPanel.apply": "Apply",
-    "header.searchPlaceholder": "Search...",
+    "header.searchPlaceholder": "Search by Name, Notes, Tags...",
     "header.filter.type.all": "All Types",
     "header.filter.type.products": "Products",
     "header.filter.type.dishes": "Dishes",
@@ -220,7 +220,8 @@ const en = {
     "shoppingMode.quickAddButton": "Add",
     "shoppingMode.menu.manageMembers": "Manage Members",
     "shoppingMode.menu.leaveList": "Leave List",
-    "shoppingMode.menu.deleteList": "Delete List"
+    "shoppingMode.menu.deleteList": "Delete List",
+    "filter.buttonText": "Filter"
 };
 
 const de: Record<string, string> = {
@@ -321,7 +322,7 @@ const de: Record<string, string> = {
     "filterPanel.sortBy": "Sortieren nach",
     "filterPanel.reset": "Zurücksetzen",
     "filterPanel.apply": "Anwenden",
-    "header.searchPlaceholder": "Suchen...",
+    "header.searchPlaceholder": "Suche nach Name, Notizen, Tags...",
     "header.filter.type.all": "Alle Typen",
     "header.filter.type.products": "Produkte",
     "header.filter.type.dishes": "Gerichte",
@@ -433,7 +434,8 @@ const de: Record<string, string> = {
     "shoppingMode.quickAddButton": "Hinzufügen",
     "shoppingMode.menu.manageMembers": "Mitglieder verwalten",
     "shoppingMode.menu.leaveList": "Liste verlassen",
-    "shoppingMode.menu.deleteList": "Liste löschen"
+    "shoppingMode.menu.deleteList": "Liste löschen",
+    "filter.buttonText": "Filter"
 };
 
 const fullTranslations: Record<Language, Record<string, string>> = { en, de };
