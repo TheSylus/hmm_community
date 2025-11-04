@@ -11,7 +11,7 @@ interface DashboardProps {
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onViewDetails: (item: FoodItem) => void;
-  onAddToGroupShoppingList: (item: FoodItem) => void;
+  onAddToShoppingList: (item: FoodItem) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ items, onViewAll, onAddNew, ...cardProps }) => {
