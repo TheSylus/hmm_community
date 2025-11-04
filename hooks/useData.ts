@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../services/supabaseClient';
 import { FoodItem, ShoppingList, ShoppingListItem, Like, CommentWithProfile, HydratedShoppingListItem, UserProfile } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-// FIX: Import 'useMemo' from 'react' to resolve 'Cannot find name' error.
 import { useState, useEffect, useMemo } from 'react';
 
 const LAST_USED_LIST_ID_KEY = 'lastUsedShoppingListId';
@@ -65,7 +64,8 @@ export const useData = () => {
         const membersByList: Record<string, UserProfile[]> = {};
         if (data?.group_members) {
             for (const group of data.group_members) {
-                membersByList[group.list_id] = group.members;
+                // The RPC function returns members as a simple array of UserProfile-like objects
+                membersByList[group.list_id] = group.members.map(m => ({ id: m.id, email: m.email }));
             }
         }
         return membersByList;
