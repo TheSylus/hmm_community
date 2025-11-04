@@ -227,8 +227,8 @@ const App: React.FC = () => {
     const navItems = [
         { view: 'dashboard', label: t('navigation.dashboard'), icon: HomeIcon },
         { view: 'list', label: t('navigation.myList'), icon: DocumentTextIcon },
-        { view: 'discover', label: t('navigation.discover'), icon: GlobeAltIcon },
         { view: 'groups', label: t('navigation.groups'), icon: UserGroupIcon },
+        { view: 'discover', label: t('navigation.discover'), icon: GlobeAltIcon },
     ];
 
     return (

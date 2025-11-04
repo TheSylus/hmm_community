@@ -297,8 +297,22 @@ export const useData = (userId?: string) => {
     
     const deleteShoppingList = useMutation({
         mutationFn: async (listId: string) => {
-            const { error } = await supabase.rpc('delete_shopping_list', { list_id_param: listId });
-            if (error) throw error;
+            // Step 1: Un-share food items instead of deleting them.
+            const { error: updateError } = await supabase.from('food_items').update({ shared_with_list_id: null }).eq('shared_with_list_id', listId);
+            if (updateError) throw updateError;
+            
+            // Step 2: Delete checklist items.
+            const { error: itemsError } = await supabase.from('shopping_list_items').delete().eq('list_id', listId);
+            if (itemsError) throw itemsError;
+
+            // Step 3: Delete members.
+            const { error: membersError } = await supabase.from('shopping_list_members').delete().eq('list_id', listId);
+            if (membersError) throw membersError;
+
+            // Step 4: Delete the list itself.
+            const { error: listError } = await supabase.from('shopping_lists').delete().eq('id', listId);
+            if (listError) throw listError;
+            
             return listId;
         },
         onSuccess: (deletedListId) => {
