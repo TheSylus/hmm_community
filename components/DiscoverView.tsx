@@ -25,7 +25,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ items, isLoading, on
   }
 
   return (
-    <div className="container mx-auto">
+    <div>
       <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-6">{t('discover.title')}</h1>
       
       {items.length === 0 ? (

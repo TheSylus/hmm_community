@@ -23,7 +23,7 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ shoppingLists, members, 
   };
 
   return (
-    <div className="container mx-auto">
+    <div>
       <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-6">{t('groups.title')}</h1>
       
       <form onSubmit={handleCreate} className="mb-8 flex gap-2">
