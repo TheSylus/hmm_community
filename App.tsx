@@ -90,18 +90,15 @@ const MainApp = () => {
   const shoppingModeItems = useMemo((): HydratedShoppingListItem[] => {
     if (!shoppingModeList) return [];
     
-    // The new `allShoppingListItems` from the hook already contains joined `food_items` data.
-    // We just need to filter and map it to the `HydratedShoppingListItem` shape.
     return allShoppingListItems
         .filter(item => item.list_id === shoppingModeList.id)
         .map(item => {
             const foodItemData = item.food_items || {};
-            return {
-                // Base FoodItem properties, preferring the joined data but with fallbacks
-                id: foodItemData.id || item.food_item_id || item.id,
+            const hydratedItem: HydratedShoppingListItem = {
+                id: foodItemData.id || item.food_item_id!,
                 user_id: foodItemData.user_id || '',
                 created_at: foodItemData.created_at || item.created_at,
-                name: item.name, // The name on the list item is the source of truth
+                name: item.name, 
                 rating: foodItemData.rating || 0,
                 notes: foodItemData.notes,
                 image: foodItemData.image,
@@ -119,13 +116,12 @@ const MainApp = () => {
                 restaurantName: foodItemData.restaurantName,
                 cuisineType: foodItemData.cuisineType,
                 price: foodItemData.price,
-                
-                // Hydrated properties
                 shoppingListItemId: item.id,
                 quantity: item.quantity,
                 checked: item.checked,
                 added_by: item.added_by,
             };
+            return hydratedItem;
         });
   }, [shoppingModeList, allShoppingListItems]);
 
@@ -142,15 +138,20 @@ const MainApp = () => {
 
   const onSaveItem = useCallback(async (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
     const isEditing = !!(currentItem && 'id' in currentItem);
-    if(isEditing) {
-      await updateFoodItem({ ...item, id: currentItem.id, user_id: currentItem.user_id, created_at: currentItem.created_at });
-      addToast({ message: t('form.button.update'), type: 'success' });
-    } else {
-      await addFoodItem(item);
-      addToast({ message: t('form.button.save'), type: 'success' });
+    try {
+        if(isEditing) {
+          await updateFoodItem({ ...item, id: currentItem.id, user_id: currentItem.user_id, created_at: currentItem.created_at });
+          addToast({ message: t('form.button.update'), type: 'success' });
+        } else {
+          await addFoodItem(item);
+          addToast({ message: t('form.button.save'), type: 'success' });
+        }
+        setModal(null);
+        setCurrentItem(null);
+    } catch (error) {
+        console.error("Failed to save item:", error);
+        addToast({ message: error instanceof Error ? error.message : 'Failed to save item.', type: 'error' });
     }
-    setModal(null);
-    setCurrentItem(null);
   }, [addFoodItem, updateFoodItem, currentItem, addToast, t]);
 
   const onDeleteItem = async (id: string) => {
