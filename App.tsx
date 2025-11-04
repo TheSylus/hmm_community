@@ -9,7 +9,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { ApiKeyBanner } from './components/ApiKeyBanner';
 import { useAppSettings } from './contexts/AppSettingsContext';
 import { hasValidApiKey } from './services/geminiService';
-import { FoodItem, FoodItemType, SortKey, TypeFilter, RatingFilter, ShoppingList } from './types';
+import { FoodItem, FoodItemType, SortKey, TypeFilter, RatingFilter, ShoppingList, UserProfile } from './types';
 import { ToastContainer } from './components/Toast';
 import { performConversationalSearch } from './services/geminiService';
 import { useToast } from './contexts/ToastContext';
@@ -20,10 +20,13 @@ import { OfflineIndicator } from './components/OfflineIndicator';
 import { AddToListModal } from './components/AddToListModal';
 import { useTranslation } from './i18n';
 import { ShoppingMode } from './components/ShoppingMode';
+import { BottomNavBar } from './components/BottomNavBar';
+import { Dashboard } from './components/Dashboard';
+import { DiscoverView } from './components/DiscoverView';
+import { GroupsView } from './components/GroupsView';
 
 type Modal = 'form' | 'details' | 'settings' | 'duplicates' | 'addToList' | null;
-// FIX: Export 'View' type for use in other components like BottomNavBar.
-export type View = 'dashboard' | 'list' | 'discover' | 'groups';
+export type View = 'list' | 'dashboard' | 'discover' | 'groups';
 
 const App: React.FC = () => {
   const { session, loading } = useAuth();
@@ -60,11 +63,13 @@ const MainApp = () => {
   const { addToast } = useToast();
   const { 
     foodItems, isLoadingItems, addFoodItem, updateFoodItem, deleteFoodItem, 
-    shoppingLists, createShoppingList, addShoppingListItem,
+    publicFoodItems, isLoadingPublicItems, likes, comments,
+    shoppingLists, createShoppingList, groupMembers, addShoppingListItem,
     lastUsedShoppingListId, setLastUsedShoppingListId,
     getShoppingListItems, toggleShoppingListItem,
   } = useData();
 
+  const [view, setView] = useState<View>('list');
   const [modal, setModal] = useState<Modal>(null);
   const [currentItem, setCurrentItem] = useState<FoodItem | null>(null);
   const [itemTypeForNew, setItemTypeForNew] = useState<FoodItemType>('product');
@@ -107,8 +112,6 @@ const MainApp = () => {
   }, [addFoodItem, updateFoodItem, currentItem, addToast, t]);
 
   const onDeleteItem = async (id: string) => {
-    // FIX: The error on line 283 seems to be a red herring. This line had a logical bug using the wrong translation key for confirmation.
-    // Corrected to use a proper confirmation message key.
     if (window.confirm(t('list.delete.confirm'))) {
       await deleteFoodItem(id);
       addToast({ message: t('toast.itemDeleted'), type: 'info' });
@@ -139,7 +142,7 @@ const MainApp = () => {
   const handleQuickAccessShoppingList = useCallback(() => {
     if (shoppingLists.length === 0) {
       addToast({ message: t('toast.noShoppingLists'), type: 'info' });
-       // You might want to navigate to a groups/list creation view here
+      setView('groups');
       return;
     }
     const targetListId = lastUsedShoppingListId || shoppingLists[0].id;
@@ -221,13 +224,57 @@ const MainApp = () => {
     setModal('form');
   };
 
+  const renderView = () => {
+    switch (view) {
+      case 'dashboard':
+        return <Dashboard 
+                  items={foodItems} 
+                  onViewAll={() => setView('list')} 
+                  onAddNew={() => handleAddNewItem('product')} 
+                  onDelete={onDeleteItem} 
+                  onEdit={onEditItem}
+                  onViewDetails={(item) => { setCurrentItem(item); setModal('details'); }}
+                  onAddToShoppingList={handleAddToShoppingListRequest}
+                />;
+      case 'discover':
+        return <DiscoverView 
+                  items={publicFoodItems} 
+                  isLoading={isLoadingPublicItems} 
+                  onViewDetails={(item) => { setCurrentItem(item); setModal('details'); }}
+                  likes={likes}
+                  comments={comments}
+                />;
+      case 'groups':
+        return <GroupsView 
+                  shoppingLists={shoppingLists}
+                  members={groupMembers}
+                  onSelectList={handleOpenShoppingMode}
+                  onCreateList={createShoppingList}
+                />;
+      case 'list':
+      default:
+        return isLoadingItems ? (
+          <div className="flex justify-center mt-8"><SpinnerIcon className="w-8 h-8 text-indigo-500" /></div>
+        ) : (
+          <FoodItemList items={filteredItems} onDelete={onDeleteItem} onEdit={onEditItem} onViewDetails={(item) => { setCurrentItem(item); setModal('details'); }} onAddToShoppingList={handleAddToShoppingListRequest} />
+        );
+    }
+  };
+
+  const getHeaderTitle = () => {
+    if (view === 'list') return t('header.title');
+    return t(`header.view.${view}`);
+  };
+
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen pb-20">
       {showApiKeyBanner && <ApiKeyBanner onDismiss={() => { setShowApiKeyBanner(false); localStorage.setItem('apiKeyBannerDismissed', 'true'); }} onOpenSettings={() => setModal('settings')} />}
       
       <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 shadow-sm">
         <header className="container mx-auto p-4 flex justify-between items-center">
-            <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-green-500 dark:from-indigo-400 dark:to-green-400">Lebensmittel-Tracker</h1>
+            <button onClick={() => setView('list')} className="cursor-pointer">
+              <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-green-500 dark:from-indigo-400 dark:to-green-400">{getHeaderTitle()}</h1>
+            </button>
             <div className="flex items-center gap-2">
                 <button onClick={handleQuickAccessShoppingList} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full" aria-label={t('header.button.shoppingList')}>
                     <ShoppingBagIcon className="w-6 h-6" />
@@ -237,41 +284,38 @@ const MainApp = () => {
                 </button>
             </div>
         </header>
-        <div className="container mx-auto px-4 pb-4">
-            <div className="flex gap-2 items-center">
-                <div className="relative flex-grow">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
+        {view === 'list' && (
+            <div className="container mx-auto px-4 pb-4">
+                <div className="flex gap-2 items-center">
+                    <div className="relative flex-grow">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
+                        </div>
+                        <input
+                            type="text"
+                            placeholder={t('header.searchPlaceholder')}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full bg-gray-100 dark:bg-gray-700 border-transparent rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3 pl-10"
+                        />
                     </div>
-                    <input
-                        type="text"
-                        placeholder={t('header.searchPlaceholder')}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-gray-100 dark:bg-gray-700 border-transparent rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3 pl-10"
-                    />
+                    <button 
+                        onClick={() => setIsFilterPanelOpen(true)} 
+                        className="flex-shrink-0 flex items-center gap-2 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    >
+                        <AdjustmentsHorizontalIcon className="w-5 h-5" />
+                        <span>{t('filter.buttonText')}</span>
+                    </button>
                 </div>
-                <button 
-                    onClick={() => setIsFilterPanelOpen(true)} 
-                    className="flex-shrink-0 flex items-center gap-2 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                >
-                    <AdjustmentsHorizontalIcon className="w-5 h-5" />
-                    <span>{t('filter.buttonText')}</span>
-                </button>
             </div>
-        </div>
+        )}
       </div>
 
-
       <main className="container mx-auto p-4">
-        {isLoadingItems ? (
-          <div className="flex justify-center mt-8"><SpinnerIcon className="w-8 h-8 text-indigo-500" /></div>
-        ) : (
-          <FoodItemList items={filteredItems} onDelete={onDeleteItem} onEdit={onEditItem} onViewDetails={(item) => { setCurrentItem(item); setModal('details'); }} onAddToShoppingList={handleAddToShoppingListRequest} />
-        )}
+        {renderView()}
       </main>
 
-      <div className="fixed bottom-6 right-6 z-10">
+      <div className="fixed bottom-24 right-6 z-10">
         <button
             onClick={() => handleAddNewItem('product')}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-lg transition-transform transform hover:scale-110"
@@ -280,6 +324,8 @@ const MainApp = () => {
             <PlusCircleIcon className="w-8 h-8" />
         </button>
       </div>
+      
+      <BottomNavBar currentView={view} setView={setView} />
       
       {isFilterPanelOpen && <FilterPanel onClose={() => setIsFilterPanelOpen(false)} searchTerm={searchTerm} setSearchTerm={setSearchTerm} typeFilter={typeFilter} setTypeFilter={setTypeFilter} ratingFilter={ratingFilter} setRatingFilter={setRatingFilter} sortBy={sortBy} setSortBy={setSortBy} onReset={resetFilters} onAiSearch={onAiSearch} isAiSearchLoading={isAiSearchLoading} />}
       {modal === 'form' && <FoodItemForm onSaveItem={onSaveItem} onCancel={() => setModal(null)} initialData={currentItem} itemType={currentItem?.itemType || itemTypeForNew} shoppingLists={shoppingLists} />}

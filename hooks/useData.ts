@@ -1,7 +1,7 @@
 // FIX: Implemented the `useData` custom hook for fetching and mutating application data via Supabase and React Query, resolving module errors.
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../services/supabaseClient';
-import { FoodItem, ShoppingList, ShoppingListItem, Like, CommentWithProfile, HydratedShoppingListItem, UserProfile } from '../types';
+import { FoodItem, ShoppingList, ShoppingListItem, Like, CommentWithProfile, HydratedShoppingListItem, UserProfile, GroupMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useCallback } from 'react';
 
@@ -135,6 +135,34 @@ export const useData = () => {
         }
     });
 
+    const { data: groupMembers = {} } = useQuery<Record<string, UserProfile[]>>({
+        queryKey: ['group_members', shoppingLists.map(l => l.id)],
+        queryFn: async () => {
+            if (!user || shoppingLists.length === 0) return {};
+            const listIds = shoppingLists.map(l => l.id);
+            const { data, error } = await supabase
+                .from('group_members')
+                .select('*, profiles(id, email)')
+                .in('list_id', listIds);
+
+            if (error) throw error;
+
+            const membersByList: Record<string, UserProfile[]> = {};
+            if (data) {
+                (data as GroupMember[]).forEach(member => {
+                    if (!membersByList[member.list_id]) {
+                        membersByList[member.list_id] = [];
+                    }
+                    if (member.profiles) {
+                        membersByList[member.list_id].push(member.profiles);
+                    }
+                });
+            }
+            return membersByList;
+        },
+        enabled: !!user && shoppingLists.length > 0,
+    });
+
     const createShoppingListMutation = useMutation({
         mutationFn: async (name: string) => {
             if(!user) throw new Error("User not authenticated");
@@ -205,6 +233,7 @@ export const useData = () => {
         
         shoppingLists,
         isLoadingShoppingLists,
+        groupMembers,
         createShoppingList: createShoppingListMutation.mutateAsync,
         lastUsedShoppingListId,
         setLastUsedShoppingListId: setLastUsedShoppingListIdState,
