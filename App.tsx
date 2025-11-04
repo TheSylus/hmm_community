@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Auth } from './components/Auth';
 import { useAuth } from './contexts/AuthContext';
 import { useData } from './hooks/useData';
-import { Dashboard } from './components/Dashboard';
 import { FoodItemList } from './components/FoodItemList';
 import { DiscoverView } from './components/DiscoverView';
 import { GroupsView } from './components/GroupsView';
@@ -12,21 +11,22 @@ import { SettingsModal } from './components/SettingsModal';
 import { ApiKeyBanner } from './components/ApiKeyBanner';
 import { useAppSettings } from './contexts/AppSettingsContext';
 import { hasValidApiKey } from './services/geminiService';
-import { FoodItem, FoodItemType, SortKey, TypeFilter, RatingFilter, ShoppingList, HydratedShoppingListItem } from './types';
+import { FoodItem, FoodItemType, SortKey, TypeFilter, RatingFilter, ShoppingList } from './types';
 import { ToastContainer } from './components/Toast';
 import { performConversationalSearch } from './services/geminiService';
 import { useToast } from './contexts/ToastContext';
 import { DuplicateConfirmationModal } from './components/DuplicateConfirmationModal';
-import { SpinnerIcon, AdjustmentsHorizontalIcon, Cog6ToothIcon, ShoppingBagIcon } from './components/Icons';
+import { SpinnerIcon, AdjustmentsHorizontalIcon, Cog6ToothIcon, ShoppingBagIcon, MagnifyingGlassIcon } from './components/Icons';
 import { FilterPanel } from './components/FilterPanel';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { AddToListModal } from './components/AddToListModal';
 import { useTranslation } from './i18n';
-import { BottomNavBar } from './components/BottomNavBar';
 import { ShoppingMode } from './components/ShoppingMode';
 
+type Modal = 'form' | 'details' | 'settings' | 'duplicates' | 'addToList' | 'filter' | null;
+
+// FIX: Exported the View type to resolve an import error in the BottomNavBar component.
 export type View = 'dashboard' | 'list' | 'discover' | 'groups';
-type Modal = 'form' | 'details' | 'settings' | 'duplicates' | 'addToList' | null;
 
 const App: React.FC = () => {
   const { session, loading } = useAuth();
@@ -63,13 +63,11 @@ const MainApp = () => {
   const { addToast } = useToast();
   const { 
     foodItems, isLoadingItems, addFoodItem, updateFoodItem, deleteFoodItem, 
-    publicFoodItems, isLoadingPublicItems, likes, comments, 
     shoppingLists, createShoppingList, addShoppingListItem,
     lastUsedShoppingListId, setLastUsedShoppingListId,
     getShoppingListItems, toggleShoppingListItem,
   } = useData();
 
-  const [view, setView] = useState<View>('dashboard');
   const [modal, setModal] = useState<Modal>(null);
   const [currentItem, setCurrentItem] = useState<FoodItem | null>(null);
   const [itemTypeForNew, setItemTypeForNew] = useState<FoodItemType>('product');
@@ -79,22 +77,13 @@ const MainApp = () => {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [ratingFilter, setRatingFilter] = useState<RatingFilter>('all');
   const [sortBy, setSortBy] = useState<SortKey>('date_desc');
-  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [isAiSearchLoading, setIsAiSearchLoading] = useState(false);
   const [filteredIds, setFilteredIds] = useState<string[] | null>(null);
   const [potentialDuplicates, setPotentialDuplicates] = useState<FoodItem[]>([]);
   const [itemToSave, setItemToSave] = useState<Omit<FoodItem, 'id' | 'user_id' | 'created_at'> | null>(null);
   
-  // State for Shopping Mode
   const [shoppingModeList, setShoppingModeList] = useState<ShoppingList | null>(null);
   const { data: shoppingModeItems, isLoading: isLoadingShoppingModeItems } = getShoppingListItems(shoppingModeList?.id);
-
-  const viewTitles: Record<View, string> = {
-    dashboard: t('header.view.dashboard'),
-    list: t('header.view.list'),
-    discover: t('header.view.discover'),
-    groups: t('header.view.groups'),
-  };
 
   useEffect(() => {
     const keyExists = hasValidApiKey();
@@ -120,9 +109,9 @@ const MainApp = () => {
   }, [addFoodItem, updateFoodItem, currentItem, addToast, t]);
 
   const onDeleteItem = async (id: string) => {
-    if (window.confirm(t('list.empty.description'))) {
+    if (window.confirm(t('list.confirmDelete'))) {
       await deleteFoodItem(id);
-      addToast({ message: 'Item deleted.', type: 'info' });
+      addToast({ message: t('toast.itemDeleted'), type: 'info' });
     }
   };
 
@@ -148,14 +137,10 @@ const MainApp = () => {
   }, [shoppingLists, setLastUsedShoppingListId]);
 
   const handleQuickAccessShoppingList = useCallback(() => {
-    if (shoppingLists.length === 0) {
-      setView('groups');
-      addToast({ message: t('toast.noShoppingLists'), type: 'info' });
-      return;
-    }
-    const targetListId = lastUsedShoppingListId || shoppingLists[0].id;
-    handleOpenShoppingMode(targetListId);
-  }, [shoppingLists, lastUsedShoppingListId, handleOpenShoppingMode, setView, addToast, t]);
+    // This now opens the groups management modal, which feels more intuitive
+    // from a main screen. It can be changed to open the last list directly if needed.
+    setModal('groups');
+  }, []);
 
   const handleConfirmAddItemToList = async (listId: string, quantity: number) => {
     if (!currentItem) return;
@@ -171,7 +156,7 @@ const MainApp = () => {
         addToast({ message: t('toast.addedToList', { itemName: currentItem.name, listName }), type: 'success' });
     } catch (error) {
         console.error("Failed to add item to list", error);
-        addToast({ message: 'Failed to add item.', type: 'error' });
+        addToast({ message: t('toast.addItemError'), type: 'error' });
     } finally {
         setModal(null);
         setCurrentItem(null);
@@ -189,8 +174,16 @@ const MainApp = () => {
       const idSet = new Set(filteredIds);
       items = items.filter(item => idSet.has(item.id));
     }
+    
+    const searchLower = searchTerm.toLowerCase();
+
     return items
-      .filter(item => searchTerm ? item.name.toLowerCase().includes(searchTerm.toLowerCase()) : true)
+      .filter(item => {
+        if (!searchTerm) return true;
+        return item.name.toLowerCase().includes(searchLower) ||
+               item.notes?.toLowerCase().includes(searchLower) ||
+               item.tags?.some(tag => tag.toLowerCase().includes(searchLower));
+      })
       .filter(item => typeFilter === 'all' ? true : item.itemType === typeFilter)
       .filter(item => {
         if (ratingFilter === 'all') return true;
@@ -215,7 +208,7 @@ const MainApp = () => {
     try {
         const ids = await performConversationalSearch(query, foodItems);
         setFilteredIds(ids);
-        setIsFilterPanelOpen(false);
+        setModal('filter');
     } catch (e) {
         const message = e instanceof Error ? e.message : "AI search failed";
         addToast({ message, type: 'error' });
@@ -231,31 +224,17 @@ const MainApp = () => {
       setSortBy('date_desc');
       setFilteredIds(null);
   };
-  
-  const renderView = () => {
-    if (isLoadingItems) return <div className="flex justify-center mt-8"><SpinnerIcon className="w-8 h-8 text-indigo-500" /></div>;
-    switch (view) {
-      case 'dashboard': return <Dashboard items={foodItems} onViewAll={() => setView('list')} onAddNew={() => { setCurrentItem(null); setItemTypeForNew('product'); setModal('form'); }} onDelete={onDeleteItem} onEdit={onEditItem} onViewDetails={(item) => { setCurrentItem(item); setModal('details'); }} onAddToShoppingList={handleAddToShoppingListRequest} />;
-      case 'discover': return <DiscoverView items={publicFoodItems} isLoading={isLoadingPublicItems} onViewDetails={(item) => { setCurrentItem(item); setModal('details'); }} likes={likes} comments={comments} />;
-      case 'groups': return <GroupsView shoppingLists={shoppingLists} members={{}} onSelectList={handleOpenShoppingMode} onCreateList={(name) => createShoppingList(name)} />;
-      case 'list':
-      default: return <FoodItemList items={filteredItems} onDelete={onDeleteItem} onEdit={onEditItem} onViewDetails={(item) => { setCurrentItem(item); setModal('details'); }} onAddToShoppingList={handleAddToShoppingListRequest} />;
-    }
-  };
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen pb-20">
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       {showApiKeyBanner && <ApiKeyBanner onDismiss={() => { setShowApiKeyBanner(false); localStorage.setItem('apiKeyBannerDismissed', 'true'); }} onOpenSettings={() => setModal('settings')} />}
       
       <header className="bg-white dark:bg-gray-800 shadow-sm p-4 sticky top-0 z-20">
         <div className="container mx-auto flex justify-between items-center">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">{viewTitles[view]}</h1>
+            <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-green-500 dark:from-indigo-400 dark:to-green-400">
+                {t('header.title')}
+            </h1>
             <div className="flex items-center gap-2">
-                {view === 'list' && (
-                    <button onClick={() => setIsFilterPanelOpen(true)} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full" aria-label={t('header.button.filter')}>
-                        <AdjustmentsHorizontalIcon className="w-6 h-6" />
-                    </button>
-                )}
                 <button onClick={handleQuickAccessShoppingList} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full" aria-label={t('header.button.shoppingList')}>
                     <ShoppingBagIcon className="w-6 h-6" />
                 </button>
@@ -265,15 +244,50 @@ const MainApp = () => {
             </div>
         </div>
       </header>
-
-      <main className="container mx-auto p-4">{renderView()}</main>
-
-      <BottomNavBar currentView={view} setView={setView} />
       
-      {isFilterPanelOpen && <FilterPanel onClose={() => setIsFilterPanelOpen(false)} searchTerm={searchTerm} setSearchTerm={setSearchTerm} typeFilter={typeFilter} setTypeFilter={setTypeFilter} ratingFilter={ratingFilter} setRatingFilter={setRatingFilter} sortBy={sortBy} setSortBy={setSortBy} onReset={resetFilters} onAiSearch={onAiSearch} isAiSearchLoading={isAiSearchLoading} />}
+      <div className="container mx-auto p-4 sticky top-[72px] z-10 bg-gray-50 dark:bg-gray-900">
+        <div className="flex gap-2 items-center">
+          <div className="relative flex-grow">
+            <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder={t('search.placeholder')}
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3 pl-10"
+            />
+          </div>
+          <button
+            onClick={() => setModal('filter')}
+            className="flex-shrink-0 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold py-3 px-4 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+          >
+            <AdjustmentsHorizontalIcon className="w-5 h-5" />
+            <span>{t('header.button.filter')}</span>
+          </button>
+        </div>
+      </div>
+
+      <main className="container mx-auto p-4">
+        {isLoadingItems 
+            ? <div className="flex justify-center mt-8"><SpinnerIcon className="w-8 h-8 text-indigo-500" /></div>
+            : <FoodItemList items={filteredItems} onDelete={onDeleteItem} onEdit={onEditItem} onViewDetails={(item) => { setCurrentItem(item); setModal('details'); }} onAddToShoppingList={handleAddToShoppingListRequest} />
+        }
+      </main>
+
+      <div className="fixed bottom-6 right-6 z-20">
+        <button
+            onClick={() => { setCurrentItem(null); setItemTypeForNew('product'); setModal('form'); }}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-full shadow-lg transition-transform transform hover:scale-105 flex items-center justify-center gap-2"
+        >
+            <span className="text-lg">{t('form.addNewButton')}</span>
+        </button>
+      </div>
+      
+      {modal === 'filter' && <FilterPanel onClose={() => setModal(null)} searchTerm={searchTerm} setSearchTerm={setSearchTerm} typeFilter={typeFilter} setTypeFilter={setTypeFilter} ratingFilter={ratingFilter} setRatingFilter={setRatingFilter} sortBy={sortBy} setSortBy={setSortBy} onReset={resetFilters} onAiSearch={onAiSearch} isAiSearchLoading={isAiSearchLoading} />}
       {modal === 'form' && <FoodItemForm onSaveItem={onSaveItem} onCancel={() => setModal(null)} initialData={currentItem} itemType={currentItem?.itemType || itemTypeForNew} shoppingLists={shoppingLists} />}
       {modal === 'details' && currentItem && <FoodItemDetailModal item={currentItem} onClose={() => { setModal(null); setCurrentItem(null); }} />}
       {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} />}
+      {modal === 'groups' && <GroupsView shoppingLists={shoppingLists} members={{}} onSelectList={handleOpenShoppingMode} onCreateList={(name) => createShoppingList(name)} onClose={() => setModal(null)} />}
       {modal === 'duplicates' && <DuplicateConfirmationModal items={potentialDuplicates} itemName={itemToSave?.name || ''} onConfirm={() => itemToSave && onSaveItem(itemToSave)} onCancel={() => setModal(null)} />}
       {shoppingModeList && <ShoppingMode list={shoppingModeList} items={shoppingModeItems || []} isLoading={isLoadingShoppingModeItems} onClose={() => setShoppingModeList(null)} onItemToggle={handleToggleShoppingListItem} onAddItem={() => {}} />}
       {modal === 'addToList' && currentItem && <AddToListModal item={currentItem} lists={shoppingLists} onAdd={handleConfirmAddItemToList} onClose={() => { setModal(null); setCurrentItem(null); }} />}
