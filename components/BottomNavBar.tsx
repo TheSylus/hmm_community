@@ -1,5 +1,6 @@
 import React from 'react';
-import { View } from '../App';
+// FIX: Changed to a type-only import to satisfy isolated modules.
+import type { View } from '../App';
 import { HomeIcon, ListBulletIcon, GlobeAltIcon, UserGroupIcon } from './Icons';
 import { useTranslation } from '../i18n';
 
