@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../services/supabaseClient';
 import { FoodItem, ShoppingList, ShoppingListItem, ShoppingListMember, UserProfile, HydratedShoppingListItem, Like, CommentWithProfile } from '../types';
 import { useToast } from '../contexts/ToastContext';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 
 // --- Query Keys Factory ---
 const queryKeys = {
@@ -31,7 +31,19 @@ interface PublicData {
 export const useData = (userId?: string) => {
     const queryClient = useQueryClient();
     const { addToast } = useToast();
-    const [activeListId, setActiveListId] = useState<string | null>(null);
+    
+    const [activeListId, setActiveListIdInternal] = useState<string | null>(() => {
+        return localStorage.getItem('lastActiveShoppingListId');
+    });
+
+    const setActiveListId = useCallback((listId: string | null) => {
+        setActiveListIdInternal(listId);
+        if (listId) {
+            localStorage.setItem('lastActiveShoppingListId', listId);
+        } else {
+            localStorage.removeItem('lastActiveShoppingListId');
+        }
+    }, []);
 
     // --- QUERIES (Data Fetching) ---
 
@@ -110,6 +122,14 @@ export const useData = (userId?: string) => {
     // --- MEMOIZED SELECTORS (Derived Data) ---
     const { foodItems, shoppingLists, shoppingListItems, memberships } = allData || { foodItems: [], shoppingLists: [], shoppingListItems: [], memberships: [] };
     const { publicItems, likes, comments } = publicData || { publicItems: [], likes: [], comments: [] };
+
+    // Effect to validate the persisted activeListId against the user's actual lists
+    useEffect(() => {
+        if (activeListId && allData && !allData.shoppingLists.some(l => l.id === activeListId)) {
+            // If the stored ID is not valid (e.g., user was removed from group), clear it.
+            setActiveListId(null);
+        }
+    }, [allData, activeListId, setActiveListId]);
 
     const shoppingListMembers = useMemo(() => {
         if (!memberships.length || !Object.keys(allProfiles).length) return {};
@@ -450,7 +470,7 @@ export const useData = (userId?: string) => {
     return {
         // Data
         foodItems, publicItems, likes, comments, shoppingLists,
-        shoppingListMembers, allProfiles, activeShoppingListData,
+        shoppingListMembers, allProfiles, activeListId, activeShoppingListData,
         setActiveListId,
         // Loading States
         isInitialLoading, isPublicLoading,

@@ -6,6 +6,7 @@ const translations: Record<Language, any> = {
   en: {
     header: {
       title: "Food Memory Tracker",
+      shoppingListAria: "Open shopping list",
       searchPlaceholder: "Search by name or notes...",
       filter: {
         all: "All Ratings",
@@ -370,6 +371,7 @@ const translations: Record<Language, any> = {
   de: {
     header: {
       title: "Food Memory Tracker",
+      shoppingListAria: "Einkaufsliste öffnen",
       searchPlaceholder: "Suche nach Name oder Notizen...",
       filter: {
         all: "Alle Bewertungen",

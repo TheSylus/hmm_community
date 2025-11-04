@@ -22,8 +22,9 @@ import { hasValidApiKey } from './services/geminiService';
 import { useAppSettings } from './contexts/AppSettingsContext';
 import { useData } from './hooks/useData';
 import { useToast } from './contexts/ToastContext';
+import { HomeIcon, DocumentTextIcon, GlobeAltIcon, UserGroupIcon, PlusCircleIcon, AdjustmentsHorizontalIcon, Cog6ToothIcon, ShoppingBagIcon } from './components/Icons';
+// FIX: Import ToastContainer component.
 import { ToastContainer } from './components/Toast';
-import { HomeIcon, DocumentTextIcon, GlobeAltIcon, UserGroupIcon, PlusCircleIcon, AdjustmentsHorizontalIcon, Cog6ToothIcon } from './components/Icons';
 
 type View = 'dashboard' | 'list' | 'discover' | 'groups';
 
@@ -42,6 +43,7 @@ const App: React.FC = () => {
         shoppingLists,
         shoppingListMembers,
         allProfiles,
+        activeListId,
         activeShoppingListData,
         setActiveListId,
         isInitialLoading,
@@ -218,6 +220,16 @@ const App: React.FC = () => {
         setActiveListId(listId);
         setIsShoppingListModalOpen(true);
     };
+
+    const handleOpenShoppingList = () => {
+        // If a valid active list is already set (from localStorage), use it.
+        if (activeListId && shoppingLists.some(l => l.id === activeListId)) {
+            selectShoppingList(activeListId);
+        } else if (shoppingLists.length > 0) {
+            // Otherwise, default to the first list.
+            selectShoppingList(shoppingLists[0].id);
+        }
+    };
     
     if (!session) return <Auth />;
     if (isAiEnabled && !hasValidApiKey() && isApiKeyModalOpen) return <ApiKeyModal onKeySave={handleSaveApiKey} />;
@@ -241,6 +253,15 @@ const App: React.FC = () => {
               <div className="flex justify-between items-center max-w-6xl mx-auto">
                 <h1 className="text-xl font-bold text-gray-800 dark:text-white">{t('header.title')}</h1>
                 <div className="flex items-center gap-2">
+                    {shoppingLists && shoppingLists.length > 0 && (
+                        <button
+                            onClick={handleOpenShoppingList}
+                            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+                            aria-label={t('header.shoppingListAria')}
+                        >
+                            <ShoppingBagIcon className="w-6 h-6" />
+                        </button>
+                    )}
                     {view === 'list' && (
                         <button onClick={() => setIsFilterPanelOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors">
                             <AdjustmentsHorizontalIcon className="w-6 h-6" />
