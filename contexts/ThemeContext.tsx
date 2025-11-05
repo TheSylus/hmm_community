@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import { useProfile } from './ProfileContext';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -10,11 +11,23 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>(() => {
-    // Check for saved theme in localStorage, otherwise default to 'system'
-    return (localStorage.getItem('theme') as Theme) || 'system';
-  });
+  const { profile, updateProfile, isLoadingProfile } = useProfile();
 
+  // Read from local storage for initial non-flicker state
+  const getInitialTheme = (): Theme => (localStorage.getItem('theme') as Theme) || 'system';
+  
+  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+
+  // When profile loads, sync theme from DB, overriding localStorage
+  useEffect(() => {
+    if (!isLoadingProfile && profile?.theme) {
+      if (theme !== profile.theme) {
+        setThemeState(profile.theme);
+      }
+    }
+  }, [profile, isLoadingProfile, theme]);
+  
+  // Effect to apply theme to DOM
   useEffect(() => {
     const root = window.document.documentElement;
     const isDark =
@@ -23,8 +36,6 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     root.classList.remove(isDark ? 'light' : 'dark');
     root.classList.add(isDark ? 'dark' : 'light');
-
-    localStorage.setItem('theme', theme);
   }, [theme]);
 
   // Listener for system theme changes
@@ -47,6 +58,18 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [theme]);
+
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme);
+    localStorage.setItem('theme', newTheme);
+    // Optimistically update DB if user is logged in
+    if (profile) {
+      updateProfile({ theme: newTheme }).catch(e => {
+          console.error("Failed to sync theme to DB", e);
+          // Optional: revert state or show toast
+      });
+    }
+  };
 
   const value = { theme, setTheme };
 
