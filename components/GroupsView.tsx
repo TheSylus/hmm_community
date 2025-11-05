@@ -1,24 +1,38 @@
 import React from 'react';
 import { ShoppingList, UserProfile } from '../types';
 import { useTranslation } from '../i18n';
-import { UserGroupIcon, PlusCircleIcon } from './Icons';
+import { UserGroupIcon, PlusCircleIcon, SpinnerIcon } from './Icons';
+import { useToast } from '../contexts/ToastContext';
 
 interface GroupsViewProps {
   shoppingLists: ShoppingList[];
   members: Record<string, UserProfile[]>;
   onSelectList: (listId: string) => void;
-  onCreateList: (name: string) => void;
+  onCreateList: (name: string) => Promise<any>;
 }
 
 export const GroupsView: React.FC<GroupsViewProps> = ({ shoppingLists, members, onSelectList, onCreateList }) => {
   const { t } = useTranslation();
+  const { addToast } = useToast();
   const [newListName, setNewListName] = React.useState('');
+  const [isCreating, setIsCreating] = React.useState(false);
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newListName.trim()) {
-      onCreateList(newListName.trim());
-      setNewListName('');
+    if (newListName.trim() && !isCreating) {
+      const nameToCreate = newListName.trim();
+      setIsCreating(true);
+      try {
+        await onCreateList(nameToCreate);
+        setNewListName('');
+        addToast({ message: t('toast.groupCreated', { groupName: nameToCreate }), type: 'success' });
+      } catch (error) {
+        console.error("Failed to create group:", error);
+        const errorMessage = error instanceof Error ? error.message : "Could not create group.";
+        addToast({ message: errorMessage, type: 'error' });
+      } finally {
+        setIsCreating(false);
+      }
     }
   };
 
@@ -33,9 +47,14 @@ export const GroupsView: React.FC<GroupsViewProps> = ({ shoppingLists, members, 
           onChange={(e) => setNewListName(e.target.value)}
           placeholder={t('groups.newListPlaceholder')}
           className="flex-grow bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
+          disabled={isCreating}
         />
-        <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-md font-semibold hover:bg-indigo-700 transition-colors flex items-center gap-2">
-          <PlusCircleIcon className="w-5 h-5" />
+        <button 
+            type="submit" 
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md font-semibold hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:bg-indigo-400 dark:disabled:bg-gray-600"
+            disabled={isCreating || !newListName.trim()}
+        >
+          {isCreating ? <SpinnerIcon className="w-5 h-5" /> : <PlusCircleIcon className="w-5 h-5" />}
           {t('groups.createButton')}
         </button>
       </form>
