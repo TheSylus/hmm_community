@@ -305,7 +305,7 @@ export const categorizeShoppingListItems = async (items: HydratedShoppingListIte
         return [];
     }
     
-    const compactItems = items.map(item => ({ id: item.shoppingListItemId, name: item.name, tags: item.tags || [] }));
+    const compactItems = items.map(item => ({ id: item.shopping_list_item_id, name: item.name, tags: item.tags || [] }));
     const langName = language === 'de' ? 'German' : 'English';
     
     const textPrompt = `Analyze the following list of grocery items. Group them into common supermarket categories. The category names should be in ${langName}. Use these categories: Fruits & Vegetables, Dairy & Eggs, Bakery, Meat & Fish, Pantry, Frozen Foods, Drinks, Household, and Other. Return ONLY the JSON object.
@@ -347,6 +347,6 @@ export const categorizeShoppingListItems = async (items: HydratedShoppingListIte
     } catch (error) {
         console.error("Error categorizing shopping list:", error);
         // Fallback to a single "Uncategorized" list on error
-        return [{ categoryName: "Uncategorized", itemIds: items.map(i => i.shoppingListItemId) }];
+        return [{ categoryName: "Uncategorized", itemIds: items.map(i => i.shopping_list_item_id) }];
     }
 };

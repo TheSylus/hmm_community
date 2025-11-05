@@ -52,7 +52,7 @@ export interface ShoppingListItem {
 
 // For joining shopping list items with food items
 export interface HydratedShoppingListItem extends FoodItem {
-    shoppingListItemId: string;
+    shopping_list_item_id: string;
     quantity: number;
     checked: boolean;
     added_by: string;

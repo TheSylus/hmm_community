@@ -97,7 +97,7 @@ const MainApp = () => {
     return allShoppingListItems
         .filter(item => item.list_id === shoppingModeList.id)
         .map(item => {
-            const foodItemData = item.food_items || {};
+            const foodItemData = (item as any).food_items || {};
             const hydratedItem: HydratedShoppingListItem = {
                 id: foodItemData.id || item.food_item_id!,
                 user_id: foodItemData.user_id || '',
@@ -120,7 +120,7 @@ const MainApp = () => {
                 restaurant_name: foodItemData.restaurant_name,
                 cuisine_type: foodItemData.cuisine_type,
                 price: foodItemData.price,
-                shoppingListItemId: item.id,
+                shopping_list_item_id: item.id,
                 quantity: item.quantity,
                 checked: item.checked,
                 added_by: item.added_by,
