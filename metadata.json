@@ -1,5 +1,5 @@
 {
-  "name": "Food Memory Tracker (nichts funktioniert mehr)",
+  "name": "Food Memory Tracker",
   "description": "An app to help you remember food products you liked and disliked. Add items with photos, notes, and a rating. Includes an AI feature to extract product info from images.",
   "requestFramePermissions": [
     "camera",

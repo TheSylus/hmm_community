@@ -1,22 +1,22 @@
 import React, { useEffect } from 'react';
 import { useToast, ToastMessage } from '../contexts/ToastContext';
-import { XMarkIcon, CheckCircleIcon, XCircleIcon, InformationCircleIcon } from './Icons';
+import { XMarkIcon, CheckCircleIcon } from './Icons'; // Assuming you have these icons
 
 const toastStyles = {
   success: {
-    bg: 'bg-green-100 dark:bg-green-900/50',
-    text: 'text-green-800 dark:text-green-200',
+    bg: 'bg-green-100 dark:bg-green-800',
+    text: 'text-green-800 dark:text-green-100',
     icon: <CheckCircleIcon className="w-6 h-6 text-green-500" />,
   },
   error: {
-    bg: 'bg-red-100 dark:bg-red-900/50',
-    text: 'text-red-800 dark:text-red-200',
-    icon: <XCircleIcon className="w-6 h-6 text-red-500" />,
+    bg: 'bg-red-100 dark:bg-red-800',
+    text: 'text-red-800 dark:text-red-100',
+    icon: <XMarkIcon className="w-6 h-6 text-red-500" />,
   },
   info: {
-    bg: 'bg-blue-100 dark:bg-blue-900/50',
-    text: 'text-blue-800 dark:text-blue-200',
-    icon: <InformationCircleIcon className="w-6 h-6 text-blue-500" />,
+    bg: 'bg-blue-100 dark:bg-blue-800',
+    text: 'text-blue-800 dark:text-blue-100',
+    icon: <CheckCircleIcon className="w-6 h-6 text-blue-500" />,
   },
 };
 
@@ -26,7 +26,7 @@ const Toast: React.FC<{ toast: ToastMessage; onDismiss: (id: number) => void }> 
   useEffect(() => {
     const timer = setTimeout(() => {
       onDismiss(id);
-    }, 4000); // Auto-dismiss after 4 seconds
+    }, 3000); // Auto-dismiss after 3 seconds
 
     return () => {
       clearTimeout(timer);
