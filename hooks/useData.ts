@@ -72,19 +72,36 @@ export const useData = () => {
         queryKey: ['shoppingLists', user?.id],
         queryFn: async () => {
             if (!user) return [];
-            // FIX: Replaced the non-existent RPC call with a standard query.
-            // This fetches all lists where the current user is a member.
-            const { data, error } = await supabase
+
+            // Step 1: Get the list IDs the user is a member of
+            const { data: memberEntries, error: memberError } = await supabase
                 .from('shopping_list_members')
-                .select('shopping_lists!inner(*)')
+                .select('list_id')
                 .eq('user_id', user.id);
 
-            if (error) {
-                console.error("Error fetching user shopping lists:", error);
-                throw error;
+            if (memberError) {
+                console.error("Error fetching user's list memberships:", memberError);
+                throw memberError;
             }
-            // The query returns [{ shopping_lists: {...} }, ...], so we map it to get the list objects.
-            return data?.map(item => item.shopping_lists as ShoppingList) || [];
+            
+            if (!memberEntries || memberEntries.length === 0) {
+                return []; // User is not in any lists
+            }
+
+            const listIds = memberEntries.map(entry => entry.list_id);
+
+            // Step 2: Fetch the details for those lists
+            const { data: lists, error: listsError } = await supabase
+                .from('shopping_lists')
+                .select('*')
+                .in('id', listIds);
+            
+            if (listsError) {
+                console.error("Error fetching shopping list details:", listsError);
+                throw listsError;
+            }
+
+            return lists || [];
         },
         enabled: !!user,
     });
