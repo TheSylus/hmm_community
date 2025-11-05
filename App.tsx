@@ -25,6 +25,7 @@ import { ManageMembersModal } from './components/ManageMembersModal';
 import { AddToListModal } from './components/AddToListModal';
 import { ProfileModal } from './components/ProfileModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { ToastContainer } from './components/Toast';
 
 export type View = 'dashboard' | 'list' | 'discover' | 'groups';
 
@@ -257,6 +258,7 @@ const App: React.FC = () => {
     
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-gray-900 pb-20">
+            <ToastContainer />
             <OfflineIndicator isOnline={isOnline} />
             {showApiKeyBanner && <ApiKeyBanner onDismiss={() => { setShowApiKeyBanner(false); sessionStorage.setItem('apiKeyBannerDismissed', 'true'); }} onOpenSettings={() => { setIsSettingsOpen(true); setShowApiKeyBanner(false); }} />}
             
