@@ -107,18 +107,18 @@ const MainApp = () => {
                 notes: foodItemData.notes,
                 image: foodItemData.image,
                 tags: foodItemData.tags,
-                itemType: foodItemData.itemType || 'product',
-                isPublic: foodItemData.isPublic || false,
-                sharedWithListId: foodItemData.sharedWithListId,
-                nutriScore: foodItemData.nutriScore,
-                purchaseLocation: foodItemData.purchaseLocation,
+                item_type: foodItemData.item_type || 'product',
+                is_public: foodItemData.is_public || false,
+                shared_with_list_id: foodItemData.shared_with_list_id,
+                nutri_score: foodItemData.nutri_score,
+                purchase_location: foodItemData.purchase_location,
                 ingredients: foodItemData.ingredients,
                 allergens: foodItemData.allergens,
-                isLactoseFree: foodItemData.isLactoseFree,
-                isVegan: foodItemData.isVegan,
-                isGlutenFree: foodItemData.isGlutenFree,
-                restaurantName: foodItemData.restaurantName,
-                cuisineType: foodItemData.cuisineType,
+                is_lactose_free: foodItemData.is_lactose_free,
+                is_vegan: foodItemData.is_vegan,
+                is_gluten_free: foodItemData.is_gluten_free,
+                restaurant_name: foodItemData.restaurant_name,
+                cuisine_type: foodItemData.cuisine_type,
                 price: foodItemData.price,
                 shoppingListItemId: item.id,
                 quantity: item.quantity,
@@ -153,245 +153,335 @@ const MainApp = () => {
         setModal(null);
         setCurrentItem(null);
     } catch (error) {
-        console.error("Failed to save item:", error);
-        addToast({ message: error instanceof Error ? error.message : 'Failed to save item.', type: 'error' });
+       const message = error instanceof Error ? error.message : "Failed to save item.";
+       addToast({ message, type: 'error' });
+    } finally {
+        setPotentialDuplicates([]);
+        setItemToSave(null);
     }
-  }, [addFoodItem, updateFoodItem, currentItem, addToast, t]);
+  }, [addFoodItem, updateFoodItem, foodItems, currentItem, t, addToast]);
+  
+  const checkIfDuplicate = useCallback((item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
+     const isEditing = !!(currentItem && 'id' in currentItem);
+     if(isEditing) {
+        onSaveItem(item);
+        return;
+     }
+     const duplicates = foodItems.filter(fi => 
+       fi.name.toLowerCase().trim() === item.name.toLowerCase().trim()
+     );
 
-  const onDeleteItem = async (id: string) => {
+     if(duplicates.length > 0) {
+        setPotentialDuplicates(duplicates);
+        setItemToSave(item);
+        setModal('duplicates');
+     } else {
+        onSaveItem(item);
+     }
+  }, [foodItems, onSaveItem, currentItem]);
+
+  const handleConfirmSave = useCallback(() => {
+      if (itemToSave) {
+        onSaveItem(itemToSave);
+      }
+  }, [itemToSave, onSaveItem]);
+  
+
+  const handleDeleteItem = useCallback(async (id: string) => {
     if (window.confirm(t('list.delete.confirm'))) {
-      await deleteFoodItem(id);
-      addToast({ message: t('toast.itemDeleted'), type: 'info' });
+      try {
+        await deleteFoodItem(id);
+        addToast({ message: t('toast.itemDeleted'), type: 'info' });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to delete item.";
+        addToast({ message, type: 'error' });
+      }
     }
-  };
+  }, [deleteFoodItem, t, addToast]);
 
-  const onEditItem = (id: string) => {
-    const item = foodItems.find(i => i.id === id);
-    if (item) {
-      setCurrentItem(item);
+  const handleEditItem = useCallback((id: string) => {
+    const itemToEdit = foodItems.find(item => item.id === id);
+    if (itemToEdit) {
+      setCurrentItem(itemToEdit);
+      setItemTypeForNew(itemToEdit.item_type);
       setModal('form');
     }
-  };
+  }, [foodItems]);
 
-  const handleAddToShoppingListRequest = (item: FoodItem) => {
+  const handleViewDetails = useCallback((item: FoodItem) => {
+    setCurrentItem(item);
+    setModal('details');
+  }, []);
+
+  const handleOpenForm = useCallback((type: FoodItemType) => {
+    setCurrentItem(null);
+    setItemTypeForNew(type);
+    setModal('form');
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setModal(null);
+    setCurrentItem(null);
+    setPotentialDuplicates([]);
+    setItemToSave(null);
+  }, []);
+  
+  const handleAddToShoppingList = useCallback((item: FoodItem) => {
+      if (shoppingLists.length === 0) {
+        addToast({ message: t('toast.noShoppingLists'), type: 'info' });
+        return;
+      }
       setCurrentItem(item);
       setModal('addToList');
-  };
-  
-  const handleOpenShoppingMode = useCallback((listId: string) => {
-    const list = shoppingLists.find(l => l.id === listId);
-    if (list) {
-      setLastUsedShoppingListId(list.id);
-      setShoppingModeList(list);
-    }
-  }, [shoppingLists, setLastUsedShoppingListId]);
+  }, [shoppingLists, addToast, t]);
 
-  const handleQuickAccessShoppingList = useCallback(() => {
-    if (shoppingLists.length === 0) {
-      addToast({ message: t('toast.noShoppingLists'), type: 'info' });
-      setView('groups');
-      return;
+  const handleConfirmAddToList = useCallback(async (listId: string, quantity: number) => {
+    if (currentItem) {
+        try {
+            await addShoppingListItem({
+                list_id: listId,
+                food_item_id: currentItem.id,
+                name: currentItem.name,
+                quantity,
+            });
+            const listName = shoppingLists.find(l => l.id === listId)?.name || '';
+            addToast({ message: t('toast.addedToList', { itemName: currentItem.name, listName }), type: 'success' });
+            setLastUsedShoppingListId(listId);
+            handleCloseModal();
+        } catch(e) {
+            const message = e instanceof Error ? e.message : "Failed to add to list.";
+            addToast({ message, type: 'error' });
+        }
     }
-    const targetListId = lastUsedShoppingListId || shoppingLists[0]?.id;
-    if (targetListId) {
-        handleOpenShoppingMode(targetListId);
-    }
-  }, [shoppingLists, lastUsedShoppingListId, handleOpenShoppingMode, addToast, t]);
-
-  const handleConfirmAddItemToList = async (listId: string, quantity: number) => {
-    if (!currentItem) return;
-    try {
-        await addShoppingListItem({ list_id: listId, food_item_id: currentItem.id, name: currentItem.name, quantity });
-        const listName = shoppingLists.find(l => l.id === listId)?.name || 'list';
-        addToast({ message: t('toast.addedToList', { itemName: currentItem.name, listName }), type: 'success' });
-    } catch (error) {
-        console.error("Failed to add item to list", error);
-        addToast({ message: 'Failed to add item.', type: 'error' });
-    } finally {
-        setModal(null);
-        setCurrentItem(null);
-    }
-  };
-
-  const handleToggleShoppingListItem = async (itemId: string, checked: boolean) => {
-    await toggleShoppingListItem({ itemId, checked });
-  };
-  
-  const handleManageMembers = (list: ShoppingList) => {
-    setShoppingModeList(null); // Close shopping mode if open
-    setModalList(list);
-    setModal('manageMembers');
-  }
+  }, [currentItem, addShoppingListItem, handleCloseModal, addToast, shoppingLists, setLastUsedShoppingListId, t]);
 
   const filteredItems = useMemo(() => {
-    let items = foodItems;
+    let items = [...foodItems];
+    
     if (filteredIds) {
       const idSet = new Set(filteredIds);
       items = items.filter(item => idSet.has(item.id));
     }
-    return items
-      .filter(item => searchTerm ? item.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.notes?.toLowerCase().includes(searchTerm.toLowerCase()) || item.tags?.join(' ').toLowerCase().includes(searchTerm.toLowerCase()) : true)
-      .filter(item => typeFilter === 'all' ? true : item.itemType === typeFilter)
-      .filter(item => {
-        if (ratingFilter === 'all') return true;
+
+    if (searchTerm) {
+      const lowercasedTerm = searchTerm.toLowerCase();
+      items = items.filter(item =>
+        item.name.toLowerCase().includes(lowercasedTerm) ||
+        item.notes?.toLowerCase().includes(lowercasedTerm) ||
+        item.tags?.some(tag => tag.toLowerCase().includes(lowercasedTerm))
+      );
+    }
+    
+    if (typeFilter !== 'all') {
+      items = items.filter(item => item.item_type === typeFilter);
+    }
+
+    if (ratingFilter !== 'all') {
+      items = items.filter(item => {
         if (ratingFilter === 'liked') return item.rating >= 4;
         if (ratingFilter === 'disliked') return item.rating <= 2;
         return true;
-      })
-      .sort((a, b) => {
-        switch (sortBy) {
-          case 'date_asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-          case 'rating_desc': return b.rating - a.rating;
-          case 'rating_asc': return a.rating - b.rating;
-          case 'name_asc': return a.name.localeCompare(b.name);
-          case 'name_desc': return b.name.localeCompare(a.name);
-          default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        }
       });
-  }, [foodItems, searchTerm, typeFilter, ratingFilter, sortBy, filteredIds]);
+    }
 
-  const onAiSearch = async (query: string) => {
-    setIsAiSearchLoading(true);
-    try {
+    const sortFunctions: Record<SortKey, (a: FoodItem, b: FoodItem) => number> = {
+      'date_desc': (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      'date_asc': (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      'rating_desc': (a, b) => b.rating - a.rating,
+      'rating_asc': (a, b) => a.rating - b.rating,
+      'name_asc': (a, b) => a.name.localeCompare(b.name),
+      'name_desc': (a, b) => b.name.localeCompare(a.name),
+    };
+
+    return items.sort(sortFunctions[sortBy]);
+  }, [foodItems, searchTerm, typeFilter, ratingFilter, sortBy, filteredIds]);
+  
+  const handleAiSearch = useCallback(async (query: string) => {
+      if (!isAiEnabled) return;
+      
+      setIsAiSearchLoading(true);
+      try {
         const ids = await performConversationalSearch(query, foodItems);
         setFilteredIds(ids);
-        setIsFilterPanelOpen(false);
-    } catch (e) {
-        const message = e instanceof Error ? e.message : "AI search failed";
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "AI search failed.";
         addToast({ message, type: 'error' });
-    } finally {
+      } finally {
         setIsAiSearchLoading(false);
-    }
-  };
+      }
+  }, [isAiEnabled, foodItems, addToast]);
 
-  const resetFilters = () => {
-      setSearchTerm('');
-      setTypeFilter('all');
-      setRatingFilter('all');
-      setSortBy('date_desc');
-      setFilteredIds(null);
-  };
+  const handleResetFilters = useCallback(() => {
+    setSearchTerm('');
+    setTypeFilter('all');
+    setRatingFilter('all');
+    setFilteredIds(null);
+  }, []);
+
+  const handleSelectList = useCallback((listId: string) => {
+      const list = shoppingLists.find(l => l.id === listId);
+      if(list) {
+          setShoppingModeList(list);
+      }
+  }, [shoppingLists]);
   
-  const handleAddNewItem = (type: FoodItemType) => {
-    setCurrentItem(null);
-    setItemTypeForNew(type);
-    setModal('form');
-  };
+  const handleManageMembers = useCallback((list: ShoppingList) => {
+      setShoppingModeList(null); // Close shopping mode if open
+      setModalList(list);
+      setModal('manageMembers');
+  }, []);
 
-  const renderView = () => {
+  const renderContent = () => {
     switch (view) {
       case 'dashboard':
         return <Dashboard 
-                  items={foodItems} 
-                  onViewAll={() => setView('list')} 
-                  onAddNew={() => handleAddNewItem('product')} 
-                  onDelete={onDeleteItem} 
-                  onEdit={onEditItem}
-                  onViewDetails={(item) => { setCurrentItem(item); setModal('details'); }}
-                  onAddToShoppingList={handleAddToShoppingListRequest}
-                />;
+          items={filteredItems} 
+          onViewAll={() => setView('list')} 
+          onAddNew={() => handleOpenForm('product')}
+          onDelete={handleDeleteItem}
+          onEdit={handleEditItem}
+          onViewDetails={handleViewDetails}
+          onAddToShoppingList={handleAddToShoppingList}
+        />;
       case 'discover':
         return <DiscoverView 
-                  items={publicFoodItems} 
-                  isLoading={isLoadingPublicItems} 
-                  onViewDetails={(item) => { setCurrentItem(item); setModal('details'); }}
-                  likes={likes}
-                  comments={comments}
-                />;
+          items={publicFoodItems} 
+          isLoading={isLoadingPublicItems}
+          onViewDetails={handleViewDetails}
+          likes={likes}
+          comments={comments}
+        />;
       case 'groups':
         return <GroupsView 
-                  shoppingLists={shoppingLists}
-                  members={groupMembers}
-                  onSelectList={handleOpenShoppingMode}
-                  onCreateList={createShoppingList}
-                  onRenameList={updateShoppingList}
-                  onDeleteList={deleteShoppingList}
-                  onManageMembers={handleManageMembers}
-                />;
+          shoppingLists={shoppingLists}
+          members={groupMembers}
+          onSelectList={handleSelectList}
+          onCreateList={createShoppingList}
+          onRenameList={updateShoppingList}
+          onDeleteList={deleteShoppingList}
+          onManageMembers={handleManageMembers}
+        />;
       case 'list':
       default:
-        return isLoadingItems ? (
-          <div className="flex justify-center mt-8"><SpinnerIcon className="w-8 h-8 text-indigo-500" /></div>
-        ) : (
-          <FoodItemList items={filteredItems} onDelete={onDeleteItem} onEdit={onEditItem} onViewDetails={(item) => { setCurrentItem(item); setModal('details'); }} onAddToShoppingList={handleAddToShoppingListRequest} />
+        return (
+          <>
+            <div className="flex justify-between items-center mb-4">
+                <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">{t('header.view.list')}</h1>
+                <button onClick={() => setIsFilterPanelOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600">
+                    <AdjustmentsHorizontalIcon className="w-5 h-5" />
+                    <span>{t('filter.buttonText')}</span>
+                </button>
+            </div>
+            {isLoadingItems ? (
+              <div className="flex justify-center mt-8"><SpinnerIcon className="w-8 h-8 text-indigo-500" /></div>
+            ) : (
+              <FoodItemList 
+                items={filteredItems} 
+                onDelete={handleDeleteItem}
+                onEdit={handleEditItem}
+                onViewDetails={handleViewDetails}
+                onAddToShoppingList={handleAddToShoppingList}
+              />
+            )}
+            <div className="fixed bottom-20 right-4 z-20">
+              <button
+                onClick={() => handleOpenForm('product')}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-lg transition-transform transform hover:scale-105"
+                aria-label={t('form.addNewButton')}
+              >
+                  <PlusCircleIcon className="w-8 h-8" />
+              </button>
+            </div>
+          </>
         );
     }
   };
 
-  const getHeaderTitle = () => {
-    if (view === 'list') return t('header.title');
-    return t(`header.view.${view}`);
-  };
-
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen pb-20">
-      {showApiKeyBanner && <ApiKeyBanner onDismiss={() => { setShowApiKeyBanner(false); localStorage.setItem('apiKeyBannerDismissed', 'true'); }} onOpenSettings={() => setModal('settings')} />}
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
+      {showApiKeyBanner && (
+        <ApiKeyBanner
+          onDismiss={() => {
+            setShowApiKeyBanner(false);
+            localStorage.setItem('apiKeyBannerDismissed', 'true');
+          }}
+          onOpenSettings={() => setModal('settings')}
+        />
+      )}
       
-      <div className="sticky top-0 z-20 bg-white dark:bg-gray-800 shadow-sm">
-        <header className="container mx-auto p-4 flex justify-between items-center">
-            <button onClick={() => setView('list')} className="cursor-pointer">
-              <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-green-500 dark:from-indigo-400 dark:to-green-400">{getHeaderTitle()}</h1>
-            </button>
-            <div className="flex items-center gap-2">
-                <button onClick={handleQuickAccessShoppingList} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full" aria-label={t('header.button.shoppingList')}>
-                    <ShoppingBagIcon className="w-6 h-6" />
-                </button>
-                <button onClick={() => setModal('settings')} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full" aria-label={t('header.button.settings')}>
-                    <Cog6ToothIcon className="w-6 h-6" />
-                </button>
-            </div>
-        </header>
-        {view === 'list' && (
-            <div className="container mx-auto px-4 pb-4">
-                <div className="flex gap-2 items-center">
-                    <div className="relative flex-grow">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
-                        </div>
-                        <input
-                            type="text"
-                            placeholder={t('header.searchPlaceholder')}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-gray-100 dark:bg-gray-700 border-transparent rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3 pl-10"
-                        />
-                    </div>
-                    <button 
-                        onClick={() => setIsFilterPanelOpen(true)} 
-                        className="flex-shrink-0 flex items-center gap-2 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                    >
-                        <AdjustmentsHorizontalIcon className="w-5 h-5" />
-                        <span>{t('filter.buttonText')}</span>
-                    </button>
-                </div>
-            </div>
-        )}
-      </div>
-
-      <main className="container mx-auto p-4">
-        {renderView()}
+      <main className="container mx-auto p-4 pb-24">
+        {renderContent()}
       </main>
-
-      <div className="fixed bottom-24 right-6 z-10">
-        <button
-            onClick={() => handleAddNewItem('product')}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-lg transition-transform transform hover:scale-110"
-            aria-label={t('form.addNewButton')}
-        >
-            <PlusCircleIcon className="w-8 h-8" />
-        </button>
-      </div>
       
       <BottomNavBar currentView={view} setView={setView} />
       
-      {isFilterPanelOpen && <FilterPanel onClose={() => setIsFilterPanelOpen(false)} searchTerm={searchTerm} setSearchTerm={setSearchTerm} typeFilter={typeFilter} setTypeFilter={setTypeFilter} ratingFilter={ratingFilter} setRatingFilter={setRatingFilter} sortBy={sortBy} setSortBy={setSortBy} onReset={resetFilters} onAiSearch={onAiSearch} isAiSearchLoading={isAiSearchLoading} />}
-      {modal === 'form' && <FoodItemForm onSaveItem={onSaveItem} onCancel={() => setModal(null)} initialData={currentItem} itemType={currentItem?.itemType || itemTypeForNew} shoppingLists={shoppingLists} />}
-      {modal === 'details' && currentItem && <FoodItemDetailModal item={currentItem} onClose={() => { setModal(null); setCurrentItem(null); }} />}
-      {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} />}
-      {modal === 'duplicates' && <DuplicateConfirmationModal items={potentialDuplicates} itemName={itemToSave?.name || ''} onConfirm={() => itemToSave && onSaveItem(itemToSave)} onCancel={() => setModal(null)} />}
-      {shoppingModeList && <ShoppingMode list={shoppingModeList} items={shoppingModeItems} isLoading={isLoadingItems} onClose={() => setShoppingModeList(null)} onItemToggle={handleToggleShoppingListItem} onManageMembers={handleManageMembers} />}
-      {modal === 'manageMembers' && modalList && <ManageMembersModal list={modalList} members={groupMembers[modalList.id] || []} ownerId={modalList.owner_id} currentUserId={user!.id} onClose={() => setModal(null)} onRemoveMember={removeMemberFromList} />}
-      {modal === 'addToList' && currentItem && <AddToListModal item={currentItem} lists={shoppingLists} onAdd={handleConfirmAddItemToList} onClose={() => { setModal(null); setCurrentItem(null); }} />}
+      {modal === 'form' && (
+        <FoodItemForm
+          onSaveItem={checkIfDuplicate}
+          onCancel={handleCloseModal}
+          initialData={currentItem}
+          item_type={itemTypeForNew}
+          shoppingLists={shoppingLists}
+        />
+      )}
+      {modal === 'details' && currentItem && (
+        <FoodItemDetailModal item={currentItem} onClose={handleCloseModal} />
+      )}
+      {modal === 'settings' && <SettingsModal onClose={handleCloseModal} />}
+      {modal === 'duplicates' && (
+        <DuplicateConfirmationModal
+          items={potentialDuplicates}
+          itemName={itemToSave?.name || ''}
+          onConfirm={handleConfirmSave}
+          onCancel={handleCloseModal}
+        />
+      )}
+      {modal === 'addToList' && currentItem && (
+          <AddToListModal 
+              item={currentItem}
+              lists={shoppingLists}
+              onAdd={handleConfirmAddToList}
+              onClose={handleCloseModal}
+          />
+      )}
+      {modal === 'manageMembers' && modalList && (
+          <ManageMembersModal
+              list={modalList}
+              members={groupMembers[modalList.id] || []}
+              ownerId={modalList.owner_id}
+              currentUserId={user!.id}
+              onClose={handleCloseModal}
+              onRemoveMember={removeMemberFromList}
+          />
+      )}
+      
+      {isFilterPanelOpen && (
+        <FilterPanel 
+          onClose={() => setIsFilterPanelOpen(false)}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          typeFilter={typeFilter}
+          setTypeFilter={setTypeFilter}
+          ratingFilter={ratingFilter}
+          setRatingFilter={setRatingFilter}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          onReset={handleResetFilters}
+          onAiSearch={handleAiSearch}
+          isAiSearchLoading={isAiSearchLoading}
+        />
+      )}
+
+      {shoppingModeList && (
+        <ShoppingMode 
+            list={shoppingModeList}
+            items={shoppingModeItems}
+            isLoading={isLoadingItems}
+            onClose={() => setShoppingModeList(null)}
+            onItemToggle={toggleShoppingListItem}
+            onManageMembers={handleManageMembers}
+        />
+      )}
     </div>
   );
 };

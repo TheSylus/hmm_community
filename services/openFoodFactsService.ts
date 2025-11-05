@@ -48,7 +48,7 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Pa
         if (product.nutriscore_grade) {
             const score = product.nutriscore_grade.toUpperCase();
             if (['A', 'B', 'C', 'D', 'E'].includes(score)) {
-                foodItem.nutriScore = score as FoodItem['nutriScore'];
+                foodItem.nutri_score = score as FoodItem['nutri_score'];
             }
         }
         
@@ -68,15 +68,15 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Pa
         // Check labels for dietary information
         if (product.labels_tags && Array.isArray(product.labels_tags)) {
             const labels = product.labels_tags.join(' ').toLowerCase();
-            foodItem.isVegan = labels.includes('vegan');
-            foodItem.isGlutenFree = labels.includes('gluten-free');
+            foodItem.is_vegan = labels.includes('vegan');
+            foodItem.is_gluten_free = labels.includes('gluten-free');
             // 'lactose-free' can be tricky, also check allergens
             if (labels.includes('lactose-free')) {
-                foodItem.isLactoseFree = true;
+                foodItem.is_lactose_free = true;
             } else if (foodItem.allergens) {
                 // Double-check allergens for milk/lactose if not explicitly labeled
                 const dairyAllergens = ['milk', 'lactose', 'dairy'];
-                foodItem.isLactoseFree = !foodItem.allergens.some(allergen => 
+                foodItem.is_lactose_free = !foodItem.allergens.some(allergen => 
                     dairyAllergens.some(dairy => allergen.toLowerCase().includes(dairy))
                 );
             }
@@ -111,7 +111,7 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string):
         if (product.nutriscore_grade) {
             const score = product.nutriscore_grade.toUpperCase();
             if (['A', 'B', 'C', 'D', 'E'].includes(score)) {
-                foodItem.nutriScore = score as FoodItem['nutriScore'];
+                foodItem.nutri_score = score as FoodItem['nutri_score'];
             }
         }
         
@@ -129,17 +129,17 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string):
 
         if (product.labels_tags && Array.isArray(product.labels_tags)) {
             const labels = product.labels_tags.join(' ').toLowerCase();
-            foodItem.isVegan = labels.includes('vegan');
-            foodItem.isGlutenFree = labels.includes('gluten-free');
+            foodItem.is_vegan = labels.includes('vegan');
+            foodItem.is_gluten_free = labels.includes('gluten-free');
             if (labels.includes('lactose-free')) {
-                foodItem.isLactoseFree = true;
+                foodItem.is_lactose_free = true;
             } else if (foodItem.allergens) {
                 const dairyAllergens = ['milk', 'lactose', 'dairy'];
-                foodItem.isLactoseFree = !foodItem.allergens.some(allergen => 
+                foodItem.is_lactose_free = !foodItem.allergens.some(allergen => 
                     dairyAllergens.some(dairy => allergen.toLowerCase().includes(dairy))
                 );
             } else {
-                foodItem.isLactoseFree = false;
+                foodItem.is_lactose_free = false;
             }
         }
         
