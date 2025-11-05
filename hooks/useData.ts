@@ -36,13 +36,14 @@ export const useData = () => {
         queryKey: ['shopping_lists', user?.id],
         queryFn: async () => {
             if (!user) return [];
-            const { data: memberEntries, error: memberError } = await supabase.from('group_members').select('list_id').eq('user_id', user.id);
-            if (memberError) throw memberError;
-            if (!memberEntries || memberEntries.length === 0) return [];
-            
-            const listIds = memberEntries.map(e => e.list_id);
-            const { data, error } = await supabase.from('shopping_lists').select('*').in('id', listIds);
-            if (error) throw error;
+            // CORRECTED: This query is now simplified. It directly queries 'shopping_lists'
+            // and relies on the robust RLS policy (fixed via the SQL script) to filter
+            // the results correctly. This resolves the issue of new groups not appearing.
+            const { data, error } = await supabase.from('shopping_lists').select('*');
+            if (error) {
+                console.error("Error fetching shopping lists:", error);
+                throw error;
+            }
             return data || [];
         },
         enabled: !!user,
