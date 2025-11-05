@@ -7,10 +7,9 @@ import { XMarkIcon } from './Icons';
 
 interface SettingsModalProps {
   onClose: () => void;
-  onOpenProfile: () => void;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenProfile }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const { t, language, setLanguage } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { isAiEnabled, setIsAiEnabled, isBarcodeScannerEnabled, setIsBarcodeScannerEnabled, isOffSearchEnabled, setIsOffSearchEnabled } = useAppSettings();
@@ -130,15 +129,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenPro
             {user && (
                 <>
                 <hr className="border-gray-200 dark:border-gray-700" />
-                 <div>
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">{t('settings.profile.title')}</h3>
-                    <button 
-                        onClick={() => { onClose(); onOpenProfile(); }}
-                        className="w-full text-center px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                    >
-                        {t('settings.profile.button')}
-                    </button>
-                </div>
                 <div>
                     <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">{t('settings.session.title')}</h3>
                     <div className="bg-gray-100 dark:bg-gray-900/50 p-4 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4">

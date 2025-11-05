@@ -18,22 +18,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch the initial session to determine the user's logged-in state at startup.
-    // This is the source of truth for the initial load.
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const setData = async (session: Session | null) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-    });
+    };
 
-    // Set up a listener for any subsequent changes in the authentication state.
-    // This handles logins, logouts, token refreshes, etc., while the app is running.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+      setData(session);
+    });
+    
+    // Fetch the initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        setData(session);
     });
 
-    // The cleanup function unsubscribes from the listener when the component unmounts.
     return () => {
       subscription.unsubscribe();
     };

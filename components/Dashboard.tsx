@@ -6,14 +6,15 @@ import { PlusCircleIcon, StarIcon } from './Icons';
 
 interface DashboardProps {
   items: FoodItem[];
+  onViewAll: () => void;
   onAddNew: () => void;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onViewDetails: (item: FoodItem) => void;
-  onAddToShoppingList: (item: FoodItem) => void;
+  onAddToGroupShoppingList: (item: FoodItem) => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ items, onAddNew, ...cardProps }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ items, onViewAll, onAddNew, ...cardProps }) => {
   const { t } = useTranslation();
 
   const recentlyAdded = [...items].slice(0, 3);
@@ -57,6 +58,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ items, onAddNew, ...cardPr
         <section>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-300">{t('dashboard.recentlyAdded')}</h2>
+            <button onClick={onViewAll} className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
+              {t('dashboard.viewAll')}
+            </button>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {recentlyAdded.map(item => (

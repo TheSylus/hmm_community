@@ -1,98 +1,107 @@
-// FIX: Implemented full type definitions for the application to resolve module and type errors across components.
+export type NutriScore = 'A' | 'B' | 'C' | 'D' | 'E';
 
 export type FoodItemType = 'product' | 'dish';
-
-export type NutriScore = 'A' | 'B' | 'C' | 'D' | 'E';
 
 export interface FoodItem {
   id: string;
   user_id: string;
   created_at: string;
   name: string;
-  rating: number;
-  notes?: string;
-  image?: string;
-  tags?: string[];
-  item_type: FoodItemType;
-  is_public: boolean;
-  shared_with_list_id?: string | null;
+  rating: number; // 0 for unrated, 1-5 for star rating
+  itemType: FoodItemType;
+  isPublic?: boolean; // For community sharing
+  shared_with_list_id?: string | null; // For sharing with a specific group
 
-  // Product-specific
-  nutri_score?: NutriScore;
-  purchase_location?: string;
+  // Common fields
+  notes?: string;
+  image?: string; // URL to the image in cloud storage
+  tags?: string[];
+
+  // Product-specific fields
+  nutriScore?: NutriScore;
   ingredients?: string[];
   allergens?: string[];
-  is_lactose_free?: boolean;
-  is_vegan?: boolean;
-  is_gluten_free?: boolean;
-
-  // Dish-specific
-  restaurant_name?: string;
-  cuisine_type?: string;
+  isLactoseFree?: boolean;
+  isVegan?: boolean;
+  isGlutenFree?: boolean;
+  purchaseLocation?: string; // e.g., "Lidl", "Whole Foods"
+  
+  // Dish-specific fields
+  restaurantName?: string;
+  cuisineType?: string;
   price?: number;
 }
 
+// Represents a distinct group for sharing food items and shopping lists.
+// FIX: Renamed FoodGroup to ShoppingList for consistency.
 export interface ShoppingList {
   id: string;
-  name:string;
   owner_id: string;
+  name: string;
   created_at: string;
 }
 
+// Represents an item on a specific group's shopping list.
+// FIX: Renamed GroupShoppingListItem to ShoppingListItem for consistency.
 export interface ShoppingListItem {
-    id: string;
-    list_id: string;
-    food_item_id: string | null; // Can be a custom item
-    name: string; // Custom name if food_item_id is null
-    quantity: number;
-    checked: boolean;
-    created_at: string;
-    added_by: string;
+  id: string;
+  // FIX: Renamed group_id to list_id for consistency.
+  list_id: string; // Foreign key to the ShoppingList
+  food_item_id: string; // Foreign key to the FoodItem
+  added_by_user_id: string;
+  checked: boolean;
+  created_at: string;
+  checked_by_user_id: string | null;
 }
 
-// For joining shopping list items with food items
-export interface HydratedShoppingListItem extends FoodItem {
-    shopping_list_item_id: string;
-    quantity: number;
-    checked: boolean;
-    added_by: string;
+// Represents a user's membership to a group.
+// FIX: Renamed FoodGroupMember to ShoppingListMember for consistency.
+export interface ShoppingListMember {
+  // FIX: Renamed group_id to list_id for consistency.
+  list_id: string; // Corresponds to ShoppingList ID
+  user_id: string;
+  created_at: string;
 }
 
-export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
-export type TypeFilter = 'all' | 'product' | 'dish';
-export type RatingFilter = 'all' | 'liked' | 'disliked';
-
+// Represents a user's public profile information.
 export interface UserProfile {
-    id: string;
-    email?: string;
-    // Synced settings
-    theme?: 'light' | 'dark' | 'system';
-    language?: 'en' | 'de';
-    is_ai_enabled?: boolean;
-    is_barcode_scanner_enabled?: boolean;
-    is_off_search_enabled?: boolean;
+  id: string; // Corresponds to auth.users.id
+  display_name: string;
 }
 
+// Represents a "like" on a food item.
 export interface Like {
-  id: number;
-  food_item_id: string;
+  id: string;
   user_id: string;
+  food_item_id: string;
+  created_at: string;
 }
 
+// Represents a comment on a food item.
 export interface Comment {
-  id: number;
-  food_item_id: string;
+  id: string;
   user_id: string;
+  food_item_id: string;
   content: string;
   created_at: string;
 }
 
+// Represents a comment joined with the author's profile.
 export interface CommentWithProfile extends Comment {
-  profiles: UserProfile | null;
+  profiles: {
+    display_name: string;
+  } | null;
 }
 
-export interface GroupMember {
-    list_id: string;
-    user_id: string;
-    profiles: UserProfile | null;
+// Search and filter types, moved from App.tsx
+export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
+export type RatingFilter = 'all' | 'liked' | 'disliked';
+export type TypeFilter = 'all' | 'product' | 'dish';
+
+// A hydrated type for items on the shopping list, combining FoodItem and ShoppingListItem details.
+export interface HydratedShoppingListItem extends FoodItem {
+  shoppingListItemId: string;
+  checked: boolean;
+  added_by_user_id: string;
+  checked_by_user_id: string | null;
 }
