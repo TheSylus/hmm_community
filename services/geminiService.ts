@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { FoodItem, NutriScore, HydratedShoppingListItem } from "../types";
+import process from 'process';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 

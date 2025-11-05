@@ -1,5 +1,6 @@
 // FIX: Removed vite/client type reference and switched to process.env, which is defined in vite.config.ts to resolve TypeScript errors.
 import { createClient } from '@supabase/supabase-js';
+import process from 'process';
 
 // --- Vercel & Supabase Environment Variable Setup ---
 // This file consumes environment variables that are made available to the client-side

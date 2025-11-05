@@ -26,6 +26,7 @@ import { AddToListModal } from './components/AddToListModal';
 import { ProfileModal } from './components/ProfileModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { ToastContainer } from './components/Toast';
+import process from 'process';
 
 export type View = 'dashboard' | 'list' | 'discover' | 'groups';
 
