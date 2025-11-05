@@ -36,10 +36,11 @@ export const useData = () => {
         queryKey: ['shopping_lists', user?.id],
         queryFn: async () => {
             if (!user) return [];
-            // CORRECTED: This query is now simplified. It directly queries 'shopping_lists'
-            // and relies on the robust RLS policy (fixed via the SQL script) to filter
-            // the results correctly. This resolves the issue of new groups not appearing.
-            const { data, error } = await supabase.from('shopping_lists').select('*');
+            // Reverted to a direct select. The RLS policy is now fixed and robust.
+            // This is cleaner than using an RPC for a simple select.
+            const { data, error } = await supabase
+                .from('shopping_lists')
+                .select('*');
             if (error) {
                 console.error("Error fetching shopping lists:", error);
                 throw error;
