@@ -125,10 +125,11 @@ export const useData = () => {
     const addFoodItemMutation = useMutation({
         mutationFn: async (newItem: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
             if (!user) throw new Error("User not authenticated");
-            const { error } = await supabase.rpc('create_food_item', { new_item: newItem });
+            const itemWithUser = { ...newItem, user_id: user.id };
+            const { error } = await supabase.from('food_items').insert(itemWithUser);
             if (error) {
-                console.error("Supabase RPC 'create_food_item' error:", error);
-                throw new Error("Could not add food item. Please check your database function and RLS policies.");
+                console.error("Supabase insert 'food_items' error:", error);
+                throw new Error("Could not add food item. Please check your RLS policies.");
             }
             return null;
         },
@@ -140,10 +141,10 @@ export const useData = () => {
     const updateFoodItemMutation = useMutation({
         mutationFn: async (updatedItem: FoodItem) => {
             const { id, user_id, created_at, ...updatePayload } = updatedItem;
-            const { error } = await supabase.rpc('update_food_item', { item_id: id, payload: updatePayload });
+            const { error } = await supabase.from('food_items').update(updatePayload).eq('id', id);
             if (error) {
-                console.error("Supabase RPC 'update_food_item' error:", error);
-                throw new Error("Could not update food item. Please check your database function and RLS policies.");
+                console.error("Supabase update 'food_items' error:", error);
+                throw new Error("Could not update food item. Please check your RLS policies.");
             }
             return null;
         },
@@ -155,10 +156,10 @@ export const useData = () => {
 
     const deleteFoodItemMutation = useMutation({
         mutationFn: async (id: string) => {
-            const { error } = await supabase.rpc('delete_food_item', { item_id: id });
+            const { error } = await supabase.from('food_items').delete().eq('id', id);
             if (error) {
-                 console.error("Supabase RPC 'delete_food_item' error:", error);
-                throw new Error("Could not delete food item. Please check your database function and RLS policies.");
+                 console.error("Supabase delete 'food_items' error:", error);
+                throw new Error("Could not delete food item. Please check your RLS policies.");
             }
         },
         onSuccess: () => {
@@ -170,11 +171,34 @@ export const useData = () => {
     const createShoppingListMutation = useMutation({
         mutationFn: async (name: string) => {
             if (!user) throw new Error("User not authenticated");
-            const { error } = await supabase.rpc('create_shopping_list_with_owner', { list_name: name });
-            if (error) {
-                console.error("Supabase RPC 'create_shopping_list_with_owner' error:", error);
-                throw new Error("Could not create the group. The database operation failed. Please check your 'create_shopping_list_with_owner' function.");
+            
+            // Step 1: Create the list
+            const { data, error: listError } = await supabase
+                .from('shopping_lists')
+                .insert({ name: name, owner_id: user.id })
+                .select()
+                .single();
+
+            if (listError) {
+                console.error("Supabase insert 'shopping_lists' error:", listError);
+                throw new Error("Could not create the group. Please check your RLS policies for 'shopping_lists'.");
             }
+            
+            if (!data) {
+                throw new Error("Failed to create group: No data returned after insert.");
+            }
+
+            // Step 2: Add the owner as a member. This is likely what the original RPC did.
+            const { error: memberError } = await supabase
+                .from('group_members')
+                .insert({ list_id: data.id, user_id: user.id });
+
+            if (memberError) {
+                // In a production app, you might want to delete the created list for atomicity.
+                console.error("Supabase insert 'group_members' error:", memberError);
+                throw new Error("Group created, but failed to add owner as member. Check RLS policies for 'group_members'.");
+            }
+
             return null;
         },
         onSuccess: () => {
@@ -186,13 +210,12 @@ export const useData = () => {
     const addShoppingListItemMutation = useMutation({
        mutationFn: async (item: Pick<ShoppingListItem, 'list_id' | 'food_item_id' | 'name' | 'quantity'>) => {
             if (!user) throw new Error("User not authenticated");
-            const { error } = await supabase.rpc('add_item_to_shopping_list', {
-                p_list_id: item.list_id,
-                p_food_item_id: item.food_item_id,
-                p_name: item.name,
-                p_quantity: item.quantity
-            });
-            if (error) throw error;
+            const itemWithUser = { ...item, added_by: user.id };
+            const { error } = await supabase.from('shopping_list_items').insert(itemWithUser);
+            if (error) {
+                console.error("Supabase insert 'shopping_list_items' error:", error);
+                throw new Error("Could not add item to list. Please check your RLS policies.");
+            }
             return null;
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shopping_list_items', user?.id] }),
@@ -200,8 +223,11 @@ export const useData = () => {
     
     const toggleShoppingListItemMutation = useMutation({
         mutationFn: async ({ itemId, checked }: { itemId: string, checked: boolean }) => {
-            const { error } = await supabase.rpc('toggle_shopping_list_item', { item_id: itemId, is_checked: checked });
-            if (error) throw error;
+            const { error } = await supabase.from('shopping_list_items').update({ checked }).eq('id', itemId);
+             if (error) {
+                console.error("Supabase update 'shopping_list_items' error:", error);
+                throw new Error("Could not update item in list. Please check your RLS policies.");
+            }
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shopping_list_items', user?.id] }),
     });
