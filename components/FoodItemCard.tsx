@@ -37,9 +37,9 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                 <div className="flex-grow">
                     <div className="flex justify-between items-start">
                         <h3 className="font-bold text-lg text-gray-900 dark:text-white leading-tight">{displayItem.name}</h3>
-                        {displayItem.itemType === 'product' && displayItem.nutriScore && (
-                            <div className={`w-7 h-7 rounded-full text-white font-bold flex items-center justify-center flex-shrink-0 ${nutriScoreColors[displayItem.nutriScore]}`}>
-                                {displayItem.nutriScore}
+                        {displayItem.item_type === 'product' && displayItem.nutri_score && (
+                            <div className={`w-7 h-7 rounded-full text-white font-bold flex items-center justify-center flex-shrink-0 ${nutriScoreColors[displayItem.nutri_score]}`}>
+                                {displayItem.nutri_score}
                             </div>
                         )}
                     </div>
@@ -49,8 +49,8 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                         ))}
                     </div>
                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {displayItem.isPublic ? <GlobeAltIcon className="w-4 h-4" /> : <LockClosedIcon className="w-4 h-4" />}
-                        <span>{t(displayItem.isPublic ? 'detail.statusPublic' : 'detail.statusPrivate')}</span>
+                        {displayItem.is_public ? <GlobeAltIcon className="w-4 h-4" /> : <LockClosedIcon className="w-4 h-4" />}
+                        <span>{t(displayItem.is_public ? 'detail.statusPublic' : 'detail.statusPrivate')}</span>
                     </div>
                 </div>
                 

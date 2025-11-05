@@ -62,18 +62,18 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
   const [sharedWithListId, setSharedWithListId] = useState<string | null>(null);
 
   // Product-specific
-  const [nutriScore, setNutriScore] = useState<NutriScore | ''>('');
-  const [purchaseLocation, setPurchaseLocation] = useState('');
+  const [nutri_score, setNutriScore] = useState<NutriScore | ''>('');
+  const [purchase_location, setPurchaseLocation] = useState('');
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [allergens, setAllergens] = useState<string[]>([]);
   const [dietary, setDietary] = useState({
-    isLactoseFree: false,
-    isVegan: false,
-    isGlutenFree: false,
+    is_lactose_free: false,
+    is_vegan: false,
+    is_gluten_free: false,
   });
   // Dish-specific
-  const [restaurantName, setRestaurantName] = useState('');
-  const [cuisineType, setCuisineType] = useState('');
+  const [restaurant_name, setRestaurantName] = useState('');
+  const [cuisine_type, setCuisineType] = useState('');
   const [price, setPrice] = useState<number | ''>('');
   const [isFindingRestaurants, setIsFindingRestaurants] = useState(false);
   const [nearbyRestaurants, setNearbyRestaurants] = useState<{name: string, cuisine?: string}[]>([]);
@@ -109,7 +109,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
     setSharedWithListId(null);
     setIngredients([]);
     setAllergens([]);
-    setDietary({ isLactoseFree: false, isVegan: false, isGlutenFree: false });
+    setDietary({ is_lactose_free: false, is_vegan: false, is_gluten_free: false });
     setRestaurantName('');
     setCuisineType('');
     setPrice('');
@@ -129,7 +129,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
       if (initialData.shared_with_list_id) {
         setSharingOption('group');
         setSharedWithListId(initialData.shared_with_list_id);
-      } else if (initialData.isPublic) {
+      } else if (initialData.is_public) {
         setSharingOption('community');
         setSharedWithListId(null);
       } else {
@@ -137,19 +137,19 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
         setSharedWithListId(null);
       }
       
-      if(initialData.itemType === 'product') {
-        setNutriScore(initialData.nutriScore || '');
-        setPurchaseLocation(initialData.purchaseLocation || '');
+      if(initialData.item_type === 'product') {
+        setNutriScore(initialData.nutri_score || '');
+        setPurchaseLocation(initialData.purchase_location || '');
         setIngredients(initialData.ingredients || []);
         setAllergens(initialData.allergens || []);
         setDietary({
-          isLactoseFree: initialData.isLactoseFree || false,
-          isVegan: initialData.isVegan || false,
-          isGlutenFree: initialData.isGlutenFree || false,
+          is_lactose_free: initialData.is_lactose_free || false,
+          is_vegan: initialData.is_vegan || false,
+          is_gluten_free: initialData.is_gluten_free || false,
         });
       } else {
-        setRestaurantName(initialData.restaurantName || '');
-        setCuisineType(initialData.cuisineType || '');
+        setRestaurantName(initialData.restaurant_name || '');
+        setCuisineType(initialData.cuisine_type || '');
         setPrice(initialData.price ?? '');
       }
     } else {
@@ -231,17 +231,17 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
       
       let mergedData = {
           tags: offResult.tags || [],
-          nutriScore: (offResult.nutriScore || '') as NutriScore | '',
+          nutri_score: (offResult.nutri_score || '') as NutriScore | '',
           ingredients: offResult.ingredients || [],
           allergens: offResult.allergens || [],
-          isLactoseFree: offResult.isLactoseFree || false,
-          isVegan: offResult.isVegan || false,
-          isGlutenFree: offResult.isGlutenFree || false,
+          is_lactose_free: offResult.is_lactose_free || false,
+          is_vegan: offResult.is_vegan || false,
+          is_gluten_free: offResult.is_gluten_free || false,
       };
 
       const newHighlightedFields: string[] = [];
       if (mergedData.tags.length > 0) newHighlightedFields.push('tags');
-      if (mergedData.nutriScore) newHighlightedFields.push('nutriScore');
+      if (mergedData.nutri_score) newHighlightedFields.push('nutriScore');
 
       if (language !== 'en' && (mergedData.tags.length > 0 || mergedData.ingredients.length > 0 || mergedData.allergens.length > 0)) {
           const textsToTranslate = [...mergedData.tags, ...mergedData.ingredients, ...mergedData.allergens];
@@ -259,13 +259,13 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
       }
 
       setTags(current => (current ? `${current}, ` : '') + mergedData.tags.join(', '));
-      setNutriScore(current => current || mergedData.nutriScore);
+      setNutriScore(current => current || mergedData.nutri_score);
       setIngredients(current => [...current, ...mergedData.ingredients]);
       setAllergens(current => [...current, ...mergedData.allergens]);
       setDietary(current => ({
-          isLactoseFree: current.isLactoseFree || mergedData.isLactoseFree,
-          isVegan: current.isVegan || mergedData.isVegan,
-          isGlutenFree: current.isGlutenFree || mergedData.isGlutenFree,
+          is_lactose_free: current.is_lactose_free || mergedData.is_lactose_free,
+          is_vegan: current.is_vegan || mergedData.is_vegan,
+          is_gluten_free: current.is_gluten_free || mergedData.is_gluten_free,
       }));
       setHighlightedFields(newHighlightedFields);
     } catch (e) {
@@ -322,14 +322,14 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
 
       setName(finalName);
       setTags(finalTags.join(', '));
-      setNutriScore((productData.nutriScore?.toUpperCase() as NutriScore) || '');
+      setNutriScore((productData.nutri_score?.toUpperCase() as NutriScore) || '');
       setImage(productData.image || null);
       setIngredients(finalIngredients);
       setAllergens(finalAllergens);
       setDietary({
-        isLactoseFree: productData.isLactoseFree || false,
-        isVegan: productData.isVegan || false,
-        isGlutenFree: productData.isGlutenFree || false,
+        is_lactose_free: productData.is_lactose_free || false,
+        is_vegan: productData.is_vegan || false,
+        is_gluten_free: productData.is_gluten_free || false,
       });
 
     } catch(e) {
@@ -399,18 +399,18 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
         let mergedData = {
             name: aiResult.name || '',
             tags: Array.from(combinedTags),
-            nutriScore: (aiResult.nutriScore || offResult.nutriScore || '') as NutriScore | '',
+            nutri_score: (aiResult.nutri_score || offResult.nutri_score || '') as NutriScore | '',
             ingredients: offResult.ingredients || [],
             allergens: offResult.allergens || [],
-            isLactoseFree: offResult.isLactoseFree || false,
-            isVegan: offResult.isVegan || false,
-            isGlutenFree: offResult.isGlutenFree || false,
+            is_lactose_free: offResult.is_lactose_free || false,
+            is_vegan: offResult.is_vegan || false,
+            is_gluten_free: offResult.is_gluten_free || false,
         };
         
         const newHighlightedFields: string[] = [];
         if (mergedData.name) newHighlightedFields.push('name');
         if (mergedData.tags.length > 0) newHighlightedFields.push('tags');
-        if (mergedData.nutriScore) newHighlightedFields.push('nutriScore');
+        if (mergedData.nutri_score) newHighlightedFields.push('nutriScore');
 
         // Step 4: Translate if necessary
         if (language !== 'en' && textsNeedTranslation(mergedData)) {
@@ -437,13 +437,13 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
         // Step 5: Set form state
         setName(mergedData.name);
         setTags(mergedData.tags.join(', '));
-        setNutriScore(mergedData.nutriScore);
+        setNutriScore(mergedData.nutri_score);
         setIngredients(mergedData.ingredients);
         setAllergens(mergedData.allergens);
         setDietary({
-            isLactoseFree: mergedData.isLactoseFree,
-            isVegan: mergedData.isVegan,
-            isGlutenFree: mergedData.isGlutenFree,
+            is_lactose_free: mergedData.is_lactose_free,
+            is_vegan: mergedData.is_vegan,
+            is_gluten_free: mergedData.is_gluten_free,
         });
 
         setUncroppedImage(imageDataUrl);
@@ -486,9 +486,9 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
         setIngredients(finalIngredients);
         setAllergens(finalAllergens);
         setDietary({
-            isLactoseFree: result.isLactoseFree,
-            isVegan: result.isVegan,
-            isGlutenFree: result.isGlutenFree,
+            is_lactose_free: result.is_lactose_free,
+            is_vegan: result.is_vegan,
+            is_gluten_free: result.is_gluten_free,
         });
       } catch (e) {
         console.error(e);
@@ -546,31 +546,31 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
       notes: notes || undefined,
       image: image || undefined,
       tags: tags ? tags.split(',').map(tag => tag.trim()).filter(Boolean) : undefined,
-      itemType,
-      isPublic: sharingOption === 'community',
+      item_type: itemType,
+      is_public: sharingOption === 'community',
       shared_with_list_id: sharingOption === 'group' ? sharedWithListId : null,
     };
 
     if (itemType === 'product') {
         onSaveItem({
           ...commonData,
-          nutriScore: nutriScore || undefined,
-          purchaseLocation: purchaseLocation || undefined,
+          nutri_score: nutri_score || undefined,
+          purchase_location: purchase_location || undefined,
           ingredients: ingredients.length > 0 ? ingredients : undefined,
           allergens: allergens.length > 0 ? allergens : undefined,
-          isLactoseFree: dietary.isLactoseFree,
-          isVegan: dietary.isVegan,
-          isGlutenFree: dietary.isGlutenFree,
+          is_lactose_free: dietary.is_lactose_free,
+          is_vegan: dietary.is_vegan,
+          is_gluten_free: dietary.is_gluten_free,
         });
     } else { // itemType === 'dish'
         onSaveItem({
           ...commonData,
-          restaurantName: restaurantName || undefined,
-          cuisineType: cuisineType || undefined,
+          restaurant_name: restaurant_name || undefined,
+          cuisine_type: cuisine_type || undefined,
           price: price !== '' ? Number(price) : undefined,
         });
     }
-  }, [name, rating, t, notes, image, tags, itemType, onSaveItem, nutriScore, purchaseLocation, ingredients, allergens, dietary, restaurantName, cuisineType, price, sharingOption, sharedWithListId]);
+  }, [name, rating, t, notes, image, tags, itemType, onSaveItem, nutri_score, purchase_location, ingredients, allergens, dietary, restaurant_name, cuisine_type, price, sharingOption, sharedWithListId]);
 
   const removeImage = useCallback(() => {
     setImage(null);
@@ -683,7 +683,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                         <input
                             type="text"
                             placeholder={t('form.placeholder.restaurant')}
-                            value={restaurantName}
+                            value={restaurant_name}
                             onChange={e => {
                                 setRestaurantName(e.target.value);
                                 if (nearbyRestaurants.length > 0) {
@@ -744,7 +744,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                        <input
                             type="text"
                             placeholder={t('form.placeholder.cuisine')}
-                            value={cuisineType}
+                            value={cuisine_type}
                             onChange={e => setCuisineType(e.target.value)}
                             className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3"
                         />
@@ -795,7 +795,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                     <input
                         type="text"
                         placeholder={t('form.placeholder.purchaseLocation')}
-                        value={purchaseLocation}
+                        value={purchase_location}
                         onChange={e => setPurchaseLocation(e.target.value)}
                         className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3"
                     />
@@ -812,8 +812,8 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                                         type="button"
                                         key={score}
                                         onClick={() => setNutriScore(current => current === score ? '' : score)}
-                                        className={`w-8 h-8 rounded-full text-white font-bold flex items-center justify-center transition-transform transform ${nutriScoreColors[score]} ${nutriScore === score ? 'ring-2 ring-indigo-500 dark:ring-indigo-400 ring-offset-2 ring-offset-white dark:ring-offset-gray-800 scale-110' : 'hover:scale-105'}`}
-                                        aria-pressed={nutriScore === score}
+                                        className={`w-8 h-8 rounded-full text-white font-bold flex items-center justify-center transition-transform transform ${nutriScoreColors[score]} ${nutri_score === score ? 'ring-2 ring-indigo-500 dark:ring-indigo-400 ring-offset-2 ring-offset-white dark:ring-offset-gray-800 scale-110' : 'hover:scale-105'}`}
+                                        aria-pressed={nutri_score === score}
                                         aria-label={t('form.aria.selectNutriScore', { score })}
                                     >
                                         {score}
@@ -848,15 +848,15 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                                 <div className="mb-2">
                                     <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">{t('form.dietary.title')}:</h4>
                                     <div className="grid grid-cols-3 gap-2">
-                                        <button type="button" onClick={() => handleDietaryChange('isLactoseFree')} aria-pressed={dietary.isLactoseFree} className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg border-2 transition-colors ${dietary.isLactoseFree ? 'bg-blue-100 dark:bg-blue-900/50 border-blue-500 dark:border-blue-400 text-blue-700 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700/50 border-transparent text-blue-600 dark:text-blue-400 hover:border-gray-300 dark:hover:border-gray-600'}`}>
+                                        <button type="button" onClick={() => handleDietaryChange('is_lactose_free')} aria-pressed={dietary.is_lactose_free} className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg border-2 transition-colors ${dietary.is_lactose_free ? 'bg-blue-100 dark:bg-blue-900/50 border-blue-500 dark:border-blue-400 text-blue-700 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700/50 border-transparent text-blue-600 dark:text-blue-400 hover:border-gray-300 dark:hover:border-gray-600'}`}>
                                             <LactoseFreeIcon className="w-7 h-7" />
                                             <span className="text-xs font-semibold">{t('form.dietary.lactoseFree')}</span>
                                         </button>
-                                        <button type="button" onClick={() => handleDietaryChange('isVegan')} aria-pressed={dietary.isVegan} className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg border-2 transition-colors ${dietary.isVegan ? 'bg-green-100 dark:bg-green-900/50 border-green-500 dark:border-green-400 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-700/50 border-transparent text-green-600 dark:text-green-400 hover:border-gray-300 dark:hover:border-gray-600'}`}>
+                                        <button type="button" onClick={() => handleDietaryChange('is_vegan')} aria-pressed={dietary.is_vegan} className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg border-2 transition-colors ${dietary.is_vegan ? 'bg-green-100 dark:bg-green-900/50 border-green-500 dark:border-green-400 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-700/50 border-transparent text-green-600 dark:text-green-400 hover:border-gray-300 dark:hover:border-gray-600'}`}>
                                             <VeganIcon className="w-7 h-7" />
                                             <span className="text-xs font-semibold">{t('form.dietary.vegan')}</span>
                                         </button>
-                                        <button type="button" onClick={() => handleDietaryChange('isGlutenFree')} aria-pressed={dietary.isGlutenFree} className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg border-2 transition-colors ${dietary.isGlutenFree ? 'bg-amber-100 dark:bg-amber-900/50 border-amber-500 dark:border-amber-400 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-700/50 border-transparent text-amber-600 dark:text-amber-400 hover:border-gray-300 dark:hover:border-gray-600'}`}>
+                                        <button type="button" onClick={() => handleDietaryChange('is_gluten_free')} aria-pressed={dietary.is_gluten_free} className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg border-2 transition-colors ${dietary.is_gluten_free ? 'bg-amber-100 dark:bg-amber-900/50 border-amber-500 dark:border-amber-400 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-700/50 border-transparent text-amber-600 dark:text-amber-400 hover:border-gray-300 dark:hover:border-gray-600'}`}>
                                             <GlutenFreeIcon className="w-7 h-7" />
                                             <span className="text-xs font-semibold">{t('form.dietary.glutenFree')}</span>
                                         </button>
