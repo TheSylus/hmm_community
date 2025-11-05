@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../services/supabaseClient';
-import { FoodItem, ShoppingList, ShoppingListItem, Like, CommentWithProfile, UserProfile } from '../types';
+import { FoodItem, ShoppingList, ShoppingListItem, Like, CommentWithProfile, UserProfile, GroupMember } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useMemo } from 'react';
 
@@ -50,7 +50,13 @@ export const useData = () => {
         queryKey: ['shopping_lists', user?.id],
         queryFn: async () => {
             if (!user) return [];
-            const { data, error } = await supabase.rpc('get_user_shopping_lists');
+            // This query now relies on a standard Row Level Security (RLS) policy on the `shopping_lists` table.
+            // The RLS policy should ensure users can only SELECT lists they are a member of.
+            // Example RLS Policy (for SELECT): EXISTS (SELECT 1 FROM group_members WHERE group_members.list_id = shopping_lists.id AND group_members.user_id = auth.uid())
+            const { data, error } = await supabase
+                .from('shopping_lists')
+                .select('*')
+                .order('created_at', { ascending: false });
             if (error) throw error;
             return data || [];
         },
@@ -69,7 +75,7 @@ export const useData = () => {
         enabled: !!user && shoppingLists.length > 0,
     });
     
-    const { data: groupMembersData = [] } = useQuery<{list_id: string, user_id: string, profiles: { id: string, email: string }}[]>({
+    const { data: groupMembersData = [] } = useQuery<GroupMember[]>({
         queryKey: ['group_members', shoppingLists.map(l => l.id)],
         queryFn: async () => {
             if (!user || shoppingLists.length === 0) return [];
@@ -80,7 +86,7 @@ export const useData = () => {
                 .in('list_id', listIds);
 
             if (error) throw error;
-            return data || [];
+            return data as GroupMember[] || [];
         },
         enabled: !!user && shoppingLists.length > 0,
     });
@@ -91,7 +97,7 @@ export const useData = () => {
                 acc[member.list_id] = [];
             }
             if (member.profiles) {
-                acc[member.list_id].push({ id: member.user_id, email: member.profiles.email });
+                 acc[member.list_id].push({ id: member.user_id, email: member.profiles.email });
             }
             return acc;
         }, {} as Record<string, UserProfile[]>);
