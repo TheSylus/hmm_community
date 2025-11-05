@@ -123,7 +123,8 @@ export const useData = () => {
     const addFoodItemMutation = useMutation({
         mutationFn: async (newItem: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
             if (!user) throw new Error("User not authenticated");
-            const { data, error } = await supabase.from('food_items').insert([{ ...newItem, user_id: user.id }]).select().single();
+            // Use an RPC function to handle insertion, bypassing potential RLS select issues.
+            const { data, error } = await supabase.rpc('add_new_food_item', { new_item_data: newItem });
             if (error) throw error;
             return data;
         },
@@ -163,18 +164,10 @@ export const useData = () => {
     const createShoppingListMutation = useMutation({
         mutationFn: async (name: string) => {
             if (!user) throw new Error("User not authenticated");
-
-            // Create the list. A database trigger is assumed to handle adding the owner as the first member.
-            const { data: listData, error: listError } = await supabase
-                .from('shopping_lists')
-                .insert({ name, owner_id: user.id })
-                .select()
-                .single();
-            
-            if (listError) throw listError;
-            if (!listData) throw new Error("Failed to create list.");
-
-            return listData;
+            // Use an RPC function to handle list creation and owner membership atomically.
+            const { data, error } = await supabase.rpc('create_new_shopping_list', { list_name: name });
+            if (error) throw error;
+            return data;
         },
         onSuccess: () => {
             // Invalidate both lists and members queries to refetch all related data
