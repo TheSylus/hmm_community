@@ -14,7 +14,7 @@ import { ToastContainer } from './components/Toast';
 import { performConversationalSearch } from './services/geminiService';
 import { useToast } from './contexts/ToastContext';
 import { DuplicateConfirmationModal } from './components/DuplicateConfirmationModal';
-import { SpinnerIcon, AdjustmentsHorizontalIcon, Cog6ToothIcon, ShoppingBagIcon, PlusCircleIcon, MagnifyingGlassIcon } from './components/Icons';
+import { SpinnerIcon, AdjustmentsHorizontalIcon, ShoppingBagIcon, PlusCircleIcon, MagnifyingGlassIcon } from './components/Icons';
 import { FilterPanel } from './components/FilterPanel';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { AddToListModal } from './components/AddToListModal';
@@ -337,7 +337,6 @@ const MainApp = () => {
       case 'dashboard':
         return <Dashboard 
           items={filteredItems} 
-          onViewAll={() => setView('list')} 
           onAddNew={() => handleOpenForm('product')}
           onDelete={handleDeleteItem}
           onEdit={handleEditItem}
@@ -414,7 +413,7 @@ const MainApp = () => {
         {renderContent()}
       </main>
       
-      <BottomNavBar currentView={view} setView={setView} />
+      <BottomNavBar currentView={view} setView={setView} onOpenSettings={() => setModal('settings')} />
       
       {modal === 'form' && (
         <FoodItemForm
