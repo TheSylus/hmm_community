@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
+import { useProfile } from '../contexts/ProfileContext';
 
 type Language = 'en' | 'de';
 
@@ -54,6 +55,8 @@ const en = {
     "settings.barcodeScanner.description": "Enable or disable the barcode scanner button in the form.",
     "settings.ai.title": "AI Features",
     "settings.ai.description": "Enable AI-powered image analysis and conversational search. Requires a Gemini API Key.",
+    "settings.profile.title": "Profile & Account",
+    "settings.profile.button": "Manage Your Profile",
     "settings.session.title": "Session",
     "settings.session.loggedInAs": "Logged in as:",
     "settings.session.logout": "Log Out",
@@ -226,6 +229,16 @@ const en = {
     "toast.listLeaveError": "Failed to leave the list.",
     "toast.memberRemoved": "Member removed from list.",
     "toast.memberRemoveError": "Failed to remove member.",
+    "toast.passwordUpdated": "Password updated successfully.",
+    "toast.passwordUpdateError": "Failed to update password.",
+    "toast.emailUpdated": "Confirmation emails sent. Please check your inbox.",
+    "toast.emailUpdateError": "Failed to update email.",
+    "toast.accountDeleted": "Your account has been deleted.",
+    "toast.accountDeleteError": "Failed to delete account.",
+    "toast.memberInvited": "User added to the group.",
+    "toast.memberInviteError": "Could not invite member. Please check the email and try again.",
+    "toast.memberAlreadyExists": "This user is already a member of the group.",
+    "toast.userNotFound": "User with this email not found.",
     "shoppingMode.title": "Shopping Mode",
     "shoppingMode.empty": "This shopping list is empty.",
     "shoppingMode.completedItems": "Completed Items",
@@ -240,7 +253,26 @@ const en = {
     "manageMembers.title": "Manage Members",
     "manageMembers.owner": "Owner",
     "manageMembers.remove": "Remove",
+    "manageMembers.invite.title": "Invite Member",
+    "manageMembers.invite.placeholder": "user@example.com",
+    "manageMembers.invite.button": "Invite",
     "manageMembers.confirm.remove": "Are you sure you want to remove {email} from this list?",
+    "profileModal.title": "Manage Your Profile",
+    "profileModal.password.title": "Change Password",
+    "profileModal.password.new": "New Password",
+    "profileModal.password.confirm": "Confirm New Password",
+    "profileModal.password.button": "Update Password",
+    "profileModal.email.title": "Change Email",
+    "profileModal.email.new": "New Email Address",
+    "profileModal.email.button": "Update Email",
+    "profileModal.email.description": "You will need to confirm the change from both your old and new email addresses.",
+    "profileModal.delete.title": "Danger Zone",
+    "profileModal.delete.description": "Deleting your account is permanent and cannot be undone. All your data will be lost.",
+    "profileModal.delete.button": "Delete My Account",
+    "profileModal.delete.confirm.title": "Are you absolutely sure?",
+    "profileModal.delete.confirm.description": "This will permanently delete your account and all of its data. To confirm, type DELETE below.",
+    "profileModal.delete.confirm.inputPlaceholder": "DELETE",
+    "profileModal.delete.confirm.button": "I understand, delete my account",
     "filter.buttonText": "Filter"
 };
 
@@ -288,6 +320,8 @@ const de: Record<string, string> = {
     "settings.barcodeScanner.description": "Aktiviert oder deaktiviert den Barcode-Scanner-Button im Formular.",
     "settings.ai.title": "KI-Funktionen",
     "settings.ai.description": "KI-gestützte Bildanalyse und Konversationssuche aktivieren. Benötigt einen Gemini API-Schlüssel.",
+    "settings.profile.title": "Profil & Konto",
+    "settings.profile.button": "Profil verwalten",
     "settings.session.title": "Sitzung",
     "settings.session.loggedInAs": "Angemeldet als:",
     "settings.session.logout": "Abmelden",
@@ -460,6 +494,16 @@ const de: Record<string, string> = {
     "toast.listLeaveError": "Fehler beim Verlassen der Liste.",
     "toast.memberRemoved": "Mitglied aus der Liste entfernt.",
     "toast.memberRemoveError": "Fehler beim Entfernen des Mitglieds.",
+    "toast.passwordUpdated": "Passwort erfolgreich aktualisiert.",
+    "toast.passwordUpdateError": "Fehler beim Aktualisieren des Passworts.",
+    "toast.emailUpdated": "Bestätigungs-E-Mails gesendet. Bitte Posteingang prüfen.",
+    "toast.emailUpdateError": "Fehler beim Aktualisieren der E-Mail.",
+    "toast.accountDeleted": "Ihr Konto wurde gelöscht.",
+    "toast.accountDeleteError": "Fehler beim Löschen des Kontos.",
+    "toast.memberInvited": "Benutzer zur Gruppe hinzugefügt.",
+    "toast.memberInviteError": "Mitglied konnte nicht eingeladen werden. Bitte E-Mail prüfen.",
+    "toast.memberAlreadyExists": "Dieser Benutzer ist bereits Mitglied der Gruppe.",
+    "toast.userNotFound": "Benutzer mit dieser E-Mail nicht gefunden.",
     "shoppingMode.title": "Einkaufsmodus",
     "shoppingMode.empty": "Diese Einkaufsliste ist leer.",
     "shoppingMode.completedItems": "Erledigte Artikel",
@@ -474,26 +518,63 @@ const de: Record<string, string> = {
     "manageMembers.title": "Mitglieder verwalten",
     "manageMembers.owner": "Inhaber",
     "manageMembers.remove": "Entfernen",
+    "manageMembers.invite.title": "Mitglied einladen",
+    "manageMembers.invite.placeholder": "user@example.com",
+    "manageMembers.invite.button": "Einladen",
     "manageMembers.confirm.remove": "Sind Sie sicher, dass Sie {email} aus dieser Liste entfernen möchten?",
+    "profileModal.title": "Profil verwalten",
+    "profileModal.password.title": "Passwort ändern",
+    "profileModal.password.new": "Neues Passwort",
+    "profileModal.password.confirm": "Neues Passwort bestätigen",
+    "profileModal.password.button": "Passwort aktualisieren",
+    "profileModal.email.title": "E-Mail ändern",
+    "profileModal.email.new": "Neue E-Mail-Adresse",
+    "profileModal.email.button": "E-Mail aktualisieren",
+    "profileModal.email.description": "Sie müssen die Änderung sowohl von Ihrer alten als auch von Ihrer neuen E-Mail-Adresse bestätigen.",
+    "profileModal.delete.title": "Gefahrenzone",
+    "profileModal.delete.description": "Das Löschen Ihres Kontos ist endgültig und kann nicht rückgängig gemacht werden. Alle Ihre Daten gehen verloren.",
+    "profileModal.delete.button": "Mein Konto löschen",
+    "profileModal.delete.confirm.title": "Sind Sie absolut sicher?",
+    "profileModal.delete.confirm.description": "Dies löscht Ihr Konto und alle zugehörigen Daten endgültig. Geben Sie zur Bestätigung DELETE ein.",
+    "profileModal.delete.confirm.inputPlaceholder": "DELETE",
+    "profileModal.delete.confirm.button": "Ich verstehe, mein Konto löschen",
     "filter.buttonText": "Filter"
 };
 
 const fullTranslations: Record<Language, Record<string, string>> = { en, de };
 
 export const I18nProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>(() => {
+  const { profile, updateProfile, isLoadingProfile } = useProfile();
+  
+  const getInitialLanguage = (): Language => {
     const savedLang = localStorage.getItem('language');
     if (savedLang === 'en' || savedLang === 'de') {
       return savedLang;
     }
-    // Default to German if browser language is German, otherwise English
     return navigator.language.startsWith('de') ? 'de' : 'en';
-  });
+  };
+
+  const [language, setLanguageState] = useState<Language>(getInitialLanguage);
 
   useEffect(() => {
-    localStorage.setItem('language', language);
+    if (!isLoadingProfile && profile?.language) {
+      if (language !== profile.language) {
+        setLanguageState(profile.language);
+      }
+    }
+  }, [profile, isLoadingProfile, language]);
+
+  useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
+  
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+    localStorage.setItem('language', lang);
+    if (profile) {
+      updateProfile({ language: lang }).catch(e => console.error("Failed to sync language", e));
+    }
+  };
 
   const t = useCallback((key: string, options?: Record<string, string | number>) => {
     let translation = fullTranslations[language][key] || fullTranslations['en'][key] || key;

@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import { useProfile } from './ProfileContext';
 
 interface AppSettingsContextType {
   isAiEnabled: boolean;
@@ -12,36 +13,46 @@ interface AppSettingsContextType {
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
 
 export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [isAiEnabled, setIsAiEnabledState] = useState<boolean>(() => {
-    const savedSetting = localStorage.getItem('isAiEnabled');
-    return savedSetting ? JSON.parse(savedSetting) : true;
-  });
-  
-  const [isBarcodeScannerEnabled, setIsBarcodeScannerEnabledState] = useState<boolean>(() => {
-    const savedSetting = localStorage.getItem('isBarcodeScannerEnabled');
-    return savedSetting ? JSON.parse(savedSetting) : true;
-  });
+  const { profile, updateProfile, isLoadingProfile } = useProfile();
 
-  const [isOffSearchEnabled, setIsOffSearchEnabledState] = useState<boolean>(() => {
-    const savedSetting = localStorage.getItem('isOffSearchEnabled');
-    // Default to true
-    return savedSetting !== null ? JSON.parse(savedSetting) : true;
-  });
+  const [isAiEnabled, setIsAiEnabledState] = useState<boolean>(() => JSON.parse(localStorage.getItem('isAiEnabled') ?? 'true'));
+  const [isBarcodeScannerEnabled, setIsBarcodeScannerEnabledState] = useState<boolean>(() => JSON.parse(localStorage.getItem('isBarcodeScannerEnabled') ?? 'true'));
+  const [isOffSearchEnabled, setIsOffSearchEnabledState] = useState<boolean>(() => JSON.parse(localStorage.getItem('isOffSearchEnabled') ?? 'true'));
 
-  const setIsAiEnabled = (enabled: boolean) => {
-    setIsAiEnabledState(enabled);
-    localStorage.setItem('isAiEnabled', JSON.stringify(enabled));
+  useEffect(() => {
+    if (!isLoadingProfile && profile) {
+      setIsAiEnabledState(profile.is_ai_enabled ?? true);
+      setIsBarcodeScannerEnabledState(profile.is_barcode_scanner_enabled ?? true);
+      setIsOffSearchEnabledState(profile.is_off_search_enabled ?? true);
+    }
+  }, [profile, isLoadingProfile]);
+
+  const createSetter = (
+    stateSetter: React.Dispatch<React.SetStateAction<boolean>>,
+    storageKey: string,
+    profileKey: keyof Pick<AppSettingsContextType, 'isAiEnabled' | 'isBarcodeScannerEnabled' | 'isOffSearchEnabled'>
+  ) => (enabled: boolean) => {
+    stateSetter(enabled);
+    localStorage.setItem(storageKey, JSON.stringify(enabled));
+    if (profile) {
+      const profileUpdate: { [key: string]: boolean } = {};
+      
+      // Map context key to DB key
+      const dbKeyMap = {
+          'isAiEnabled': 'is_ai_enabled',
+          'isBarcodeScannerEnabled': 'is_barcode_scanner_enabled',
+          'isOffSearchEnabled': 'is_off_search_enabled'
+      };
+
+      profileUpdate[dbKeyMap[profileKey]] = enabled;
+
+      updateProfile(profileUpdate).catch(e => console.error(`Failed to sync ${profileKey}`, e));
+    }
   };
   
-  const setIsBarcodeScannerEnabled = (enabled: boolean) => {
-    setIsBarcodeScannerEnabledState(enabled);
-    localStorage.setItem('isBarcodeScannerEnabled', JSON.stringify(enabled));
-  };
-  
-  const setIsOffSearchEnabled = (enabled: boolean) => {
-    setIsOffSearchEnabledState(enabled);
-    localStorage.setItem('isOffSearchEnabled', JSON.stringify(enabled));
-  };
+  const setIsAiEnabled = createSetter(setIsAiEnabledState, 'isAiEnabled', 'isAiEnabled');
+  const setIsBarcodeScannerEnabled = createSetter(setIsBarcodeScannerEnabledState, 'isBarcodeScannerEnabled', 'isBarcodeScannerEnabled');
+  const setIsOffSearchEnabled = createSetter(setIsOffSearchEnabledState, 'isOffSearchEnabled', 'isOffSearchEnabled');
 
   const value = { isAiEnabled, setIsAiEnabled, isBarcodeScannerEnabled, setIsBarcodeScannerEnabled, isOffSearchEnabled, setIsOffSearchEnabled };
 

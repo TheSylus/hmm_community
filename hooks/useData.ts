@@ -26,7 +26,7 @@ export const useData = () => {
     const { data: publicFoodItems = [], isLoading: isLoadingPublicItems } = useQuery<FoodItem[]>({
         queryKey: ['public_food_items'],
         queryFn: async () => {
-            const { data, error } = await supabase.from('food_items').select('*').eq('isPublic', true).order('created_at', { ascending: false }).limit(50);
+            const { data, error } = await supabase.from('food_items').select('*').eq('is_public', true).order('created_at', { ascending: false }).limit(50);
             if (error) throw error;
             return data || [];
         },
@@ -36,9 +36,6 @@ export const useData = () => {
         queryKey: ['shopping_lists', user?.id],
         queryFn: async () => {
             if (!user) return [];
-            // This query now relies on a standard Row Level Security (RLS) policy on the `shopping_lists` table.
-            // The RLS policy should ensure users can only SELECT lists they are a member of.
-            // Example RLS Policy (for SELECT): EXISTS (SELECT 1 FROM group_members WHERE group_members.list_id = shopping_lists.id AND group_members.user_id = auth.uid())
             const { data, error } = await supabase
                 .from('shopping_lists')
                 .select('*')
@@ -161,7 +158,7 @@ export const useData = () => {
         },
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['food_items', user?.id] });
-            if (variables.isPublic) {
+            if (variables.is_public) {
                 queryClient.invalidateQueries({ queryKey: ['public_food_items'] });
             }
         },
@@ -184,17 +181,8 @@ export const useData = () => {
     const createShoppingListMutation = useMutation({
         mutationFn: async (name: string) => {
             if (!user) throw new Error("User not authenticated");
-            
-            const { data, error } = await supabase.rpc('create_new_shopping_list', { list_name: name });
-    
-            if (error) {
-                console.error('Error calling create_new_shopping_list RPC:', error);
-                if (error.message.includes('function public.create_new_shopping_list(list_name=>text) does not exist')) {
-                    throw new Error("Group creation failed. The required database function 'create_new_shopping_list' is missing. Please create it in the Supabase SQL Editor.");
-                }
-                throw new Error(`Could not create group. DB error: ${error.message}`);
-            }
-            return data;
+            const { error } = await supabase.rpc('create_new_shopping_list', { list_name: name });
+            if (error) throw error;
         },
         onSuccess: invalidateAllGroupData,
     });
@@ -202,10 +190,7 @@ export const useData = () => {
     const updateShoppingListMutation = useMutation({
         mutationFn: async ({ listId, name }: { listId: string, name: string }) => {
             const { error } = await supabase.from('shopping_lists').update({ name }).eq('id', listId);
-            if (error) {
-                console.error('Supabase update list error:', error);
-                throw error;
-            }
+            if (error) throw error;
         },
         onSuccess: invalidateAllGroupData,
     });
@@ -213,10 +198,18 @@ export const useData = () => {
     const deleteShoppingListMutation = useMutation({
         mutationFn: async (listId: string) => {
             const { error } = await supabase.from('shopping_lists').delete().eq('id', listId);
-            if (error) {
-                console.error('Supabase delete list error:', error);
-                throw error;
-            }
+            if (error) throw error;
+        },
+        onSuccess: invalidateAllGroupData,
+    });
+
+    const addMemberToListMutation = useMutation({
+        mutationFn: async ({ listId, email }: { listId: string; email: string }) => {
+            const { error } = await supabase.rpc('add_member_to_list', {
+                list_id_input: listId,
+                member_email: email,
+            });
+            if (error) throw error;
         },
         onSuccess: invalidateAllGroupData,
     });
@@ -224,10 +217,16 @@ export const useData = () => {
     const removeMemberFromListMutation = useMutation({
         mutationFn: async ({ listId, memberId }: { listId: string, memberId: string }) => {
             const { error } = await supabase.from('group_members').delete().match({ list_id: listId, user_id: memberId });
-            if (error) {
-                console.error('Supabase remove member error:', error);
-                throw error;
-            }
+            if (error) throw error;
+        },
+        onSuccess: invalidateAllGroupData,
+    });
+
+    const leaveListMutation = useMutation({
+        mutationFn: async (listId: string) => {
+            if (!user) throw new Error("User not authenticated");
+            const { error } = await supabase.from('group_members').delete().match({ list_id: listId, user_id: user.id });
+            if (error) throw error;
         },
         onSuccess: invalidateAllGroupData,
     });
@@ -236,10 +235,7 @@ export const useData = () => {
        mutationFn: async (item: Pick<ShoppingListItem, 'list_id' | 'food_item_id' | 'name' | 'quantity'>) => {
             if (!user) throw new Error("User not authenticated");
             const { error } = await supabase.from('shopping_list_items').insert({ ...item, added_by: user.id });
-            if (error) {
-                console.error('Supabase add shopping item error:', error);
-                throw error;
-            }
+            if (error) throw error;
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shopping_list_items', user?.id] }),
     });
@@ -247,10 +243,7 @@ export const useData = () => {
     const toggleShoppingListItemMutation = useMutation({
         mutationFn: async ({ itemId, checked }: { itemId: string, checked: boolean }) => {
             const { error } = await supabase.from('shopping_list_items').update({ checked }).eq('id', itemId);
-            if (error) {
-                console.error('Supabase toggle shopping item error:', error);
-                throw error;
-            }
+            if (error) throw error;
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shopping_list_items', user?.id] }),
     });
@@ -269,7 +262,9 @@ export const useData = () => {
         createShoppingList: createShoppingListMutation.mutateAsync,
         updateShoppingList: updateShoppingListMutation.mutateAsync,
         deleteShoppingList: deleteShoppingListMutation.mutateAsync,
+        addMemberToList: addMemberToListMutation.mutateAsync,
         removeMemberFromList: removeMemberFromListMutation.mutateAsync,
+        leaveList: leaveListMutation.mutateAsync,
         
         lastUsedShoppingListId, setLastUsedShoppingListId: setLastUsedShoppingListIdState,
         

@@ -7,6 +7,7 @@ import { AppSettingsProvider } from './contexts/AppSettingsContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './contexts/ToastContext';
+import { ProfileProvider } from './contexts/ProfileContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -19,17 +20,19 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <I18nProvider>
-          <AppSettingsProvider>
-            <AuthProvider>
-              <ToastProvider>
-                <App />
-              </ToastProvider>
-            </AuthProvider>
-          </AppSettingsProvider>
-        </I18nProvider>
-      </ThemeProvider>
+      <AuthProvider>
+        <ProfileProvider>
+          <ThemeProvider>
+            <I18nProvider>
+              <AppSettingsProvider>
+                <ToastProvider>
+                  <App />
+                </ToastProvider>
+              </AppSettingsProvider>
+            </I18nProvider>
+          </ThemeProvider>
+        </ProfileProvider>
+      </AuthProvider>
     </QueryClientProvider>
   </React.StrictMode>
 );

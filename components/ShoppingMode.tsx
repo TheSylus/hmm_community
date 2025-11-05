@@ -4,14 +4,18 @@ import { XMarkIcon, SpinnerIcon, PlusCircleIcon, EllipsisVerticalIcon, UserGroup
 import { useTranslation } from '../i18n';
 import { categorizeShoppingListItems } from '../services/geminiService';
 import { useAppSettings } from '../contexts/AppSettingsContext';
+import { useToast } from '../contexts/ToastContext';
 
 interface ShoppingModeProps {
     list: ShoppingList;
     items: HydratedShoppingListItem[];
     isLoading: boolean;
+    currentUserId: string;
     onClose: () => void;
     onItemToggle: (args: { itemId: string, checked: boolean }) => void;
     onManageMembers: (list: ShoppingList) => void;
+    onLeaveList: (listId: string) => Promise<any>;
+    onDeleteList: (listId: string) => Promise<any>;
 }
 
 type Category = {
@@ -31,12 +35,15 @@ const ShoppingListItem: React.FC<{ item: HydratedShoppingListItem; onToggle: () 
     </div>
 );
 
-export const ShoppingMode: React.FC<ShoppingModeProps> = ({ list, items, isLoading, onClose, onItemToggle, onManageMembers }) => {
+export const ShoppingMode: React.FC<ShoppingModeProps> = ({ list, items, isLoading, currentUserId, onClose, onItemToggle, onManageMembers, onLeaveList, onDeleteList }) => {
     const { t, language } = useTranslation();
+    const { addToast } = useToast();
     const { isAiEnabled } = useAppSettings();
     const [categorized, setCategorized] = useState<Category[]>([]);
     const [isCategorizing, setIsCategorizing] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    const isOwner = list.owner_id === currentUserId;
 
     const activeItems = useMemo(() => items.filter(i => !i.checked), [items]);
     const completedItems = useMemo(() => items.filter(i => i.checked), [items]);
@@ -55,7 +62,6 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({ list, items, isLoadi
                 items: cat.itemIds.map(id => itemMap.get(id)).filter((i): i is HydratedShoppingListItem => !!i)
             }));
             
-            // Add any items not returned by AI to an "Other" category
             const categorizedIds = new Set(result.flatMap(c => c.itemIds));
             const uncategorizedItems = activeItems.filter(i => !categorizedIds.has(i.shopping_list_item_id));
             if (uncategorizedItems.length > 0) {
@@ -79,15 +85,27 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({ list, items, isLoadi
         runCategorization();
     }, [runCategorization]);
     
-    const handleMenuAction = (action: 'manage' | 'leave' | 'delete') => {
-        setIsMenuOpen(false);
-        switch (action) {
-            case 'manage':
-                onManageMembers(list);
-                break;
-            // Additional cases for leave/delete would go here
-            // case 'leave': if (window.confirm(...)) { ... } break;
-            // case 'delete': if (window.confirm(...)) { ... } break;
+    const handleLeave = async () => {
+        if (window.confirm(t('shoppingMode.confirm.leaveList'))) {
+            try {
+                await onLeaveList(list.id);
+                addToast({ message: t('toast.listLeft'), type: 'info' });
+                onClose();
+            } catch (e) {
+                addToast({ message: t('toast.listLeaveError'), type: 'error' });
+            }
+        }
+    };
+
+    const handleDelete = async () => {
+        if (window.confirm(t('shoppingMode.confirm.deleteList'))) {
+            try {
+                await onDeleteList(list.id);
+                addToast({ message: t('toast.listDeleted'), type: 'info' });
+                onClose();
+            } catch (e) {
+                addToast({ message: t('toast.listDeleteError'), type: 'error' });
+            }
         }
     };
 
@@ -105,10 +123,15 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({ list, items, isLoadi
                     {isMenuOpen && (
                         <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-20">
                             <div className="py-1">
-                                <button onClick={() => handleMenuAction('manage')} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"><UserGroupIcon className="w-5 h-5" /> {t('shoppingMode.menu.manageMembers')}</button>
-                                {/* Future actions */}
-                                {/* <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"><ArrowLeftOnRectangleIcon className="w-5 h-5" /> {t('shoppingMode.menu.leaveList')}</button>
-                                <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50"><TrashIcon className="w-5 h-5" /> {t('shoppingMode.menu.deleteList')}</button> */}
+                                <button onClick={() => { setIsMenuOpen(false); onManageMembers(list); }} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600"><UserGroupIcon className="w-5 h-5" /> {t('shoppingMode.menu.manageMembers')}</button>
+                                <button onClick={() => { setIsMenuOpen(false); handleLeave(); }} disabled={isOwner} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed" title={isOwner ? "Owner cannot leave the list" : ""}>
+                                  <ArrowLeftOnRectangleIcon className="w-5 h-5" /> {t('shoppingMode.menu.leaveList')}
+                                </button>
+                                {isOwner && (
+                                  <button onClick={() => { setIsMenuOpen(false); handleDelete(); }} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50">
+                                    <TrashIcon className="w-5 h-5" /> {t('shoppingMode.menu.deleteList')}
+                                  </button>
+                                )}
                             </div>
                         </div>
                     )}
@@ -158,16 +181,6 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({ list, items, isLoadi
                     </>
                 )}
             </main>
-            
-            {/* Quick Add Footer - Future Feature */}
-            {/*
-            <footer className="p-2 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex gap-2">
-                    <input type="text" placeholder={t('shoppingMode.quickAddPlaceholder')} className="flex-grow bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md p-2" />
-                    <button className="px-4 py-2 bg-indigo-600 text-white rounded-md font-semibold flex items-center gap-2"><PlusCircleIcon className="w-5 h-5"/> {t('shoppingMode.quickAddButton')}</button>
-                </div>
-            </footer>
-            */}
             
             <style>{`
                 @keyframes slide-in-up { from { transform: translateY(100%); } to { transform: translateY(0); } }

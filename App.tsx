@@ -25,8 +25,9 @@ import { Dashboard } from './components/Dashboard';
 import { DiscoverView } from './components/DiscoverView';
 import { GroupsView } from './components/GroupsView';
 import { ManageMembersModal } from './components/ManageMembersModal';
+import { ProfileModal } from './components/ProfileModal';
 
-type Modal = 'form' | 'details' | 'settings' | 'duplicates' | 'addToList' | 'manageMembers' | null;
+type Modal = 'form' | 'details' | 'settings' | 'duplicates' | 'addToList' | 'manageMembers' | 'profile' | null;
 export type View = 'list' | 'dashboard' | 'discover' | 'groups';
 
 const App: React.FC = () => {
@@ -67,12 +68,12 @@ const MainApp = () => {
     foodItems, isLoadingItems, addFoodItem, updateFoodItem, deleteFoodItem, 
     publicFoodItems, isLoadingPublicItems, likes, comments,
     shoppingLists, allShoppingListItems, createShoppingList, updateShoppingList, deleteShoppingList,
-    groupMembers, removeMemberFromList,
+    groupMembers, addMemberToList, removeMemberFromList, leaveList,
     lastUsedShoppingListId, setLastUsedShoppingListId,
     addShoppingListItem, toggleShoppingListItem,
   } = useData();
 
-  const [view, setView] = useState<View>('list');
+  const [view, setView] = useState<View>('dashboard');
   const [modal, setModal] = useState<Modal>(null);
   const [modalList, setModalList] = useState<ShoppingList | null>(null);
   const [currentItem, setCurrentItem] = useState<FoodItem | null>(null);
@@ -159,7 +160,7 @@ const MainApp = () => {
         setPotentialDuplicates([]);
         setItemToSave(null);
     }
-  }, [addFoodItem, updateFoodItem, foodItems, currentItem, t, addToast]);
+  }, [addFoodItem, updateFoodItem, currentItem, t, addToast]);
   
   const checkIfDuplicate = useCallback((item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
      const isEditing = !!(currentItem && 'id' in currentItem);
@@ -427,7 +428,8 @@ const MainApp = () => {
       {modal === 'details' && currentItem && (
         <FoodItemDetailModal item={currentItem} onClose={handleCloseModal} />
       )}
-      {modal === 'settings' && <SettingsModal onClose={handleCloseModal} />}
+      {modal === 'settings' && <SettingsModal onClose={handleCloseModal} onOpenProfile={() => setModal('profile')} />}
+      {modal === 'profile' && <ProfileModal onClose={handleCloseModal} />}
       {modal === 'duplicates' && (
         <DuplicateConfirmationModal
           items={potentialDuplicates}
@@ -452,6 +454,7 @@ const MainApp = () => {
               currentUserId={user!.id}
               onClose={handleCloseModal}
               onRemoveMember={removeMemberFromList}
+              onAddMember={addMemberToList}
           />
       )}
       
@@ -477,9 +480,12 @@ const MainApp = () => {
             list={shoppingModeList}
             items={shoppingModeItems}
             isLoading={isLoadingItems}
+            currentUserId={user!.id}
             onClose={() => setShoppingModeList(null)}
             onItemToggle={toggleShoppingListItem}
             onManageMembers={handleManageMembers}
+            onLeaveList={leaveList}
+            onDeleteList={deleteShoppingList}
         />
       )}
     </div>

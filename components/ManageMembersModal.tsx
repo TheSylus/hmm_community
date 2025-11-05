@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ShoppingList, UserProfile } from '../types';
 import { useTranslation } from '../i18n';
 import { useToast } from '../contexts/ToastContext';
-import { XMarkIcon, TrashIcon } from './Icons';
+import { XMarkIcon, TrashIcon, SpinnerIcon, UserPlusIcon } from './Icons';
 
 interface ManageMembersModalProps {
     list: ShoppingList;
@@ -11,6 +11,7 @@ interface ManageMembersModalProps {
     currentUserId: string;
     onClose: () => void;
     onRemoveMember: (args: { listId: string; memberId: string; }) => Promise<any>;
+    onAddMember: (args: { listId: string; email: string; }) => Promise<any>;
 }
 
 export const ManageMembersModal: React.FC<ManageMembersModalProps> = ({
@@ -20,10 +21,14 @@ export const ManageMembersModal: React.FC<ManageMembersModalProps> = ({
     currentUserId,
     onClose,
     onRemoveMember,
+    onAddMember,
 }) => {
     const { t } = useTranslation();
     const { addToast } = useToast();
     const isOwner = ownerId === currentUserId;
+
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [isInviting, setIsInviting] = useState(false);
 
     const handleRemove = async (member: UserProfile) => {
         if (window.confirm(t('manageMembers.confirm.remove', { email: member.email }))) {
@@ -33,6 +38,29 @@ export const ManageMembersModal: React.FC<ManageMembersModalProps> = ({
             } catch (error) {
                 addToast({ message: t('toast.memberRemoveError'), type: 'error' });
             }
+        }
+    };
+    
+    const handleInvite = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!inviteEmail.trim() || !isOwner) return;
+
+        setIsInviting(true);
+        try {
+            await onAddMember({ listId: list.id, email: inviteEmail.trim() });
+            addToast({ message: t('toast.memberInvited'), type: 'success' });
+            setInviteEmail('');
+        } catch (error: any) {
+            let message = t('toast.memberInviteError');
+            if (error?.message?.includes('ALREADY_MEMBER')) {
+                message = t('toast.memberAlreadyExists');
+            } else if (error?.message?.includes('USER_NOT_FOUND')) {
+                message = t('toast.userNotFound');
+            }
+            addToast({ message, type: 'error' });
+            console.error(error);
+        } finally {
+            setIsInviting(false);
         }
     };
 
@@ -51,6 +79,27 @@ export const ManageMembersModal: React.FC<ManageMembersModalProps> = ({
                         <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>
+                
+                {isOwner && (
+                    <form onSubmit={handleInvite} className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
+                        <h3 className="font-semibold text-gray-700 dark:text-gray-300">{t('manageMembers.invite.title')}</h3>
+                        <div className="flex gap-2">
+                            <input
+                                type="email"
+                                value={inviteEmail}
+                                onChange={e => setInviteEmail(e.target.value)}
+                                placeholder={t('manageMembers.invite.placeholder')}
+                                className="flex-grow bg-gray-100 dark:bg-gray-700 p-2 rounded-md"
+                                required
+                                disabled={isInviting}
+                            />
+                            <button type="submit" disabled={isInviting || !inviteEmail.trim()} className="px-4 py-2 bg-indigo-600 text-white rounded-md font-semibold flex items-center gap-2 disabled:bg-indigo-400">
+                                {isInviting ? <SpinnerIcon className="w-5 h-5"/> : <UserPlusIcon className="w-5 h-5"/>}
+                                <span>{t('manageMembers.invite.button')}</span>
+                            </button>
+                        </div>
+                    </form>
+                )}
 
                 <div className="flex-1 p-6 space-y-4 overflow-y-auto">
                     {members.map(member => (
@@ -73,7 +122,6 @@ export const ManageMembersModal: React.FC<ManageMembersModalProps> = ({
                         </div>
                     ))}
                 </div>
-                {/* Note: Invite functionality requires a secure backend function (RPC) to look up users by email, so it's omitted here. */}
                  <div className="p-4 border-t border-gray-200 dark:border-gray-700">
                     <button 
                         onClick={onClose}

@@ -65,6 +65,12 @@ export type RatingFilter = 'all' | 'liked' | 'disliked';
 export interface UserProfile {
     id: string;
     email?: string;
+    // Synced settings
+    theme?: 'light' | 'dark' | 'system';
+    language?: 'en' | 'de';
+    is_ai_enabled?: boolean;
+    is_barcode_scanner_enabled?: boolean;
+    is_off_search_enabled?: boolean;
 }
 
 export interface Like {
