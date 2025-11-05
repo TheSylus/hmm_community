@@ -5,6 +5,7 @@ import { useAuth } from './contexts/AuthContext';
 import { useToast } from './contexts/ToastContext';
 import { useTranslation } from './i18n';
 import { performConversationalSearch } from './services/geminiService';
+import { isSupabaseConfigured } from './services/supabaseClient';
 import { Auth } from './components/Auth';
 import { FoodItemForm } from './components/FoodItemForm';
 import { FoodItemList } from './components/FoodItemList';
@@ -216,6 +217,21 @@ const App: React.FC = () => {
     };
 
     // Render Logic
+    if (!isSupabaseConfigured) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 px-4">
+                <div className="w-full max-w-lg bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl text-center">
+                    <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">Configuration Error</h1>
+                    <p className="text-gray-700 dark:text-gray-300">
+                        The application is missing the required Supabase configuration (URL and Key).
+                        Please ensure your environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) are set up correctly.
+                        The app cannot function without them.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     if (!session) {
         return <Auth />;
     }

@@ -21,8 +21,9 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Supabase URL and Anon Key must be defined in your Vercel environment variables with the `VITE_` prefix.");
-}
+// Create the client but use empty strings as a fallback to prevent crashing.
+// The client will not be functional, but the app will load.
+export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Export a flag to check if the configuration is actually present.
+export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
