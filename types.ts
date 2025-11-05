@@ -13,22 +13,22 @@ export interface FoodItem {
   notes?: string;
   image?: string;
   tags?: string[];
-  item_type: FoodItemType;
-  is_public: boolean;
-  shared_with_list_id?: string | null;
+  itemType: FoodItemType;
+  isPublic: boolean;
+  sharedWithListId?: string | null;
 
   // Product-specific
-  nutri_score?: NutriScore;
-  purchase_location?: string;
+  nutriScore?: NutriScore;
+  purchaseLocation?: string;
   ingredients?: string[];
   allergens?: string[];
-  is_lactose_free?: boolean;
-  is_vegan?: boolean;
-  is_gluten_free?: boolean;
+  isLactoseFree?: boolean;
+  isVegan?: boolean;
+  isGlutenFree?: boolean;
 
   // Dish-specific
-  restaurant_name?: string;
-  cuisine_type?: string;
+  restaurantName?: string;
+  cuisineType?: string;
   price?: number;
 }
 

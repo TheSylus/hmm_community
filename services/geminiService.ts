@@ -54,7 +54,7 @@ export interface BoundingBox {
     height: number;
 }
 
-export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; tags: string[]; nutri_score?: NutriScore; boundingBox?: BoundingBox }> => {
+export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; tags: string[]; nutriScore?: NutriScore; boundingBox?: BoundingBox }> => {
   const match = base64Image.match(/^data:(image\/[a-z]+);base64,(.*)$/);
   if (!match) {
     throw new Error("Invalid base64 image string.");
@@ -93,7 +93,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
               items: { type: Type.STRING },
               description: "A list of relevant tags for the product.",
             },
-            nutri_score: {
+            nutriScore: {
               type: Type.STRING,
               description: "The Nutri-Score rating (A, B, C, D, or E) if visible. Null if not found.",
             },
@@ -117,8 +117,8 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
     
     // Validate Nutri-Score before returning
     const validScores: NutriScore[] = ['A', 'B', 'C', 'D', 'E'];
-    if (result.nutri_score && !validScores.includes(result.nutri_score.toUpperCase())) {
-      result.nutri_score = null;
+    if (result.nutriScore && !validScores.includes(result.nutriScore.toUpperCase())) {
+      result.nutriScore = null;
     }
     
     return result;
@@ -133,7 +133,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
 };
 
 
-export const analyzeIngredientsImage = async (base64Image: string): Promise<{ ingredients: string[]; allergens: string[]; is_lactose_free: boolean; is_vegan: boolean; is_gluten_free: boolean; }> => {
+export const analyzeIngredientsImage = async (base64Image: string): Promise<{ ingredients: string[]; allergens: string[]; isLactoseFree: boolean; isVegan: boolean; isGlutenFree: boolean; }> => {
     const match = base64Image.match(/^data:(image\/[a-z]+);base64,(.*)$/);
     if (!match) {
       throw new Error("Invalid base64 image string.");
@@ -152,7 +152,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
       };
   
       const textPart = {
-        text: "Analyze this image of a food product's ingredients list. Extract the full list of ingredients. Also, extract a list of common allergens mentioned in the ingredients. Based on the ingredients, determine if the product is lactose-free, vegan, and/or gluten-free. Return a single JSON object with five keys: 'ingredients' (an array of strings), 'allergens' (an array of strings), 'is_lactose_free' (boolean), 'is_vegan' (boolean), and 'is_gluten_free' (boolean). If a key cannot be determined, default the boolean to false and arrays to empty.",
+        text: "Analyze this image of a food product's ingredients list. Extract the full list of ingredients. Also, extract a list of common allergens mentioned in the ingredients. Based on the ingredients, determine if the product is lactose-free, vegan, and/or gluten-free. Return a single JSON object with five keys: 'ingredients' (an array of strings), 'allergens' (an array of strings), 'isLactoseFree' (boolean), 'isVegan' (boolean), and 'isGlutenFree' (boolean). If a key cannot be determined, default the boolean to false and arrays to empty.",
       };
   
       const response = await gemini.models.generateContent({
@@ -173,20 +173,20 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
                 items: { type: Type.STRING },
                 description: "An array of strings, where each string is a potential allergen found in the ingredients list.",
               },
-              is_lactose_free: {
+              isLactoseFree: {
                 type: Type.BOOLEAN,
                 description: "True if the product is lactose-free based on its ingredients, false otherwise.",
               },
-              is_vegan: {
+              isVegan: {
                 type: Type.BOOLEAN,
                 description: "True if the product is vegan based on its ingredients, false otherwise.",
               },
-              is_gluten_free: {
+              isGlutenFree: {
                 type: Type.BOOLEAN,
                 description: "True if the product is gluten-free based on its ingredients, false otherwise.",
               },
             },
-            required: ["ingredients", "allergens", "is_lactose_free", "is_vegan", "is_gluten_free"],
+            required: ["ingredients", "allergens", "isLactoseFree", "isVegan", "isGlutenFree"],
           },
         },
       });
@@ -196,9 +196,9 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
       return {
         ingredients: result.ingredients || [],
         allergens: result.allergens || [],
-        is_lactose_free: result.is_lactose_free || false,
-        is_vegan: result.is_vegan || false,
-        is_gluten_free: result.is_gluten_free || false,
+        isLactoseFree: result.isLactoseFree || false,
+        isVegan: result.isVegan || false,
+        isGlutenFree: result.isGlutenFree || false,
       };
   
     } catch (error) {
@@ -247,7 +247,7 @@ export const findNearbyRestaurants = async (latitude: number, longitude: number)
 // A compacted version of FoodItem for sending to the AI
 type CompactFoodItem = Pick<
   FoodItem,
-  'id' | 'name' | 'rating' | 'item_type' | 'notes' | 'tags' | 'nutri_score' | 'restaurant_name' | 'cuisine_type'
+  'id' | 'name' | 'rating' | 'itemType' | 'notes' | 'tags' | 'nutriScore' | 'restaurantName' | 'cuisineType'
 >;
 
 export const performConversationalSearch = async (query: string, items: FoodItem[]): Promise<string[]> => {
@@ -256,7 +256,7 @@ export const performConversationalSearch = async (query: string, items: FoodItem
   }
 
   // Create a more compact version of the items to send to the API, excluding large fields like images
-  const compactItems: CompactFoodItem[] = items.map(({ image, ingredients, allergens, is_lactose_free, is_vegan, is_gluten_free, price, user_id, created_at, ...rest }) => rest);
+  const compactItems: CompactFoodItem[] = items.map(({ image, ingredients, allergens, isLactoseFree, isVegan, isGlutenFree, price, user_id, created_at, ...rest }) => rest);
 
   try {
     const gemini = getAiClient();

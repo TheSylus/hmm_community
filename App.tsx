@@ -107,18 +107,18 @@ const MainApp = () => {
                 notes: foodItemData.notes,
                 image: foodItemData.image,
                 tags: foodItemData.tags,
-                item_type: foodItemData.item_type || 'product',
-                is_public: foodItemData.is_public || false,
-                shared_with_list_id: foodItemData.shared_with_list_id,
-                nutri_score: foodItemData.nutri_score,
-                purchase_location: foodItemData.purchase_location,
+                itemType: foodItemData.itemType || 'product',
+                isPublic: foodItemData.isPublic || false,
+                sharedWithListId: foodItemData.sharedWithListId,
+                nutriScore: foodItemData.nutriScore,
+                purchaseLocation: foodItemData.purchaseLocation,
                 ingredients: foodItemData.ingredients,
                 allergens: foodItemData.allergens,
-                is_lactose_free: foodItemData.is_lactose_free,
-                is_vegan: foodItemData.is_vegan,
-                is_gluten_free: foodItemData.is_gluten_free,
-                restaurant_name: foodItemData.restaurant_name,
-                cuisine_type: foodItemData.cuisine_type,
+                isLactoseFree: foodItemData.isLactoseFree,
+                isVegan: foodItemData.isVegan,
+                isGlutenFree: foodItemData.isGlutenFree,
+                restaurantName: foodItemData.restaurantName,
+                cuisineType: foodItemData.cuisineType,
                 price: foodItemData.price,
                 shoppingListItemId: item.id,
                 quantity: item.quantity,
@@ -231,7 +231,7 @@ const MainApp = () => {
     }
     return items
       .filter(item => searchTerm ? item.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.notes?.toLowerCase().includes(searchTerm.toLowerCase()) || item.tags?.join(' ').toLowerCase().includes(searchTerm.toLowerCase()) : true)
-      .filter(item => typeFilter === 'all' ? true : item.item_type === typeFilter)
+      .filter(item => typeFilter === 'all' ? true : item.itemType === typeFilter)
       .filter(item => {
         if (ratingFilter === 'all') return true;
         if (ratingFilter === 'liked') return item.rating >= 4;
@@ -385,7 +385,7 @@ const MainApp = () => {
       <BottomNavBar currentView={view} setView={setView} />
       
       {isFilterPanelOpen && <FilterPanel onClose={() => setIsFilterPanelOpen(false)} searchTerm={searchTerm} setSearchTerm={setSearchTerm} typeFilter={typeFilter} setTypeFilter={setTypeFilter} ratingFilter={ratingFilter} setRatingFilter={setRatingFilter} sortBy={sortBy} setSortBy={setSortBy} onReset={resetFilters} onAiSearch={onAiSearch} isAiSearchLoading={isAiSearchLoading} />}
-      {modal === 'form' && <FoodItemForm onSaveItem={onSaveItem} onCancel={() => setModal(null)} initialData={currentItem} itemType={currentItem?.item_type || itemTypeForNew} shoppingLists={shoppingLists} />}
+      {modal === 'form' && <FoodItemForm onSaveItem={onSaveItem} onCancel={() => setModal(null)} initialData={currentItem} itemType={currentItem?.itemType || itemTypeForNew} shoppingLists={shoppingLists} />}
       {modal === 'details' && currentItem && <FoodItemDetailModal item={currentItem} onClose={() => { setModal(null); setCurrentItem(null); }} />}
       {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} />}
       {modal === 'duplicates' && <DuplicateConfirmationModal items={potentialDuplicates} itemName={itemToSave?.name || ''} onConfirm={() => itemToSave && onSaveItem(itemToSave)} onCancel={() => setModal(null)} />}

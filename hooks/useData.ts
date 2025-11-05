@@ -6,20 +6,6 @@ import { useState, useEffect, useMemo } from 'react';
 
 const LAST_USED_LIST_ID_KEY = 'lastUsedShoppingListId';
 
-// Helper function to sanitize data before sending to Supabase.
-// Converts empty strings and empty arrays to `null` to prevent constraint violations.
-const sanitizePayload = <T extends Record<string, any>>(payload: T): T => {
-    const sanitized = { ...payload };
-    for (const key in sanitized) {
-        const value = sanitized[key];
-        if (value === '' || (Array.isArray(value) && value.length === 0)) {
-            sanitized[key] = null as any;
-        }
-    }
-    return sanitized;
-};
-
-
 export const useData = () => {
     const { user } = useAuth();
     const queryClient = useQueryClient();
@@ -40,7 +26,7 @@ export const useData = () => {
     const { data: publicFoodItems = [], isLoading: isLoadingPublicItems } = useQuery<FoodItem[]>({
         queryKey: ['public_food_items'],
         queryFn: async () => {
-            const { data, error } = await supabase.from('food_items').select('*').eq('is_public', true).order('created_at', { ascending: false }).limit(50);
+            const { data, error } = await supabase.from('food_items').select('*').eq('isPublic', true).order('created_at', { ascending: false }).limit(50);
             if (error) throw error;
             return data || [];
         },
@@ -150,9 +136,12 @@ export const useData = () => {
     const addFoodItemMutation = useMutation({
         mutationFn: async (newItem: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
             if (!user) throw new Error("User not authenticated");
-            const payload = sanitizePayload({ ...newItem, user_id: user.id });
+            const payload = { ...newItem, user_id: user.id };
             const { error } = await supabase.from('food_items').insert(payload);
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase insert error:', error);
+                throw error;
+            }
             return null;
         },
         onSuccess: () => {
@@ -163,9 +152,11 @@ export const useData = () => {
     const updateFoodItemMutation = useMutation({
         mutationFn: async (updatedItem: FoodItem) => {
             const { id, user_id, created_at, ...updatePayload } = updatedItem;
-            const payload = sanitizePayload(updatePayload);
-            const { error } = await supabase.from('food_items').update(payload).eq('id', id);
-            if (error) throw error;
+            const { error } = await supabase.from('food_items').update(updatePayload).eq('id', id);
+            if (error) {
+                console.error('Supabase update error:', error);
+                throw error;
+            }
             return null;
         },
         onSuccess: (_, variables) => {
@@ -177,7 +168,13 @@ export const useData = () => {
     });
 
     const deleteFoodItemMutation = useMutation({
-        mutationFn: (id: string) => supabase.from('food_items').delete().eq('id', id),
+        mutationFn: async (id: string) => {
+            const { error } = await supabase.from('food_items').delete().eq('id', id);
+            if (error) {
+                console.error('Supabase delete error:', error);
+                throw error;
+            }
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['food_items', user?.id] });
             queryClient.invalidateQueries({ queryKey: ['public_food_items'] });
@@ -192,7 +189,6 @@ export const useData = () => {
     
             if (error) {
                 console.error('Error calling create_new_shopping_list RPC:', error);
-                // Provide a more helpful error message for the developer.
                 if (error.message.includes('function public.create_new_shopping_list(list_name=>text) does not exist')) {
                     throw new Error("Group creation failed. The required database function 'create_new_shopping_list' is missing. Please create it in the Supabase SQL Editor.");
                 }
@@ -204,17 +200,35 @@ export const useData = () => {
     });
     
     const updateShoppingListMutation = useMutation({
-        mutationFn: ({ listId, name }: { listId: string, name: string }) => supabase.from('shopping_lists').update({ name }).eq('id', listId),
+        mutationFn: async ({ listId, name }: { listId: string, name: string }) => {
+            const { error } = await supabase.from('shopping_lists').update({ name }).eq('id', listId);
+            if (error) {
+                console.error('Supabase update list error:', error);
+                throw error;
+            }
+        },
         onSuccess: invalidateAllGroupData,
     });
 
     const deleteShoppingListMutation = useMutation({
-        mutationFn: (listId: string) => supabase.from('shopping_lists').delete().eq('id', listId),
+        mutationFn: async (listId: string) => {
+            const { error } = await supabase.from('shopping_lists').delete().eq('id', listId);
+            if (error) {
+                console.error('Supabase delete list error:', error);
+                throw error;
+            }
+        },
         onSuccess: invalidateAllGroupData,
     });
 
     const removeMemberFromListMutation = useMutation({
-        mutationFn: ({ listId, memberId }: { listId: string, memberId: string }) => supabase.from('group_members').delete().match({ list_id: listId, user_id: memberId }),
+        mutationFn: async ({ listId, memberId }: { listId: string, memberId: string }) => {
+            const { error } = await supabase.from('group_members').delete().match({ list_id: listId, user_id: memberId });
+            if (error) {
+                console.error('Supabase remove member error:', error);
+                throw error;
+            }
+        },
         onSuccess: invalidateAllGroupData,
     });
 
@@ -222,13 +236,22 @@ export const useData = () => {
        mutationFn: async (item: Pick<ShoppingListItem, 'list_id' | 'food_item_id' | 'name' | 'quantity'>) => {
             if (!user) throw new Error("User not authenticated");
             const { error } = await supabase.from('shopping_list_items').insert({ ...item, added_by: user.id });
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase add shopping item error:', error);
+                throw error;
+            }
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shopping_list_items', user?.id] }),
     });
     
     const toggleShoppingListItemMutation = useMutation({
-        mutationFn: ({ itemId, checked }: { itemId: string, checked: boolean }) => supabase.from('shopping_list_items').update({ checked }).eq('id', itemId),
+        mutationFn: async ({ itemId, checked }: { itemId: string, checked: boolean }) => {
+            const { error } = await supabase.from('shopping_list_items').update({ checked }).eq('id', itemId);
+            if (error) {
+                console.error('Supabase toggle shopping item error:', error);
+                throw error;
+            }
+        },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shopping_list_items', user?.id] }),
     });
 
