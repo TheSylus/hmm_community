@@ -181,36 +181,18 @@ export const useData = () => {
     const createShoppingListMutation = useMutation({
         mutationFn: async (name: string) => {
             if (!user) throw new Error("User not authenticated");
-    
-            // Step 1: Insert the new list
-            const { data: newList, error: listError } = await supabase
-                .from('shopping_lists')
-                .insert({ name, owner_id: user.id })
-                .select()
-                .single();
-    
-            if (listError) {
-                console.error('Error creating shopping list:', listError);
-                throw new Error(`Failed to create list record. DB error: ${listError.message}`);
-            }
-            if (!newList) {
-                throw new Error("List created, but could not retrieve its ID. Check RLS SELECT permissions for list owners.");
-            }
-    
-            // Step 2: Add the owner as the first member
-            const { error: memberError } = await supabase
-                .from('group_members')
-                .insert({ list_id: newList.id, user_id: user.id });
             
-            if (memberError) {
-                console.error('Error adding owner to group members:', memberError);
-                // Attempt to roll back the list creation to avoid orphaned data
-                await supabase.from('shopping_lists').delete().eq('id', newList.id);
-                console.log(`Rolled back creation of list ID ${newList.id}`);
-                throw new Error(`List created, but failed to add owner as member. DB error: ${memberError.message}`);
+            const { data, error } = await supabase.rpc('create_new_shopping_list', { list_name: name });
+    
+            if (error) {
+                console.error('Error calling create_new_shopping_list RPC:', error);
+                // Provide a more helpful error message for the developer.
+                if (error.message.includes('function public.create_new_shopping_list(list_name=>text) does not exist')) {
+                    throw new Error("Group creation failed. The required database function 'create_new_shopping_list' is missing. Please create it in the Supabase SQL Editor.");
+                }
+                throw new Error(`Could not create group. DB error: ${error.message}`);
             }
-            
-            return newList;
+            return data;
         },
         onSuccess: invalidateAllGroupData,
     });
