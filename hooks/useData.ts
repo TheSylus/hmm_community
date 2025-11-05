@@ -6,6 +6,20 @@ import { useState, useEffect, useMemo } from 'react';
 
 const LAST_USED_LIST_ID_KEY = 'lastUsedShoppingListId';
 
+// Helper function to sanitize data before sending to Supabase.
+// Converts empty strings and empty arrays to `null` to prevent constraint violations.
+const sanitizePayload = <T extends Record<string, any>>(payload: T): T => {
+    const sanitized = { ...payload };
+    for (const key in sanitized) {
+        const value = sanitized[key];
+        if (value === '' || (Array.isArray(value) && value.length === 0)) {
+            sanitized[key] = null as any;
+        }
+    }
+    return sanitized;
+};
+
+
 export const useData = () => {
     const { user } = useAuth();
     const queryClient = useQueryClient();
@@ -36,7 +50,7 @@ export const useData = () => {
         queryKey: ['shopping_lists', user?.id],
         queryFn: async () => {
             if (!user) return [];
-            const { data, error } = await supabase.from('shopping_lists').select('*');
+            const { data, error } = await supabase.rpc('get_user_shopping_lists');
             if (error) throw error;
             return data || [];
         },
@@ -55,7 +69,7 @@ export const useData = () => {
         enabled: !!user && shoppingLists.length > 0,
     });
     
-    const { data: groupMembersData = [] } = useQuery<{list_id: string, user_id: string, profiles: { id: string, email: string }}>({
+    const { data: groupMembersData = [] } = useQuery<{list_id: string, user_id: string, profiles: { id: string, email: string }}[]>({
         queryKey: ['group_members', shoppingLists.map(l => l.id)],
         queryFn: async () => {
             if (!user || shoppingLists.length === 0) return [];
@@ -124,18 +138,13 @@ export const useData = () => {
     const invalidateAllGroupData = () => {
         queryClient.invalidateQueries({ queryKey: ['shopping_lists', user?.id] });
         queryClient.invalidateQueries({ queryKey: ['group_members'] });
+        queryClient.invalidateQueries({ queryKey: ['shopping_list_items', user?.id] });
     }
 
     const addFoodItemMutation = useMutation({
         mutationFn: async (newItem: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
             if (!user) throw new Error("User not authenticated");
-            const payload = { ...newItem, user_id: user.id };
-            // Sanitize payload: ensure empty strings/arrays for nullable fields become null
-            Object.keys(payload).forEach(key => {
-                if (payload[key] === '' || (Array.isArray(payload[key]) && payload[key].length === 0)) {
-                    payload[key] = null;
-                }
-            });
+            const payload = sanitizePayload({ ...newItem, user_id: user.id });
             const { error } = await supabase.from('food_items').insert(payload);
             if (error) throw error;
             return null;
@@ -148,13 +157,8 @@ export const useData = () => {
     const updateFoodItemMutation = useMutation({
         mutationFn: async (updatedItem: FoodItem) => {
             const { id, user_id, created_at, ...updatePayload } = updatedItem;
-            // Sanitize payload
-             Object.keys(updatePayload).forEach(key => {
-                if (updatePayload[key] === '' || (Array.isArray(updatePayload[key]) && updatePayload[key].length === 0)) {
-                    updatePayload[key] = null;
-                }
-            });
-            const { error } = await supabase.from('food_items').update(updatePayload).eq('id', id);
+            const payload = sanitizePayload(updatePayload);
+            const { error } = await supabase.from('food_items').update(payload).eq('id', id);
             if (error) throw error;
             return null;
         },
@@ -177,11 +181,36 @@ export const useData = () => {
     const createShoppingListMutation = useMutation({
         mutationFn: async (name: string) => {
             if (!user) throw new Error("User not authenticated");
-            const { data, error: listError } = await supabase.from('shopping_lists').insert({ name, owner_id: user.id }).select().single();
-            if (listError) throw listError;
-            const { error: memberError } = await supabase.from('group_members').insert({ list_id: data.id, user_id: user.id });
-            if (memberError) throw memberError;
-            return data;
+    
+            // Step 1: Insert the new list
+            const { data: newList, error: listError } = await supabase
+                .from('shopping_lists')
+                .insert({ name, owner_id: user.id })
+                .select()
+                .single();
+    
+            if (listError) {
+                console.error('Error creating shopping list:', listError);
+                throw new Error(`Failed to create list record. DB error: ${listError.message}`);
+            }
+            if (!newList) {
+                throw new Error("List created, but could not retrieve its ID. Check RLS SELECT permissions for list owners.");
+            }
+    
+            // Step 2: Add the owner as the first member
+            const { error: memberError } = await supabase
+                .from('group_members')
+                .insert({ list_id: newList.id, user_id: user.id });
+            
+            if (memberError) {
+                console.error('Error adding owner to group members:', memberError);
+                // Attempt to roll back the list creation to avoid orphaned data
+                await supabase.from('shopping_lists').delete().eq('id', newList.id);
+                console.log(`Rolled back creation of list ID ${newList.id}`);
+                throw new Error(`List created, but failed to add owner as member. DB error: ${memberError.message}`);
+            }
+            
+            return newList;
         },
         onSuccess: invalidateAllGroupData,
     });
