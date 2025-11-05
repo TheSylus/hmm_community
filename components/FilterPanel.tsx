@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from '../i18n/index';
 import { XMarkIcon } from './Icons';
-import { SortKey, RatingFilter, TypeFilter } from '../types';
+import { SortKey, RatingFilter, TypeFilter } from '../App';
 import { ConversationalSearchInput } from './ConversationalSearchInput';
 
 interface FilterPanelProps {

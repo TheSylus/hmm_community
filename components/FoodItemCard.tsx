@@ -10,7 +10,7 @@ interface FoodItemCardProps {
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onViewDetails: (item: FoodItem) => void;
-  onAddToGroupShoppingList: (item: FoodItem) => void;
+  onAddToShoppingList: (item: FoodItem) => void;
   isPreview?: boolean;
   likes?: Like[];
   comments?: Comment[];
@@ -49,8 +49,8 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
     const { t } = useTranslation();
     const icons = {
         lactoseFree: <LactoseFreeIcon className={`${className} text-blue-600 dark:text-blue-400`} />,
-        vegan: <VeganIcon className={`${className} text-green-600 dark:text-green-400`} />,
-        glutenFree: <GlutenFreeIcon className={`${className} text-amber-600 dark:text-amber-400`} />,
+        vegan: <VeganIcon className={`${className}`} />,
+        glutenFree: <GlutenFreeIcon className={`${className}`} />,
     };
     const tooltips = {
         lactoseFree: t('card.lactoseFreeTooltip'),
@@ -67,7 +67,7 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
     );
 }
 
-export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToGroupShoppingList, isPreview = false, likes = [], comments = [] }) => {
+export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, isPreview = false, likes = [], comments = [] }) => {
   const { t } = useTranslation();
   const displayItem = useTranslatedItem(item);
 
@@ -140,7 +140,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   
   const hasDietaryOrAllergens = displayItem.itemType === 'product' && (displayItem.isLactoseFree || displayItem.isVegan || displayItem.isGlutenFree || (displayItem.allergens && displayItem.allergens.length > 0));
   const hasTags = displayItem.tags && displayItem.tags.length > 0;
-  const isClickable = !!onViewDetails;
+  const isClickable = onViewDetails;
 
   return (
     <div 
@@ -165,8 +165,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                     <LockClosedIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                 )}
                 <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    {/* FIX: Corrected typo from shared_with_group_id to shared_with_list_id to match the 'FoodItem' type definition. */}
-                    {t(displayItem.isPublic ? 'card.publicTooltip' : (displayItem.shared_with_list_id ? 'card.groupTooltip' : 'card.privateTooltip'))}
+                    {t(displayItem.isPublic ? 'card.publicTooltip' : 'card.privateTooltip')}
                 </span>
             </div>
         </div>
@@ -187,9 +186,9 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                         <div className="flex items-center gap-1 flex-shrink-0">
                             {displayItem.itemType === 'product' && (
                                 <button
-                                onClick={(e) => { e.stopPropagation(); onAddToGroupShoppingList(item); }}
+                                onClick={(e) => { e.stopPropagation(); onAddToShoppingList(item); }}
                                 className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors"
-                                aria-label={t('group.addAria', { name: displayItem.name })}
+                                aria-label={t('shoppingList.addAria', { name: displayItem.name })}
                                 >
                                 <ShoppingBagIcon className="w-5 h-5" />
                             </button>
@@ -236,9 +235,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                 
                 <div className="flex items-center my-1.5">
                     {[1, 2, 3, 4, 5].map(star => (
-                        <div key={star}>
-                            <StarIcon className={`w-5 h-5 ${displayItem.rating >= star ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} filled={displayItem.rating >= star} />
-                        </div>
+                        <StarIcon key={star} className={`w-5 h-5 ${displayItem.rating >= star ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} filled={displayItem.rating >= star} />
                     ))}
                     
                     {displayItem.itemType === 'product' && displayItem.nutriScore && (

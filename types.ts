@@ -10,7 +10,6 @@ export interface FoodItem {
   rating: number; // 0 for unrated, 1-5 for star rating
   itemType: FoodItemType;
   isPublic?: boolean; // For community sharing
-  shared_with_list_id?: string | null; // For sharing with a specific group
 
   // Common fields
   notes?: string;
@@ -32,8 +31,7 @@ export interface FoodItem {
   price?: number;
 }
 
-// Represents a distinct group for sharing food items and shopping lists.
-// FIX: Renamed FoodGroup to ShoppingList for consistency.
+// Represents a distinct shopping list, e.g., "Weekly Groceries" or "Party Supplies".
 export interface ShoppingList {
   id: string;
   owner_id: string;
@@ -41,11 +39,9 @@ export interface ShoppingList {
   created_at: string;
 }
 
-// Represents an item on a specific group's shopping list.
-// FIX: Renamed GroupShoppingListItem to ShoppingListItem for consistency.
+// Represents an item on a specific shopping list.
 export interface ShoppingListItem {
   id: string;
-  // FIX: Renamed group_id to list_id for consistency.
   list_id: string; // Foreign key to the ShoppingList
   food_item_id: string; // Foreign key to the FoodItem
   added_by_user_id: string;
@@ -54,11 +50,9 @@ export interface ShoppingListItem {
   checked_by_user_id: string | null;
 }
 
-// Represents a user's membership to a group.
-// FIX: Renamed FoodGroupMember to ShoppingListMember for consistency.
+// Represents a user's membership to a shopping list.
 export interface ShoppingListMember {
-  // FIX: Renamed group_id to list_id for consistency.
-  list_id: string; // Corresponds to ShoppingList ID
+  list_id: string;
   user_id: string;
   created_at: string;
 }
@@ -91,17 +85,4 @@ export interface CommentWithProfile extends Comment {
   profiles: {
     display_name: string;
   } | null;
-}
-
-// Search and filter types, moved from App.tsx
-export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
-export type RatingFilter = 'all' | 'liked' | 'disliked';
-export type TypeFilter = 'all' | 'product' | 'dish';
-
-// A hydrated type for items on the shopping list, combining FoodItem and ShoppingListItem details.
-export interface HydratedShoppingListItem extends FoodItem {
-  shoppingListItemId: string;
-  checked: boolean;
-  added_by_user_id: string;
-  checked_by_user_id: string | null;
 }
