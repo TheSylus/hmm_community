@@ -123,10 +123,14 @@ export const useData = () => {
     const addFoodItemMutation = useMutation({
         mutationFn: async (newItem: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
             if (!user) throw new Error("User not authenticated");
-            // Use an RPC function to handle insertion, bypassing potential RLS select issues.
-            const { data, error } = await supabase.rpc('add_new_food_item', { new_item_data: newItem });
-            if (error) throw error;
-            return data;
+            const { error } = await supabase
+                .from('food_items')
+                .insert([{ ...newItem, user_id: user.id }]);
+            if (error) {
+                console.error("Supabase insert error:", error);
+                throw new Error("Could not add food item. Please check your connection and try again.");
+            }
+            return null;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['food_items', user?.id] });
@@ -135,18 +139,20 @@ export const useData = () => {
 
     const updateFoodItemMutation = useMutation({
         mutationFn: async (updatedItem: FoodItem) => {
-            const { id, user_id, created_at, ...rest } = updatedItem;
-            const { data, error } = await supabase.from('food_items').update(rest).eq('id', id).select().single();
-            if (error) throw error;
-            return data;
-        },
-        onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: ['food_items', user?.id] });
-            // Also invalidate public items if the item was public
-            const item = foodItems.find(i => i.id === variables.id);
-            if(item?.isPublic) {
-                queryClient.invalidateQueries({ queryKey: ['public_food_items'] });
+            const { id, user_id, created_at, ...updatePayload } = updatedItem;
+            const { error } = await supabase
+                .from('food_items')
+                .update(updatePayload)
+                .eq('id', id);
+            if (error) {
+                console.error("Supabase update error:", error);
+                throw new Error("Could not update food item. Please check your connection and try again.");
             }
+            return null;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['food_items', user?.id] });
+            queryClient.invalidateQueries({ queryKey: ['public_food_items'] });
         },
     });
 
@@ -164,13 +170,34 @@ export const useData = () => {
     const createShoppingListMutation = useMutation({
         mutationFn: async (name: string) => {
             if (!user) throw new Error("User not authenticated");
-            // Use an RPC function to handle list creation and owner membership atomically.
-            const { data, error } = await supabase.rpc('create_new_shopping_list', { list_name: name });
-            if (error) throw error;
-            return data;
+
+            // Step 1: Insert the list and get its ID back.
+            const { data: newListData, error: listError } = await supabase
+                .from('shopping_lists')
+                .insert({ name, owner_id: user.id })
+                .select('id')
+                .single();
+
+            if (listError) {
+                console.error("Supabase create list error:", listError);
+                throw new Error("Could not create the group. The database operation failed.");
+            }
+            if (!newListData) throw new Error("Group was created but its ID was not returned.");
+
+            // Step 2: Add the owner as a member.
+            const { error: memberError } = await supabase
+                .from('group_members')
+                .insert({ list_id: newListData.id, user_id: user.id });
+
+            if (memberError) {
+                console.error("Supabase add member error:", memberError);
+                // Attempt to clean up the orphaned list. This is best-effort.
+                await supabase.from('shopping_lists').delete().eq('id', newListData.id);
+                throw new Error("Could not add owner to the new group. The operation has been rolled back.");
+            }
+            return newListData;
         },
         onSuccess: () => {
-            // Invalidate both lists and members queries to refetch all related data
             queryClient.invalidateQueries({ queryKey: ['shopping_lists', user?.id] });
             queryClient.invalidateQueries({ queryKey: ['group_members', user?.id] });
         },
