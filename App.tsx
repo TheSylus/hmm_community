@@ -9,7 +9,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { ApiKeyBanner } from './components/ApiKeyBanner';
 import { useAppSettings } from './contexts/AppSettingsContext';
 import { hasValidApiKey } from './services/geminiService';
-import { FoodItem, FoodItemType, SortKey, TypeFilter, RatingFilter, ShoppingList, UserProfile, HydratedShoppingListItem } from './types';
+import { FoodItem, FoodItemType, SortKey, TypeFilter, RatingFilter, ShoppingList, HydratedShoppingListItem } from './types';
 import { ToastContainer } from './components/Toast';
 import { performConversationalSearch } from './services/geminiService';
 import { useToast } from './contexts/ToastContext';
@@ -24,8 +24,9 @@ import { BottomNavBar } from './components/BottomNavBar';
 import { Dashboard } from './components/Dashboard';
 import { DiscoverView } from './components/DiscoverView';
 import { GroupsView } from './components/GroupsView';
+import { ManageMembersModal } from './components/ManageMembersModal';
 
-type Modal = 'form' | 'details' | 'settings' | 'duplicates' | 'addToList' | null;
+type Modal = 'form' | 'details' | 'settings' | 'duplicates' | 'addToList' | 'manageMembers' | null;
 export type View = 'list' | 'dashboard' | 'discover' | 'groups';
 
 const App: React.FC = () => {
@@ -59,18 +60,21 @@ const App: React.FC = () => {
 };
 
 const MainApp = () => {
+  const { user } = useAuth();
   const { t } = useTranslation();
   const { addToast } = useToast();
   const { 
     foodItems, isLoadingItems, addFoodItem, updateFoodItem, deleteFoodItem, 
     publicFoodItems, isLoadingPublicItems, likes, comments,
-    shoppingLists, allShoppingListItems, createShoppingList, groupMembers, addShoppingListItem,
+    shoppingLists, allShoppingListItems, createShoppingList, updateShoppingList, deleteShoppingList,
+    groupMembers, removeMemberFromList,
     lastUsedShoppingListId, setLastUsedShoppingListId,
-    toggleShoppingListItem,
+    addShoppingListItem, toggleShoppingListItem,
   } = useData();
 
   const [view, setView] = useState<View>('list');
   const [modal, setModal] = useState<Modal>(null);
+  const [modalList, setModalList] = useState<ShoppingList | null>(null);
   const [currentItem, setCurrentItem] = useState<FoodItem | null>(null);
   const [itemTypeForNew, setItemTypeForNew] = useState<FoodItemType>('product');
   const [showApiKeyBanner, setShowApiKeyBanner] = useState(false);
@@ -212,6 +216,12 @@ const MainApp = () => {
   const handleToggleShoppingListItem = async (itemId: string, checked: boolean) => {
     await toggleShoppingListItem({ itemId, checked });
   };
+  
+  const handleManageMembers = (list: ShoppingList) => {
+    setShoppingModeList(null); // Close shopping mode if open
+    setModalList(list);
+    setModal('manageMembers');
+  }
 
   const filteredItems = useMemo(() => {
     let items = foodItems;
@@ -294,6 +304,9 @@ const MainApp = () => {
                   members={groupMembers}
                   onSelectList={handleOpenShoppingMode}
                   onCreateList={createShoppingList}
+                  onRenameList={updateShoppingList}
+                  onDeleteList={deleteShoppingList}
+                  onManageMembers={handleManageMembers}
                 />;
       case 'list':
       default:
@@ -376,7 +389,8 @@ const MainApp = () => {
       {modal === 'details' && currentItem && <FoodItemDetailModal item={currentItem} onClose={() => { setModal(null); setCurrentItem(null); }} />}
       {modal === 'settings' && <SettingsModal onClose={() => setModal(null)} />}
       {modal === 'duplicates' && <DuplicateConfirmationModal items={potentialDuplicates} itemName={itemToSave?.name || ''} onConfirm={() => itemToSave && onSaveItem(itemToSave)} onCancel={() => setModal(null)} />}
-      {shoppingModeList && <ShoppingMode list={shoppingModeList} items={shoppingModeItems} isLoading={isLoadingItems} onClose={() => setShoppingModeList(null)} onItemToggle={handleToggleShoppingListItem} onAddItem={() => {}} />}
+      {shoppingModeList && <ShoppingMode list={shoppingModeList} items={shoppingModeItems} isLoading={isLoadingItems} onClose={() => setShoppingModeList(null)} onItemToggle={handleToggleShoppingListItem} onManageMembers={handleManageMembers} />}
+      {modal === 'manageMembers' && modalList && <ManageMembersModal list={modalList} members={groupMembers[modalList.id] || []} ownerId={modalList.owner_id} currentUserId={user!.id} onClose={() => setModal(null)} onRemoveMember={removeMemberFromList} />}
       {modal === 'addToList' && currentItem && <AddToListModal item={currentItem} lists={shoppingLists} onAdd={handleConfirmAddItemToList} onClose={() => { setModal(null); setCurrentItem(null); }} />}
     </div>
   );

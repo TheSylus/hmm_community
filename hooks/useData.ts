@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../services/supabaseClient';
-import { FoodItem, ShoppingList, ShoppingListItem, Like, CommentWithProfile, HydratedShoppingListItem, UserProfile } from '../types';
+import { FoodItem, ShoppingList, ShoppingListItem, Like, CommentWithProfile, UserProfile } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect, useMemo } from 'react';
 
@@ -10,7 +10,7 @@ export const useData = () => {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     
-    // --- Granular Data Fetching with react-query (Stable Pattern) ---
+    // --- Data Fetching Queries ---
     
     const { data: foodItems = [], isLoading: isLoadingItems } = useQuery<FoodItem[]>({
         queryKey: ['food_items', user?.id],
@@ -36,15 +36,8 @@ export const useData = () => {
         queryKey: ['shopping_lists', user?.id],
         queryFn: async () => {
             if (!user) return [];
-            // Reverted to a direct select. The RLS policy is now fixed and robust.
-            // This is cleaner than using an RPC for a simple select.
-            const { data, error } = await supabase
-                .from('shopping_lists')
-                .select('*');
-            if (error) {
-                console.error("Error fetching shopping lists:", error);
-                throw error;
-            }
+            const { data, error } = await supabase.from('shopping_lists').select('*');
+            if (error) throw error;
             return data || [];
         },
         enabled: !!user,
@@ -62,11 +55,16 @@ export const useData = () => {
         enabled: !!user && shoppingLists.length > 0,
     });
     
-    const { data: groupMembersData = [] } = useQuery<{list_id: string, user_id: string, email: string}[]>({
-        queryKey: ['group_members', user?.id],
+    const { data: groupMembersData = [] } = useQuery<{list_id: string, user_id: string, profiles: { id: string, email: string }}>({
+        queryKey: ['group_members', shoppingLists.map(l => l.id)],
         queryFn: async () => {
-            if (!user) return [];
-            const { data, error } = await supabase.rpc('get_group_members_for_user_lists');
+            if (!user || shoppingLists.length === 0) return [];
+            const listIds = shoppingLists.map(l => l.id);
+            const { data, error } = await supabase
+                .from('group_members')
+                .select('list_id, user_id, profiles(id, email)')
+                .in('list_id', listIds);
+
             if (error) throw error;
             return data || [];
         },
@@ -78,8 +76,9 @@ export const useData = () => {
             if (!acc[member.list_id]) {
                 acc[member.list_id] = [];
             }
-            const profile: UserProfile = { id: member.user_id, email: member.email };
-            acc[member.list_id].push(profile);
+            if (member.profiles) {
+                acc[member.list_id].push({ id: member.user_id, email: member.profiles.email });
+            }
             return acc;
         }, {} as Record<string, UserProfile[]>);
     }, [groupMembersData]);
@@ -102,6 +101,7 @@ export const useData = () => {
         }
     });
 
+    // --- Local State for UI ---
     const [lastUsedShoppingListId, setLastUsedShoppingListIdState] = useState<string | null>(
       () => localStorage.getItem(LAST_USED_LIST_ID_KEY)
     );
@@ -121,16 +121,23 @@ export const useData = () => {
     }, [shoppingLists, lastUsedShoppingListId]);
 
     // --- Mutations ---
-    
+    const invalidateAllGroupData = () => {
+        queryClient.invalidateQueries({ queryKey: ['shopping_lists', user?.id] });
+        queryClient.invalidateQueries({ queryKey: ['group_members'] });
+    }
+
     const addFoodItemMutation = useMutation({
         mutationFn: async (newItem: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
             if (!user) throw new Error("User not authenticated");
-            const itemWithUser = { ...newItem, user_id: user.id };
-            const { error } = await supabase.from('food_items').insert(itemWithUser);
-            if (error) {
-                console.error("Supabase insert 'food_items' error:", error);
-                throw new Error("Could not add food item. Please check your RLS policies.");
-            }
+            const payload = { ...newItem, user_id: user.id };
+            // Sanitize payload: ensure empty strings/arrays for nullable fields become null
+            Object.keys(payload).forEach(key => {
+                if (payload[key] === '' || (Array.isArray(payload[key]) && payload[key].length === 0)) {
+                    payload[key] = null;
+                }
+            });
+            const { error } = await supabase.from('food_items').insert(payload);
+            if (error) throw error;
             return null;
         },
         onSuccess: () => {
@@ -141,27 +148,26 @@ export const useData = () => {
     const updateFoodItemMutation = useMutation({
         mutationFn: async (updatedItem: FoodItem) => {
             const { id, user_id, created_at, ...updatePayload } = updatedItem;
+            // Sanitize payload
+             Object.keys(updatePayload).forEach(key => {
+                if (updatePayload[key] === '' || (Array.isArray(updatePayload[key]) && updatePayload[key].length === 0)) {
+                    updatePayload[key] = null;
+                }
+            });
             const { error } = await supabase.from('food_items').update(updatePayload).eq('id', id);
-            if (error) {
-                console.error("Supabase update 'food_items' error:", error);
-                throw new Error("Could not update food item. Please check your RLS policies.");
-            }
+            if (error) throw error;
             return null;
         },
-        onSuccess: () => {
+        onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['food_items', user?.id] });
-            queryClient.invalidateQueries({ queryKey: ['public_food_items'] });
+            if (variables.isPublic) {
+                queryClient.invalidateQueries({ queryKey: ['public_food_items'] });
+            }
         },
     });
 
     const deleteFoodItemMutation = useMutation({
-        mutationFn: async (id: string) => {
-            const { error } = await supabase.from('food_items').delete().eq('id', id);
-            if (error) {
-                 console.error("Supabase delete 'food_items' error:", error);
-                throw new Error("Could not delete food item. Please check your RLS policies.");
-            }
-        },
+        mutationFn: (id: string) => supabase.from('food_items').delete().eq('id', id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['food_items', user?.id] });
             queryClient.invalidateQueries({ queryKey: ['public_food_items'] });
@@ -171,87 +177,63 @@ export const useData = () => {
     const createShoppingListMutation = useMutation({
         mutationFn: async (name: string) => {
             if (!user) throw new Error("User not authenticated");
-            
-            // Step 1: Create the list
-            const { data, error: listError } = await supabase
-                .from('shopping_lists')
-                .insert({ name: name, owner_id: user.id })
-                .select()
-                .single();
-
-            if (listError) {
-                console.error("Supabase insert 'shopping_lists' error:", listError);
-                throw new Error("Could not create the group. Please check your RLS policies for 'shopping_lists'.");
-            }
-            
-            if (!data) {
-                throw new Error("Failed to create group: No data returned after insert.");
-            }
-
-            // Step 2: Add the owner as a member. This is likely what the original RPC did.
-            const { error: memberError } = await supabase
-                .from('group_members')
-                .insert({ list_id: data.id, user_id: user.id });
-
-            if (memberError) {
-                // In a production app, you might want to delete the created list for atomicity.
-                console.error("Supabase insert 'group_members' error:", memberError);
-                throw new Error("Group created, but failed to add owner as member. Check RLS policies for 'group_members'.");
-            }
-
-            return null;
+            const { data, error: listError } = await supabase.from('shopping_lists').insert({ name, owner_id: user.id }).select().single();
+            if (listError) throw listError;
+            const { error: memberError } = await supabase.from('group_members').insert({ list_id: data.id, user_id: user.id });
+            if (memberError) throw memberError;
+            return data;
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['shopping_lists', user?.id] });
-            queryClient.invalidateQueries({ queryKey: ['group_members', user?.id] });
-        },
+        onSuccess: invalidateAllGroupData,
+    });
+    
+    const updateShoppingListMutation = useMutation({
+        mutationFn: ({ listId, name }: { listId: string, name: string }) => supabase.from('shopping_lists').update({ name }).eq('id', listId),
+        onSuccess: invalidateAllGroupData,
+    });
+
+    const deleteShoppingListMutation = useMutation({
+        mutationFn: (listId: string) => supabase.from('shopping_lists').delete().eq('id', listId),
+        onSuccess: invalidateAllGroupData,
+    });
+
+    const removeMemberFromListMutation = useMutation({
+        mutationFn: ({ listId, memberId }: { listId: string, memberId: string }) => supabase.from('group_members').delete().match({ list_id: listId, user_id: memberId }),
+        onSuccess: invalidateAllGroupData,
     });
 
     const addShoppingListItemMutation = useMutation({
        mutationFn: async (item: Pick<ShoppingListItem, 'list_id' | 'food_item_id' | 'name' | 'quantity'>) => {
             if (!user) throw new Error("User not authenticated");
-            const itemWithUser = { ...item, added_by: user.id };
-            const { error } = await supabase.from('shopping_list_items').insert(itemWithUser);
-            if (error) {
-                console.error("Supabase insert 'shopping_list_items' error:", error);
-                throw new Error("Could not add item to list. Please check your RLS policies.");
-            }
-            return null;
+            const { error } = await supabase.from('shopping_list_items').insert({ ...item, added_by: user.id });
+            if (error) throw error;
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shopping_list_items', user?.id] }),
     });
     
     const toggleShoppingListItemMutation = useMutation({
-        mutationFn: async ({ itemId, checked }: { itemId: string, checked: boolean }) => {
-            const { error } = await supabase.from('shopping_list_items').update({ checked }).eq('id', itemId);
-             if (error) {
-                console.error("Supabase update 'shopping_list_items' error:", error);
-                throw new Error("Could not update item in list. Please check your RLS policies.");
-            }
-        },
+        mutationFn: ({ itemId, checked }: { itemId: string, checked: boolean }) => supabase.from('shopping_list_items').update({ checked }).eq('id', itemId),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['shopping_list_items', user?.id] }),
     });
 
     return {
-        foodItems,
-        isLoadingItems,
+        foodItems, isLoadingItems,
         addFoodItem: addFoodItemMutation.mutateAsync,
         updateFoodItem: updateFoodItemMutation.mutateAsync,
         deleteFoodItem: deleteFoodItemMutation.mutateAsync,
         
-        publicFoodItems,
-        isLoadingPublicItems, 
-        likes,
-        comments,
+        publicFoodItems, isLoadingPublicItems, 
+        likes, comments,
         
-        shoppingLists,
-        allShoppingListItems,
-        isLoadingShoppingLists,
+        shoppingLists, isLoadingShoppingLists,
         groupMembers,
         createShoppingList: createShoppingListMutation.mutateAsync,
-        lastUsedShoppingListId,
-        setLastUsedShoppingListId: setLastUsedShoppingListIdState,
+        updateShoppingList: updateShoppingListMutation.mutateAsync,
+        deleteShoppingList: deleteShoppingListMutation.mutateAsync,
+        removeMemberFromList: removeMemberFromListMutation.mutateAsync,
         
+        lastUsedShoppingListId, setLastUsedShoppingListId: setLastUsedShoppingListIdState,
+        
+        allShoppingListItems,
         addShoppingListItem: addShoppingListItemMutation.mutateAsync,
         toggleShoppingListItem: toggleShoppingListItemMutation.mutateAsync,
     };

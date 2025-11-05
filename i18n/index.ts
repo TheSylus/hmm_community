@@ -138,6 +138,10 @@ const en = {
     "groups.createButton": "Create",
     "groups.empty": "You are not a part of any groups yet. Create one to get started!",
     "groups.members": "{count, plural, =0 {0 members} =1 {1 member} other {# members}}",
+    "groups.renamePrompt": "Enter the new name for the group:",
+    "groups.deleteConfirm": "Are you sure you want to delete the group \"{listName}\"? This action cannot be undone.",
+    "groups.menu.rename": "Rename",
+    "groups.menu.delete": "Delete",
     "form.error.geolocationUnsupported": "Geolocation is not supported by your browser.",
     "form.error.findRestaurants": "Could not find nearby restaurants.",
     "form.error.geolocationPermission": "Permission to access location was denied. Please enable it in your browser settings to find nearby restaurants.",
@@ -214,6 +218,14 @@ const en = {
     "toast.itemDeleted": "Item deleted.",
     "toast.groupCreated": "Group \"{groupName}\" created!",
     "toast.noShoppingLists": "You don't have any shopping lists yet. Create one in the Groups tab to get started!",
+    "toast.listRenamed": "List renamed successfully.",
+    "toast.listRenameError": "Failed to rename list.",
+    "toast.listDeleted": "List deleted.",
+    "toast.listDeleteError": "Failed to delete list.",
+    "toast.listLeft": "You have left the list.",
+    "toast.listLeaveError": "Failed to leave the list.",
+    "toast.memberRemoved": "Member removed from list.",
+    "toast.memberRemoveError": "Failed to remove member.",
     "shoppingMode.title": "Shopping Mode",
     "shoppingMode.empty": "This shopping list is empty.",
     "shoppingMode.completedItems": "Completed Items",
@@ -223,6 +235,12 @@ const en = {
     "shoppingMode.menu.leaveList": "Leave List",
     "shoppingMode.menu.deleteList": "Delete List",
     "shoppingMode.category.other": "Other",
+    "shoppingMode.confirm.deleteList": "Are you sure you want to permanently delete this list and all its items?",
+    "shoppingMode.confirm.leaveList": "Are you sure you want to leave this list?",
+    "manageMembers.title": "Manage Members",
+    "manageMembers.owner": "Owner",
+    "manageMembers.remove": "Remove",
+    "manageMembers.confirm.remove": "Are you sure you want to remove {email} from this list?",
     "filter.buttonText": "Filter"
 };
 
@@ -354,6 +372,10 @@ const de: Record<string, string> = {
     "groups.createButton": "Erstellen",
     "groups.empty": "Sie sind noch in keiner Gruppe. Erstellen Sie eine, um loszulegen!",
     "groups.members": "{count, plural, =0 {0 Mitglieder} =1 {1 Mitglied} other {# Mitglieder}}",
+    "groups.renamePrompt": "Geben Sie den neuen Namen für die Gruppe ein:",
+    "groups.deleteConfirm": "Sind Sie sicher, dass Sie die Gruppe \"{listName}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "groups.menu.rename": "Umbenennen",
+    "groups.menu.delete": "Löschen",
     "form.error.geolocationUnsupported": "Geolokalisierung wird von Ihrem Browser nicht unterstützt.",
     "form.error.findRestaurants": "Konnte keine Restaurants in der Nähe finden.",
     "form.error.geolocationPermission": "Zugriff auf den Standort wurde verweigert. Bitte aktivieren Sie ihn in Ihren Browsereinstellungen, um Restaurants in der Nähe zu finden.",
@@ -430,6 +452,14 @@ const de: Record<string, string> = {
     "toast.itemDeleted": "Artikel gelöscht.",
     "toast.groupCreated": "Gruppe \"{groupName}\" erstellt!",
     "toast.noShoppingLists": "Sie haben noch keine Einkaufslisten. Erstellen Sie eine im Gruppen-Tab, um loszulegen!",
+    "toast.listRenamed": "Liste erfolgreich umbenannt.",
+    "toast.listRenameError": "Fehler beim Umbenennen der Liste.",
+    "toast.listDeleted": "Liste gelöscht.",
+    "toast.listDeleteError": "Fehler beim Löschen der Liste.",
+    "toast.listLeft": "Sie haben die Liste verlassen.",
+    "toast.listLeaveError": "Fehler beim Verlassen der Liste.",
+    "toast.memberRemoved": "Mitglied aus der Liste entfernt.",
+    "toast.memberRemoveError": "Fehler beim Entfernen des Mitglieds.",
     "shoppingMode.title": "Einkaufsmodus",
     "shoppingMode.empty": "Diese Einkaufsliste ist leer.",
     "shoppingMode.completedItems": "Erledigte Artikel",
@@ -439,6 +469,12 @@ const de: Record<string, string> = {
     "shoppingMode.menu.leaveList": "Liste verlassen",
     "shoppingMode.menu.deleteList": "Liste löschen",
     "shoppingMode.category.other": "Sonstige",
+    "shoppingMode.confirm.deleteList": "Sind Sie sicher, dass Sie diese Liste und alle ihre Artikel endgültig löschen möchten?",
+    "shoppingMode.confirm.leaveList": "Sind Sie sicher, dass Sie diese Liste verlassen möchten?",
+    "manageMembers.title": "Mitglieder verwalten",
+    "manageMembers.owner": "Inhaber",
+    "manageMembers.remove": "Entfernen",
+    "manageMembers.confirm.remove": "Sind Sie sicher, dass Sie {email} aus dieser Liste entfernen möchten?",
     "filter.buttonText": "Filter"
 };
 
@@ -461,11 +497,30 @@ export const I18nProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const t = useCallback((key: string, options?: Record<string, string | number>) => {
     let translation = fullTranslations[language][key] || fullTranslations['en'][key] || key;
-    if (options) {
-      Object.entries(options).forEach(([k, v]) => {
-        const regex = new RegExp(`{${k}}`, 'g');
-        translation = translation.replace(regex, String(v));
-      });
+    if (options && typeof translation === 'string') {
+        // Handle pluralization for '{count, plural, ...}' syntax
+        const pluralMatch = translation.match(/{count, plural, (.*)}/);
+        if (pluralMatch && options.count !== undefined) {
+            const rules = pluralMatch[1];
+            const count = Number(options.count);
+            let ruleToUse = 'other'; // default
+            if (count === 0 && rules.includes('=0')) {
+                ruleToUse = '=0';
+            } else if (count === 1 && rules.includes('=1')) {
+                ruleToUse = '=1';
+            }
+            
+            const ruleRegex = new RegExp(`${ruleToUse}\\s{([^}]*)}`);
+            const ruleMatch = rules.match(ruleRegex);
+            if(ruleMatch) {
+                translation = translation.replace(pluralMatch[0], ruleMatch[1].replace('#', String(count)));
+            }
+        }
+
+        Object.entries(options).forEach(([k, v]) => {
+            const regex = new RegExp(`{${k}}`, 'g');
+            translation = translation.replace(regex, String(v));
+        });
     }
     return translation;
   }, [language]);

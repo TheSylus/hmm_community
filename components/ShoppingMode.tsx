@@ -3,8 +3,10 @@ import { HydratedShoppingListItem, ShoppingList } from '../types';
 import { useTranslation } from '../i18n';
 import { categorizeShoppingListItems, CategorizedResult } from '../services/geminiService';
 import { useAppSettings } from '../contexts/AppSettingsContext';
-import { SpinnerIcon, XMarkIcon, EllipsisVerticalIcon, UserGroupIcon, ArrowLeftOnRectangleIcon, TrashIcon, UserPlusIcon } from './Icons';
+import { SpinnerIcon, XMarkIcon, EllipsisVerticalIcon, UserGroupIcon, ArrowLeftOnRectangleIcon, TrashIcon } from './Icons';
 import { useData } from '../hooks/useData';
+import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ShoppingModeProps {
     list: ShoppingList;
@@ -12,7 +14,7 @@ interface ShoppingModeProps {
     isLoading: boolean;
     onClose: () => void;
     onItemToggle: (itemId: string, checked: boolean) => void;
-    onAddItem: (listId: string, name: string) => void;
+    onManageMembers: (list: ShoppingList) => void;
 }
 
 const CategoryDisplay: React.FC<{
@@ -42,14 +44,18 @@ const CategoryDisplay: React.FC<{
     </div>
 );
 
-export const ShoppingMode: React.FC<ShoppingModeProps> = ({ list, items, isLoading, onClose, onItemToggle, onAddItem }) => {
+export const ShoppingMode: React.FC<ShoppingModeProps> = ({ list, items, isLoading, onClose, onItemToggle, onManageMembers }) => {
     const { t, language } = useTranslation();
+    const { user } = useAuth();
+    const { addToast } = useToast();
     const { isAiEnabled } = useAppSettings();
-    const { addShoppingListItem } = useData();
+    const { addShoppingListItem, removeMemberFromList, deleteShoppingList } = useData();
     const [categorizedResult, setCategorizedResult] = useState<CategorizedResult | null>(null);
     const [isCategorizing, setIsCategorizing] = useState(false);
     const [quickAddItemName, setQuickAddItemName] = useState('');
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    const isOwner = list.owner_id === user?.id;
 
     const { pendingItems, completedItems } = useMemo(() => {
         const pending = items.filter(item => !item.checked);
@@ -71,15 +77,43 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({ list, items, isLoadi
     const handleQuickAdd = async (e: React.FormEvent) => {
         e.preventDefault();
         if (quickAddItemName.trim()) {
-            await addShoppingListItem({
-                list_id: list.id,
-                food_item_id: null,
-                name: quickAddItemName.trim(),
-                quantity: 1,
-            });
-            setQuickAddItemName('');
+            try {
+                await addShoppingListItem({
+                    list_id: list.id,
+                    food_item_id: null,
+                    name: quickAddItemName.trim(),
+                    quantity: 1,
+                });
+                setQuickAddItemName('');
+            } catch (error) {
+                addToast({ message: 'Failed to add item.', type: 'error'});
+            }
         }
     };
+
+    const handleDeleteList = useCallback(async () => {
+        if (isOwner && window.confirm(t('shoppingMode.confirm.deleteList'))) {
+            try {
+                await deleteShoppingList(list.id);
+                addToast({ message: t('toast.listDeleted'), type: 'info' });
+                onClose();
+            } catch (error) {
+                addToast({ message: t('toast.listDeleteError'), type: 'error' });
+            }
+        }
+    }, [isOwner, list.id, deleteShoppingList, addToast, onClose, t]);
+
+    const handleLeaveList = useCallback(async () => {
+        if (!isOwner && window.confirm(t('shoppingMode.confirm.leaveList'))) {
+            try {
+                await removeMemberFromList({ listId: list.id, memberId: user!.id });
+                addToast({ message: t('toast.listLeft'), type: 'info' });
+                onClose();
+            } catch (error) {
+                addToast({ message: t('toast.listLeaveError'), type: 'error' });
+            }
+        }
+    }, [isOwner, list.id, user, removeMemberFromList, addToast, onClose, t]);
 
     const renderCategorizedItems = () => {
         if (!categorizedResult) return null;
@@ -94,7 +128,7 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({ list, items, isLoadi
         const categorizedIds = new Set(categorizedResult?.flatMap(c => c.itemIds) || []);
         const uncategorized = pendingItems.filter(item => !categorizedIds.has(item.shoppingListItemId));
         if(uncategorized.length === 0) return null;
-        return <CategoryDisplay name={t('Other')} items={uncategorized} onItemToggle={onItemToggle} />;
+        return <CategoryDisplay name={t('shoppingMode.category.other')} items={uncategorized} onItemToggle={onItemToggle} />;
     };
 
     const renderPendingItems = () => {
@@ -122,11 +156,14 @@ export const ShoppingMode: React.FC<ShoppingModeProps> = ({ list, items, isLoadi
                             <EllipsisVerticalIcon className="w-6 h-6 text-gray-600 dark:text-gray-300"/>
                         </button>
                         {isMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10">
+                            <div 
+                                className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10"
+                                onMouseLeave={() => setIsMenuOpen(false)}
+                            >
                                 <div className="py-1">
-                                    <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">{t('shoppingMode.menu.manageMembers')}</button>
-                                    <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">{t('shoppingMode.menu.leaveList')}</button>
-                                    <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50">{t('shoppingMode.menu.deleteList')}</button>
+                                    <button onClick={() => onManageMembers(list)} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"><UserGroupIcon className="w-5 h-5" />{t('shoppingMode.menu.manageMembers')}</button>
+                                    {!isOwner && <button onClick={handleLeaveList} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"><ArrowLeftOnRectangleIcon className="w-5 h-5" />{t('shoppingMode.menu.leaveList')}</button>}
+                                    {isOwner && <button onClick={handleDeleteList} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50"><TrashIcon className="w-5 h-5" />{t('shoppingMode.menu.deleteList')}</button>}
                                 </div>
                             </div>
                         )}
