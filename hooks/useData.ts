@@ -164,7 +164,7 @@ export const useData = () => {
         mutationFn: async (name: string) => {
             if (!user) throw new Error("User not authenticated");
 
-            // Step 1: Create the list
+            // Create the list. A database trigger is assumed to handle adding the owner as the first member.
             const { data: listData, error: listError } = await supabase
                 .from('shopping_lists')
                 .insert({ name, owner_id: user.id })
@@ -173,17 +173,6 @@ export const useData = () => {
             
             if (listError) throw listError;
             if (!listData) throw new Error("Failed to create list.");
-
-            // Step 2: Add the owner as the first member (explicitly, instead of trigger)
-            const { error: memberError } = await supabase
-                .from('group_members')
-                .insert({ list_id: listData.id, user_id: user.id });
-
-            if (memberError) {
-                console.error("Failed to add owner as member, rolling back list creation.");
-                await supabase.from('shopping_lists').delete().eq('id', listData.id);
-                throw memberError;
-            }
 
             return listData;
         },
