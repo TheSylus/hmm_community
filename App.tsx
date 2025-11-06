@@ -655,7 +655,11 @@ const App: React.FC = () => {
         setUserProfile(profileData);
         fetchHouseholdData(householdData.id);
     } catch (error: any) {
-        setDbError("Error creating household: " + error.message);
+        if (error.message && error.message.includes('violates row-level security policy')) {
+            setDbError("Permission Denied: Your database security rules are blocking this action. Please ensure you have a policy that allows authenticated users to insert into the 'households' table where their user ID matches the 'owner_id'.");
+        } else {
+            setDbError("Error creating household: " + error.message);
+        }
     }
   }, [user, fetchHouseholdData]);
 
