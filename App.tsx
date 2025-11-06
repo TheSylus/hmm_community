@@ -617,15 +617,14 @@ const App: React.FC = () => {
     setShoppingLists(prev => [...prev, tempList]);
     setActiveShoppingListId(tempList.id);
 
-    const { data, error } = await supabase.from('shopping_lists').insert({ name: name.trim(), household_id: household.id }).select().single();
+    const { error } = await supabase.from('shopping_lists').insert({ name: name.trim(), household_id: household.id }).select().single();
     if (error && isOnline) {
         setDbError("Error creating new list:" + error.message);
         setShoppingLists(originalLists);
-    } else if(data) {
-        setShoppingLists(prev => prev.map(l => l.id === tempList.id ? data : l));
-        setActiveShoppingListId(data.id);
+    } else {
+        fetchHouseholdData(household.id);
     }
-  }, [user, isOnline, shoppingLists, household]);
+  }, [user, isOnline, shoppingLists, household, fetchHouseholdData]);
 
   const handleDeleteList = useCallback(async (listId: string) => {
       const originalLists = [...shoppingLists];
@@ -648,13 +647,9 @@ const App: React.FC = () => {
   const handleHouseholdCreate = useCallback(async (name: string) => {
     if (!user) return;
     try {
-        // Call the secure database function, specifying that we expect a single row back.
-        // This aligns with the updated database function that now returns the new household record.
         const { error } = await supabase.rpc('create_household', { household_name: name }).single();
         if (error) throw error;
         
-        // Refetch profile to update the UI state. This is a reliable way to ensure all
-        // household-related data is fresh after the creation.
         const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         if (profileError) throw profileError;
 
@@ -664,8 +659,6 @@ const App: React.FC = () => {
         }
 
     } catch (error: any) {
-        // Simplified error handling. The RLS check is a safeguard.
-        // The "coerce" error should no longer happen with this new architecture.
         if (error.message && error.message.includes('violates row-level security policy')) {
             setDbError(t('household.error.rls'));
         } else {
