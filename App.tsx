@@ -70,6 +70,54 @@ const ActiveFilterPill: React.FC<{onDismiss: () => void, children: React.ReactNo
   </div>
 );
 
+// --- Data Mapping Layer ---
+// Converts DB snake_case to frontend camelCase
+const mapDbToFoodItem = (dbItem: any): FoodItem => {
+  const {
+    image_url,
+    item_type,
+    is_family_favorite,
+    is_lactose_free,
+    is_vegan,
+    is_gluten_free,
+    ...rest
+  } = dbItem;
+
+  return {
+    ...rest,
+    itemType: item_type,
+    image: image_url || undefined,
+    isFamilyFavorite: is_family_favorite,
+    isLactoseFree: is_lactose_free,
+    isVegan: is_vegan,
+    isGlutenFree: is_gluten_free,
+  } as FoodItem;
+};
+
+// Converts frontend camelCase to DB snake_case for saving
+const mapFoodItemToDbPayload = (itemData: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
+    const {
+        image, // Handled separately as it involves upload
+        itemType,
+        isFamilyFavorite,
+        isLactoseFree,
+        isVegan,
+        isGlutenFree,
+        ...restOfItemData
+    } = itemData;
+
+    return {
+        ...restOfItemData,
+        item_type: itemType,
+        is_family_favorite: isFamilyFavorite || false,
+        is_lactose_free: isLactoseFree || false,
+        is_vegan: isVegan || false,
+        is_gluten_free: isGlutenFree || false,
+    };
+};
+// --- End Data Mapping Layer ---
+
+
 const App: React.FC = () => {
   const { t } = useTranslation();
   const { session, user } = useAuth();
@@ -128,15 +176,7 @@ const App: React.FC = () => {
             .from('food_items').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
         if (foodItemsError) throw foodItemsError;
         if (foodItemsData) {
-            const mappedData = foodItemsData.map(({ image_url, is_family_favorite, is_lactose_free, is_vegan, is_gluten_free, ...rest }) => ({ 
-                ...rest, 
-                image: image_url || undefined, 
-                isFamilyFavorite: is_family_favorite,
-                isLactoseFree: is_lactose_free,
-                isVegan: is_vegan,
-                isGlutenFree: is_gluten_free
-            }));
-            setFoodItems(mappedData as FoodItem[]);
+            setFoodItems(foodItemsData.map(mapDbToFoodItem));
         }
     } catch (error: any) {
         if (isOnline) setDbError(`Error loading personal data: ${error.message}.`);
@@ -171,14 +211,7 @@ const App: React.FC = () => {
         const { data: familyItemsData, error: familyItemsError } = await supabase.from('food_items').select('*').eq('is_family_favorite', true);
 
         if (familyItemsError) throw familyItemsError;
-        setFamilyFoodItems((familyItemsData?.map(({ image_url, is_family_favorite, is_lactose_free, is_vegan, is_gluten_free, ...rest }) => ({
-            ...rest, 
-            image: image_url || undefined, 
-            isFamilyFavorite: is_family_favorite,
-            isLactoseFree: is_lactose_free,
-            isVegan: is_vegan,
-            isGlutenFree: is_gluten_free
-        })) || []) as FoodItem[]);
+        setFamilyFoodItems(familyItemsData?.map(mapDbToFoodItem) || []);
 
 
         // Fetch shopping lists for the household
@@ -426,15 +459,10 @@ const App: React.FC = () => {
         }
     }
 
-    const { image, isFamilyFavorite, isLactoseFree, isVegan, isGlutenFree, ...restOfItemData } = itemData;
-    const dbPayload = { 
-        ...restOfItemData, 
-        image_url: imageUrl || null, 
-        user_id: user.id, 
-        is_family_favorite: isFamilyFavorite || false,
-        is_lactose_free: isLactoseFree,
-        is_vegan: isVegan,
-        is_gluten_free: isGlutenFree,
+    const dbPayload = {
+        ...mapFoodItemToDbPayload(itemData),
+        image_url: imageUrl || null,
+        user_id: user.id,
     };
     
     if (editingItem) {
@@ -443,7 +471,7 @@ const App: React.FC = () => {
             setDbError(`Failed to update item: ${error.message}`);
             setFoodItems(originalItems);
         } else if(data) {
-            const finalItem = { ...data, image: data.image_url || undefined, isFamilyFavorite: data.is_family_favorite, isLactoseFree: data.is_lactose_free, isVegan: data.is_vegan, isGlutenFree: data.is_gluten_free } as FoodItem;
+            const finalItem = mapDbToFoodItem(data);
             setFoodItems(prev => prev.map(item => item.id === finalItem.id ? finalItem : item));
         }
     } else {
@@ -459,7 +487,7 @@ const App: React.FC = () => {
             setDbError(`Failed to save item: ${error.message}`);
             setFoodItems(originalItems);
         } else if(data) {
-            const finalItem = { ...data, image: data.image_url || undefined, isFamilyFavorite: data.is_family_favorite, isLactoseFree: data.is_lactose_free, isVegan: data.is_vegan, isGlutenFree: data.is_gluten_free } as FoodItem;
+            const finalItem = mapDbToFoodItem(data);
             setFoodItems(prev => prev.map(item => item.id === tempId ? finalItem : item));
         }
     }
