@@ -648,23 +648,24 @@ const App: React.FC = () => {
   const handleHouseholdCreate = useCallback(async (name: string) => {
     if (!user) return;
     try {
-        // Call the secure database function
+        // Call the secure database function. This call is now compatible with the function returning a UUID.
+        // The client will receive a valid response and won't throw the coerce error.
         const { error } = await supabase.rpc('create_household', { household_name: name });
         if (error) throw error;
         
-        // The function handles the creation and profile update, so we just need to refetch the user profile
-        // to get the new household_id, which will trigger a full household data refresh.
+        // Refetch profile to update the UI state
         const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         if (profileError) throw profileError;
 
-        setUserProfile(profileData); // This will trigger the useEffect to call fetchHouseholdData
+        setUserProfile(profileData);
         if (profileData?.household_id) {
           fetchHouseholdData(profileData.household_id);
         }
 
     } catch (error: any) {
-        // The custom error message for RLS issues is still useful as a fallback.
-        if (error.message && error.message.includes('violates row-level security policy')) {
+        if (error.message && error.message.includes('Cannot coerce')) {
+            setDbError(t('household.error.coerce'));
+        } else if (error.message && error.message.includes('violates row-level security policy')) {
             setDbError(t('household.error.rls'));
         } else {
             setDbError(t('household.error.generic', { message: error.message }));
