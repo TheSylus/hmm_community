@@ -647,9 +647,13 @@ const App: React.FC = () => {
   const handleHouseholdCreate = useCallback(async (name: string) => {
     if (!user) return;
     try {
-        const { error } = await supabase.rpc('create_household', { household_name: name });
+        const { error } = await supabase
+            .rpc('create_household', { household_name: name })
+            .single();
+
         if (error) throw error;
         
+        // Refetch profile which will trigger a cascade of data fetching for the new household.
         const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         if (profileError) throw profileError;
 
@@ -659,11 +663,7 @@ const App: React.FC = () => {
         }
 
     } catch (error: any) {
-        if (error.message && error.message.includes('violates row-level security policy')) {
-            setDbError(t('household.error.rls'));
-        } else {
-            setDbError(t('household.error.generic', { message: error.message }));
-        }
+        setDbError(t('household.error.generic', { message: error.message }));
     }
   }, [user, fetchHouseholdData, t]);
 
@@ -768,7 +768,7 @@ const App: React.FC = () => {
         case 'name_asc': return a.name.localeCompare(b.name);
         case 'name_desc': return b.name.localeCompare(a.name);
         case 'date_desc':
-        default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        default: return new Date(b.created_at).getTime() - new Date(b.created_at).getTime();
       }
     });
   }, [foodItems, familyFoodItems, activeView, searchTerm, ratingFilter, typeFilter, sortBy, aiSearchResults.ids]);
