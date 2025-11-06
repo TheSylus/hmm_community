@@ -648,13 +648,22 @@ const App: React.FC = () => {
   const handleHouseholdCreate = useCallback(async (name: string) => {
     if (!user) return;
     try {
-        const { data: householdData, error } = await supabase.from('households').insert({ name, owner_id: user.id }).select().single();
+        // Call the secure database function
+        const { error } = await supabase.rpc('create_household', { household_name: name });
         if (error) throw error;
-        const { data: profileData, error: profileError } = await supabase.from('profiles').update({ household_id: householdData.id }).eq('id', user.id).select().single();
+        
+        // The function handles the creation and profile update, so we just need to refetch the user profile
+        // to get the new household_id, which will trigger a full household data refresh.
+        const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         if (profileError) throw profileError;
-        setUserProfile(profileData);
-        fetchHouseholdData(householdData.id);
+
+        setUserProfile(profileData); // This will trigger the useEffect to call fetchHouseholdData
+        if (profileData?.household_id) {
+          fetchHouseholdData(profileData.household_id);
+        }
+
     } catch (error: any) {
+        // The custom error message for RLS issues is still useful as a fallback.
         if (error.message && error.message.includes('violates row-level security policy')) {
             setDbError(t('household.error.rls'));
         } else {
