@@ -113,7 +113,7 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
               <span className="font-semibold">{t('detail.status')}:</span>
               <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${displayItem.isFamilyFavorite ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-300'}`}>
                   {displayItem.isFamilyFavorite ? <GlobeAltIcon className="w-3.5 h-3.5" /> : <LockClosedIcon className="w-3.5 h-3.5" />}
-                  <span>{t(displayItem.isFamilyFavorite ? 'detail.statusPublic' : 'detail.statusPrivate')}</span>
+                  <span>{t(displayItem.isFamilyFavorite ? 'detail.statusFamilyFavorite' : 'detail.statusPrivate')}</span>
               </div>
           </div>
         </div>

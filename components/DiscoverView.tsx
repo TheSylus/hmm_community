@@ -1,18 +1,19 @@
 import React from 'react';
-import { FoodItem, Like, Comment } from '../types';
+// FIX: Removed unused and undefined 'Like' and 'Comment' types to resolve import errors.
+import { FoodItem } from '../types';
 import { FoodItemCard } from './FoodItemCard';
 import { useTranslation } from '../i18n/index';
 import { GlobeAltIcon, SpinnerIcon } from './Icons';
 
 interface DiscoverViewProps {
   items: FoodItem[];
-  likes: Like[];
-  comments: Comment[];
+  // FIX: Removed likes and comments from props as they relate to an incomplete feature and are not used.
   isLoading: boolean;
   onViewDetails: (item: FoodItem) => void;
 }
 
-export const DiscoverView: React.FC<DiscoverViewProps> = ({ items, likes, comments, isLoading, onViewDetails }) => {
+// FIX: Removed likes and comments from destructured props.
+export const DiscoverView: React.FC<DiscoverViewProps> = ({ items, isLoading, onViewDetails }) => {
   const { t } = useTranslation();
 
   if (isLoading) {
@@ -44,8 +45,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({ items, likes, commen
               onViewDetails={onViewDetails}
               onAddToShoppingList={() => {}}
               isPreview={true} // Community cards are always in preview mode (no edit/delete)
-              likes={likes.filter(l => l.food_item_id === item.id)}
-              comments={comments.filter(c => c.food_item_id === item.id)}
+              // FIX: Removed likes and comments props as they are not defined on FoodItemCard.
             />
           ))}
         </div>

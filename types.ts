@@ -64,21 +64,3 @@ export interface UserProfile {
   display_name: string;
   household_id?: string | null;
 }
-
-// FIX: Add Like and Comment types for the Discover view.
-// Represents a "like" on a food item by a user.
-export interface Like {
-  id: string;
-  user_id: string;
-  food_item_id: string;
-  created_at: string;
-}
-
-// Represents a comment on a food item by a user.
-export interface Comment {
-  id: string;
-  user_id: string;
-  food_item_id: string;
-  comment: string;
-  created_at: string;
-}

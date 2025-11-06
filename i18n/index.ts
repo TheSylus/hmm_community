@@ -230,12 +230,8 @@ const enTranslations = {
   "detail.allergensTitle": "Allergens",
   "detail.dietaryTitle": "Dietary Information",
   "detail.status": "Status",
-  "detail.statusPublic": "Family Favorite",
+  "detail.statusFamilyFavorite": "Family Favorite",
   "detail.statusPrivate": "Private",
-  "detail.commentsTitle": "Comments",
-  "detail.noComments": "Be the first to leave a comment!",
-  "detail.addCommentPlaceholder": "Add a comment...",
-  "detail.sendComment": "Send",
   "offline.message": "You are currently offline. Changes will be saved and synced when you reconnect.",
   "offline.syncComplete": "Back online! Your data has been synced."
 };
@@ -470,12 +466,8 @@ const deTranslations = {
   "detail.allergensTitle": "Allergene",
   "detail.dietaryTitle": "Ernährungsinformation",
   "detail.status": "Status",
-  "detail.statusPublic": "Familienfavorit",
+  "detail.statusFamilyFavorite": "Familienfavorit",
   "detail.statusPrivate": "Privat",
-  "detail.commentsTitle": "Kommentare",
-  "detail.noComments": "Sei der Erste, der einen Kommentar hinterlässt!",
-  "detail.addCommentPlaceholder": "Einen Kommentar hinzufügen...",
-  "detail.sendComment": "Senden",
   "offline.message": "Sie sind derzeit offline. Änderungen werden gespeichert und synchronisiert, wenn Sie wieder online sind.",
   "offline.syncComplete": "Wieder online! Deine Daten wurden synchronisiert."
 };

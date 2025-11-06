@@ -161,12 +161,11 @@ const App: React.FC = () => {
         setHouseholdMembers(membersData || []);
 
         // Fetch family favorite items
-        const memberIds = (membersData || []).map(m => m.id);
-        if (memberIds.length > 0) {
-            const { data: familyItemsData, error: familyItemsError } = await supabase.from('food_items').select('*').eq('is_family_favorite', true).in('user_id', memberIds).order('created_at', { ascending: false });
-            if (familyItemsError) throw familyItemsError;
-            setFamilyFoodItems((familyItemsData?.map(({ image_url, ...rest }) => ({...rest, image: image_url || undefined})) || []) as FoodItem[]);
-        }
+        const { data: familyItemsData, error: familyItemsError } = await supabase.from('food_items').select('*').eq('is_family_favorite', true).eq('is_family_favorite', true);
+
+        if (familyItemsError) throw familyItemsError;
+        setFamilyFoodItems((familyItemsData?.map(({ image_url, ...rest }) => ({...rest, image: image_url || undefined})) || []) as FoodItem[]);
+
 
         // Fetch shopping lists for the household
         const { data: listsData, error: listsError } = await supabase.from('shopping_lists').select('*').eq('household_id', householdId);
@@ -397,7 +396,7 @@ const App: React.FC = () => {
     if (imageUrl && imageUrl.startsWith('data:image')) {
         if (!isOnline) {
             setToastMessage("Offline: Image will be uploaded later. Saving text data now.");
-            imageUrl = null;
+            imageUrl = undefined;
         } else {
             const mimeType = imageUrl.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/jpeg';
             const blob = base64ToBlob(imageUrl, mimeType);
@@ -443,7 +442,7 @@ const App: React.FC = () => {
         }
     }
     if (itemData.isFamilyFavorite && userProfile?.household_id) fetchHouseholdData(userProfile.household_id);
-  }, [editingItem, foodItems, handleCancelForm, user, isOnline, setToastMessage, userProfile, fetchHouseholdData]);
+  }, [editingItem, foodItems, handleCancelForm, user, isOnline, userProfile, fetchHouseholdData, setToastMessage]);
 
   const handleConfirmDuplicateAdd = useCallback(async () => {
     if (itemToAdd) {
@@ -709,7 +708,7 @@ const App: React.FC = () => {
         case 'rating_desc': return b.rating - a.rating;
         case 'rating_asc': return a.rating - b.rating;
         case 'name_asc': return a.name.localeCompare(b.name);
-        case 'name_desc': return b.name.localeCompare(b.name);
+        case 'name_desc': return b.name.localeCompare(a.name);
         case 'date_desc':
         default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       }
@@ -786,15 +785,7 @@ const App: React.FC = () => {
             </div>
           );
         }
-        if (familyFoodItems.length === 0) {
-            return (
-              <div className="text-center py-10 px-4">
-                <h2 className="text-2xl font-semibold text-gray-600 dark:text-gray-400">{t('family.empty.title')}</h2>
-                <p className="text-gray-500 dark:text-gray-400 mt-2">{t('family.empty.description')}</p>
-              </div>
-            );
-        }
-        return <FoodItemList items={familyFoodItems} onDelete={handleDeleteItem} onEdit={handleStartEdit} onViewDetails={handleViewDetails} onAddToShoppingList={handleAddToShoppingList} />;
+        return <FoodItemList items={filteredAndSortedItems} onDelete={handleDeleteItem} onEdit={handleStartEdit} onViewDetails={handleViewDetails} onAddToShoppingList={handleAddToShoppingList} />;
       case 'list':
       default:
         return (

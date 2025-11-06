@@ -1,6 +1,5 @@
-import React, { useCallback } from 'react';
-// FIX: Import Like and Comment types.
-import { FoodItem, NutriScore, Like, Comment } from '../types';
+import React from 'react';
+import { FoodItem, NutriScore } from '../types';
 import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, GlobeAltIcon, LockClosedIcon } from './Icons';
 import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
@@ -13,9 +12,6 @@ interface FoodItemCardProps {
   onViewDetails: (item: FoodItem) => void;
   onAddToShoppingList: (item: FoodItem) => void;
   isPreview?: boolean;
-  // FIX: Add optional likes and comments for use in DiscoverView.
-  likes?: Like[];
-  comments?: Comment[];
 }
 
 const nutriScoreColors: Record<NutriScore, string> = {
@@ -58,7 +54,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   
   const hasDietaryOrAllergens = displayItem.itemType === 'product' && (displayItem.isLactoseFree || displayItem.isVegan || displayItem.isGlutenFree || (displayItem.allergens && displayItem.allergens.length > 0));
   const hasTags = displayItem.tags && displayItem.tags.length > 0;
-  const isClickable = onViewDetails;
+  const isClickable = !!onViewDetails;
 
   return (
     <div 
