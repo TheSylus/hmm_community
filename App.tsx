@@ -656,12 +656,12 @@ const App: React.FC = () => {
         fetchHouseholdData(householdData.id);
     } catch (error: any) {
         if (error.message && error.message.includes('violates row-level security policy')) {
-            setDbError("Permission Denied: Your database security rules are blocking this action. Please ensure you have a policy that allows authenticated users to insert into the 'households' table where their user ID matches the 'owner_id'.");
+            setDbError(t('household.error.rls'));
         } else {
-            setDbError("Error creating household: " + error.message);
+            setDbError(t('household.error.generic', { message: error.message }));
         }
     }
-  }, [user, fetchHouseholdData]);
+  }, [user, fetchHouseholdData, t]);
 
   const handleHouseholdLeave = useCallback(async () => {
     if (!user || !userProfile || !window.confirm(t('settings.household.manage.leaveConfirm'))) return;
