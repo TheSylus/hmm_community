@@ -647,7 +647,7 @@ const App: React.FC = () => {
   const handleHouseholdCreate = useCallback(async (name: string) => {
     if (!user) return;
     try {
-        const { error } = await supabase.rpc('create_household', { household_name: name }).single();
+        const { error } = await supabase.rpc('create_household', { household_name: name });
         if (error) throw error;
         
         const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
