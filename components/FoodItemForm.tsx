@@ -25,6 +25,7 @@ interface FoodItemFormProps {
   onCancel: () => void;
   initialData?: FoodItem | null;
   itemType: FoodItemType;
+  householdId: string | null;
 }
 
 const nutriScoreOptions: NutriScore[] = ['A', 'B', 'C', 'D', 'E'];
@@ -36,7 +37,7 @@ const nutriScoreColors: Record<NutriScore, string> = {
   E: 'bg-red-600',
 };
 
-export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel, initialData, itemType }) => {
+export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel, initialData, itemType, householdId }) => {
   const { t, language } = useTranslation();
   const { isAiEnabled, isBarcodeScannerEnabled, isOffSearchEnabled } = useAppSettings();
   
@@ -55,7 +56,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
   const [notes, setNotes] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [tags, setTags] = useState('');
-  const [isPublic, setIsPublic] = useState(false);
+  const [isFamilyFavorite, setIsFamilyFavorite] = useState(false);
   // Product-specific
   const [nutriScore, setNutriScore] = useState<NutriScore | ''>('');
   const [purchaseLocation, setPurchaseLocation] = useState('');
@@ -100,7 +101,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
     setNutriScore('');
     setPurchaseLocation('');
     setTags('');
-    setIsPublic(false);
+    setIsFamilyFavorite(false);
     setIngredients([]);
     setAllergens([]);
     setDietary({ isLactoseFree: false, isVegan: false, isGlutenFree: false });
@@ -119,7 +120,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
       setNotes(initialData.notes || '');
       setImage(initialData.image || null);
       setTags(initialData.tags?.join(', ') || '');
-      setIsPublic(initialData.isPublic || false);
+      setIsFamilyFavorite(initialData.isFamilyFavorite || false);
       
       if(initialData.itemType === 'product') {
         setNutriScore(initialData.nutriScore || '');
@@ -531,7 +532,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
       image: image || undefined,
       tags: tags ? tags.split(',').map(tag => tag.trim()).filter(Boolean) : undefined,
       itemType,
-      isPublic,
+      isFamilyFavorite,
     };
 
     if (itemType === 'product') {
@@ -553,7 +554,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
           price: price !== '' ? Number(price) : undefined,
         });
     }
-  }, [name, rating, t, notes, image, tags, itemType, onSaveItem, nutriScore, purchaseLocation, ingredients, allergens, dietary, restaurantName, cuisineType, price, isPublic]);
+  }, [name, rating, t, notes, image, tags, itemType, onSaveItem, nutriScore, purchaseLocation, ingredients, allergens, dietary, restaurantName, cuisineType, price, isFamilyFavorite]);
 
   const removeImage = useCallback(() => {
     setImage(null);
@@ -871,16 +872,18 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
         {error && <p className="text-red-500 dark:text-red-400 bg-red-100 dark:bg-red-900/50 p-3 rounded-md text-sm mt-4">{error}</p>}
         
         <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-            <label htmlFor="share-toggle" className="flex items-center justify-between bg-gray-100 dark:bg-gray-700/50 p-3 rounded-lg cursor-pointer transition hover:bg-gray-200 dark:hover:bg-gray-700">
-                <div className="max-w-[75%] pr-2">
-                    <span className="font-semibold text-gray-800 dark:text-gray-200">{t('form.share.title')}</span>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">{t('form.share.description')}</p>
-                </div>
-                <div className="relative">
-                    <input id="share-toggle" type="checkbox" className="sr-only peer" checked={isPublic} onChange={() => setIsPublic(!isPublic)} />
-                    <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-green-600"></div>
-                </div>
-            </label>
+            {householdId && (
+              <label htmlFor="family-favorite-toggle" className="flex items-center justify-between bg-gray-100 dark:bg-gray-700/50 p-3 rounded-lg cursor-pointer transition hover:bg-gray-200 dark:hover:bg-gray-700">
+                  <div className="max-w-[75%] pr-2">
+                      <span className="font-semibold text-gray-800 dark:text-gray-200">{t('form.familyFavorite.title')}</span>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">{t('form.familyFavorite.description')}</p>
+                  </div>
+                  <div className="relative">
+                      <input id="family-favorite-toggle" type="checkbox" className="sr-only peer" checked={isFamilyFavorite} onChange={() => setIsFamilyFavorite(!isFamilyFavorite)} />
+                      <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-green-600"></div>
+                  </div>
+              </label>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-3">
                 <button

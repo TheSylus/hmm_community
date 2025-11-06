@@ -9,7 +9,7 @@ export interface FoodItem {
   name: string;
   rating: number; // 0 for unrated, 1-5 for star rating
   itemType: FoodItemType;
-  isPublic?: boolean; // For community sharing
+  isFamilyFavorite?: boolean; // Replaces isPublic for household sharing
 
   // Common fields
   notes?: string;
@@ -31,10 +31,18 @@ export interface FoodItem {
   price?: number;
 }
 
-// Represents a distinct shopping list, e.g., "Weekly Groceries" or "Party Supplies".
+// Represents a household that users can join.
+export interface Household {
+  id: string;
+  name: string;
+  owner_id: string;
+  created_at: string;
+}
+
+// Represents a distinct shopping list, belonging to a household.
 export interface ShoppingList {
   id: string;
-  owner_id: string;
+  household_id: string;
   name: string;
   created_at: string;
 }
@@ -50,20 +58,15 @@ export interface ShoppingListItem {
   checked_by_user_id: string | null;
 }
 
-// Represents a user's membership to a shopping list.
-export interface ShoppingListMember {
-  list_id: string;
-  user_id: string;
-  created_at: string;
-}
-
 // Represents a user's public profile information.
 export interface UserProfile {
   id: string; // Corresponds to auth.users.id
   display_name: string;
+  household_id?: string | null;
 }
 
-// Represents a "like" on a food item.
+// FIX: Add Like and Comment types for the Discover view.
+// Represents a "like" on a food item by a user.
 export interface Like {
   id: string;
   user_id: string;
@@ -71,18 +74,11 @@ export interface Like {
   created_at: string;
 }
 
-// Represents a comment on a food item.
+// Represents a comment on a food item by a user.
 export interface Comment {
   id: string;
   user_id: string;
   food_item_id: string;
-  content: string;
+  comment: string;
   created_at: string;
-}
-
-// Represents a comment joined with the author's profile.
-export interface CommentWithProfile extends Comment {
-  profiles: {
-    display_name: string;
-  } | null;
 }

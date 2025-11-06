@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
+// FIX: Import Like and Comment types.
 import { FoodItem, NutriScore, Like, Comment } from '../types';
-import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShareIcon, ShoppingBagIcon, BuildingStorefrontIcon, GlobeAltIcon, LockClosedIcon, HeartIcon, ChatBubbleOvalLeftIcon } from './Icons';
+import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, GlobeAltIcon, LockClosedIcon } from './Icons';
 import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
@@ -12,6 +13,7 @@ interface FoodItemCardProps {
   onViewDetails: (item: FoodItem) => void;
   onAddToShoppingList: (item: FoodItem) => void;
   isPreview?: boolean;
+  // FIX: Add optional likes and comments for use in DiscoverView.
   likes?: Like[];
   comments?: Comment[];
 }
@@ -22,27 +24,6 @@ const nutriScoreColors: Record<NutriScore, string> = {
   C: 'bg-yellow-500',
   D: 'bg-orange-500',
   E: 'bg-red-600',
-};
-
-// Helper function to compress data and encode it to a URL-safe Base64 string
-const compressAndEncode = async (data: object): Promise<string> => {
-  const jsonString = JSON.stringify(data);
-  // Use the CompressionStream API to gzip the data
-  const stream = new Blob([jsonString]).stream().pipeThrough(new CompressionStream('gzip'));
-  const compressed = await new Response(stream).arrayBuffer();
-  
-  // Convert the compressed ArrayBuffer to a binary string
-  const bytes = new Uint8Array(compressed);
-  let binaryString = '';
-  bytes.forEach((byte) => {
-    binaryString += String.fromCharCode(byte);
-  });
-  
-  // Encode the binary string to Base64 and make it URL-safe
-  return btoa(binaryString)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
 };
 
 const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', className?: string }> = ({ type, className }) => {
@@ -67,72 +48,9 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
     );
 }
 
-export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, isPreview = false, likes = [], comments = [] }) => {
+export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, isPreview = false }) => {
   const { t } = useTranslation();
   const displayItem = useTranslatedItem(item);
-
-  const handleShare = useCallback(async () => {
-    if (!item || !displayItem) return;
-
-    try {
-      // Create a minified object for sharing. To keep the URL short,
-      // we exclude potentially long fields like notes, ingredients, and allergens.
-      const { id, image, ...dataToShare } = item;
-      const minified: any = {
-        n: dataToShare.name,
-        r: dataToShare.rating,
-        it: dataToShare.itemType,
-        t: dataToShare.tags,
-      };
-
-      if (dataToShare.itemType === 'product') {
-          minified.ns = dataToShare.nutriScore;
-          minified.lf = dataToShare.isLactoseFree;
-          minified.v = dataToShare.isVegan;
-          minified.gf = dataToShare.isGlutenFree;
-      } else {
-          minified.rn = dataToShare.restaurantName;
-          minified.ct = dataToShare.cuisineType;
-          minified.p = dataToShare.price;
-      }
-      
-      // Clean up undefined/null values and empty arrays to make the JSON string even smaller
-      Object.keys(minified).forEach((key) => {
-        const k = key as keyof typeof minified;
-        if (minified[k] === undefined || minified[k] === null || (Array.isArray(minified[k]) && (minified[k] as any[]).length === 0)) {
-          delete (minified as any)[k];
-        }
-      });
-      
-      const serializedItem = await compressAndEncode(minified);
-
-      const shareUrl = `${window.location.origin}${window.location.pathname}?s=${serializedItem}`;
-      
-      const shareTitle = t('share.title', { name: displayItem.name });
-      const shareBody = displayItem.rating > 0
-        ? t('share.text', { name: displayItem.name, rating: displayItem.rating })
-        : t('share.text_unrated', { name: displayItem.name });
-      
-      const shareData = {
-        title: shareTitle,
-        // The URL is part of the text. Most apps will parse it and create a rich preview.
-        // This avoids the issue where some apps append the 'url' field as plain text when it's separate.
-        text: `${shareBody}\n${shareUrl}`,
-      };
-
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        alert("Sharing is not supported on this browser.");
-      }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        console.log('Share cancelled by user.');
-      } else {
-        console.error('Share failed:', err);
-      }
-    }
-  }, [item, displayItem, t]);
 
   if (!displayItem) {
     return null; // Render nothing if the item is not available
@@ -159,13 +77,13 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                 </span>
             </div>
              <div className="group relative">
-                {displayItem.isPublic ? (
+                {displayItem.isFamilyFavorite ? (
                     <GlobeAltIcon className="w-5 h-5 text-green-500" />
                 ) : (
                     <LockClosedIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                 )}
                 <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    {t(displayItem.isPublic ? 'card.publicTooltip' : 'card.privateTooltip')}
+                    {t(displayItem.isFamilyFavorite ? 'card.familyFavoriteTooltip' : 'card.privateTooltip')}
                 </span>
             </div>
         </div>
@@ -191,15 +109,6 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                                 aria-label={t('shoppingList.addAria', { name: displayItem.name })}
                                 >
                                 <ShoppingBagIcon className="w-5 h-5" />
-                            </button>
-                            )}
-                            {navigator.share && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleShare(); }}
-                                className="text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors"
-                                aria-label={t('card.shareAria', { name: displayItem.name })}
-                            >
-                                <ShareIcon className="w-5 h-5" />
                             </button>
                             )}
                             <button
@@ -274,21 +183,6 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                 <p className="text-gray-600 dark:text-gray-400 text-sm leading-tight line-clamp-2">{displayItem.notes}</p>
             </div>
         )}
-        
-        {/* Community interaction stats */}
-        {isPreview && (
-            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                <div className="flex items-center gap-1.5">
-                    <HeartIcon className="w-5 h-5 text-red-500" filled={likes.length > 0} />
-                    <span className="font-semibold">{likes.length}</span>
-                </div>
-                 <div className="flex items-center gap-1.5">
-                    <ChatBubbleOvalLeftIcon className="w-5 h-5 text-sky-500" />
-                    <span className="font-semibold">{comments.length}</span>
-                </div>
-            </div>
-        )}
-
 
       {/* Custom scrollbar styling & line clamp */}
       <style>{`

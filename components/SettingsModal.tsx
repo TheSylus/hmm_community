@@ -1,15 +1,89 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from '../i18n/index';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppSettings } from '../contexts/AppSettingsContext';
 import { useAuth } from '../contexts/AuthContext';
-import { XMarkIcon } from './Icons';
+import { XMarkIcon, SpinnerIcon } from './Icons';
+import { Household, UserProfile } from '../types';
 
 interface SettingsModalProps {
   onClose: () => void;
+  household: Household | null;
+  onHouseholdCreate: (name: string) => Promise<void>;
+  onHouseholdLeave: () => Promise<void>;
+  onHouseholdDelete: () => Promise<void>;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
+const HouseholdManager: React.FC<Omit<SettingsModalProps, 'onClose'>> = ({ household, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete }) => {
+    const { t } = useTranslation();
+    const [newHouseholdName, setNewHouseholdName] = useState('');
+    const [isCreating, setIsCreating] = useState(false);
+    const [shareStatus, setShareStatus] = useState<'idle' | 'copying' | 'copied'>('idle');
+
+    const handleCreate = async () => {
+        if (!newHouseholdName.trim()) return;
+        setIsCreating(true);
+        await onHouseholdCreate(newHouseholdName.trim());
+        setIsCreating(false);
+        setNewHouseholdName('');
+    };
+
+    const handleShareInvite = async () => {
+        if (!household) return;
+        setShareStatus('copying');
+        const inviteUrl = `${window.location.origin}${window.location.pathname}?join_household=${household.id}`;
+        try {
+            await navigator.clipboard.writeText(inviteUrl);
+            setShareStatus('copied');
+            setTimeout(() => setShareStatus('idle'), 2000);
+        } catch (err) {
+            console.error('Failed to copy share link:', err);
+            alert('Could not copy link.');
+            setShareStatus('idle');
+        }
+    };
+    
+    if (household) {
+        return (
+            <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('settings.household.title')}: <span className="text-indigo-600 dark:text-indigo-400">{household.name}</span></h3>
+                <div className="bg-gray-100 dark:bg-gray-900/50 p-4 rounded-lg space-y-3">
+                    <button onClick={handleShareInvite} disabled={shareStatus !== 'idle'} className="w-full text-sm bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-70">
+                        {shareStatus === 'copied' ? t('settings.household.manage.linkCopied') : t('settings.household.manage.invite')}
+                    </button>
+                    <button onClick={onHouseholdLeave} className="w-full text-sm bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3 rounded-md transition-colors">
+                        {t('settings.household.manage.leave')}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">{t('settings.household.title')}</h3>
+            <div className="bg-gray-100 dark:bg-gray-900/50 p-4 rounded-lg space-y-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('family.noHousehold.description')}</p>
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={newHouseholdName}
+                        onChange={(e) => setNewHouseholdName(e.target.value)}
+                        placeholder={t('settings.household.create.placeholder')}
+                        className="flex-grow w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
+                        disabled={isCreating}
+                    />
+                    <button onClick={handleCreate} disabled={isCreating || !newHouseholdName.trim()} className="px-4 py-2 bg-indigo-600 text-white rounded-md font-semibold hover:bg-indigo-700 transition-colors disabled:bg-indigo-400 dark:disabled:bg-gray-600 flex items-center justify-center">
+                        {isCreating ? <SpinnerIcon className="w-5 h-5" /> : t('settings.household.create.button')}
+                    </button>
+                </div>
+                <p className="text-xs text-center text-gray-500 dark:text-gray-400">{t('settings.household.join.description')}</p>
+            </div>
+        </div>
+    );
+};
+
+export const SettingsModal: React.FC<SettingsModalProps & { household: Household | null; onHouseholdCreate: (name: string) => Promise<void>; onHouseholdLeave: () => Promise<void>; onHouseholdDelete: () => Promise<void>; }> = ({ onClose, household, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete }) => {
   const { t, language, setLanguage } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { isAiEnabled, setIsAiEnabled, isBarcodeScannerEnabled, setIsBarcodeScannerEnabled, isOffSearchEnabled, setIsOffSearchEnabled } = useAppSettings();
@@ -41,6 +115,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         
         {/* Scrollable Content */}
         <div className="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto">
+            <HouseholdManager household={household} onHouseholdCreate={onHouseholdCreate} onHouseholdLeave={onHouseholdLeave} onHouseholdDelete={onHouseholdDelete} />
+            <hr className="border-gray-200 dark:border-gray-700" />
+            
             {/* Language Selection */}
             <div>
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">{t('settings.language.title')}</h3>

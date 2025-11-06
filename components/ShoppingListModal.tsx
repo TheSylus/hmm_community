@@ -3,14 +3,15 @@ import { useTranslation } from '../i18n/index';
 import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
-import { ShoppingList, UserProfile } from '../types';
+import { ShoppingList, UserProfile, Household } from '../types';
 import { User } from '@supabase/supabase-js';
 
 interface ShoppingListModalProps {
   allLists: ShoppingList[];
   activeListId: string | null;
   listData: HydratedShoppingListItem[];
-  listMembers: UserProfile[];
+  household: Household | null;
+  householdMembers: UserProfile[];
   currentUser: User | null;
   onRemove: (shoppingListItemId: string) => void;
   onClear: () => void;
@@ -19,7 +20,6 @@ interface ShoppingListModalProps {
   onSelectList: (listId: string) => void;
   onCreateList: (name: string) => void;
   onDeleteList: (listId: string) => void;
-  onLeaveList: (listId: string) => void;
 }
 
 const ActivityLog: React.FC<{
@@ -130,7 +130,7 @@ const ShoppingListItem: React.FC<{
 
 
 export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ 
-  allLists, activeListId, listData, listMembers, currentUser, onRemove, onClear, onClose, onToggleChecked, onSelectList, onCreateList, onDeleteList, onLeaveList
+  allLists, activeListId, listData, household, householdMembers, currentUser, onRemove, onClear, onClose, onToggleChecked, onSelectList, onCreateList, onDeleteList
 }) => {
   const { t } = useTranslation();
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
@@ -142,8 +142,6 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
 
 
   const activeList = useMemo(() => allLists.find(l => l.id === activeListId), [allLists, activeListId]);
-  const isOwner = useMemo(() => currentUser && activeList && currentUser.id === activeList.owner_id, [currentUser, activeList]);
-
 
   const handleExpand = useCallback((foodItemId: string) => {
     setExpandedItemId(prev => prev === foodItemId ? null : foodItemId);
@@ -166,18 +164,10 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
     }
   };
 
-  const handleLeave = () => {
-    if (!activeList) return;
-    if (window.confirm(t('shoppingList.leave.confirm', { listName: activeList.name }))) {
-        onLeaveList(activeList.id);
-        setIsManageMenuOpen(false);
-    }
-  };
-
-  const handleShareList = useCallback(async () => {
-    if (!activeListId) return;
+  const handleShareHousehold = useCallback(async () => {
+    if (!household) return;
     setShareStatus('copying');
-    const inviteUrl = `${window.location.origin}${window.location.pathname}?join_list=${activeListId}`;
+    const inviteUrl = `${window.location.origin}${window.location.pathname}?join_household=${household.id}`;
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setShareStatus('copied');
@@ -187,7 +177,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
       alert(t('shoppingList.share.copyFailed'));
       setShareStatus('idle');
     }
-  }, [activeListId, t]);
+  }, [household, t]);
 
   const getInitials = (name: string) => {
       if (!name) return '?';
@@ -231,6 +221,23 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+  if (!household) {
+      // This state should ideally be handled before opening the modal,
+      // but as a fallback:
+      return (
+         <div
+            className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in"
+            onClick={onClose}
+          >
+             <div className="relative bg-white dark:bg-gray-800 p-6 rounded-lg shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                <p className="text-center text-gray-600 dark:text-gray-300">
+                    {t('family.noHousehold.description')}
+                </p>
+             </div>
+         </div>
+      );
+  }
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in"
@@ -273,17 +280,10 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                         </button>
                         {isManageMenuOpen && activeList && (
                             <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10 animate-fade-in-fast">
-                                {isOwner ? (
-                                    <button onClick={handleDelete} className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center gap-2 transition-colors">
-                                        <TrashIcon className="w-4 h-4" />
-                                        {t('shoppingList.delete.button')}
-                                    </button>
-                                ) : (
-                                    <button onClick={handleLeave} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 transition-colors">
-                                        <XMarkIcon className="w-4 h-4" />
-                                        {t('shoppingList.leave.button')}
-                                    </button>
-                                )}
+                                <button onClick={handleDelete} className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center gap-2 transition-colors">
+                                    <TrashIcon className="w-4 h-4" />
+                                    {t('shoppingList.delete.button')}
+                                </button>
                             </div>
                         )}
                     </div>
@@ -313,7 +313,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                  <div>
                     <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">{t('shoppingList.collaboration.members')}</h3>
                     <div className="flex flex-wrap items-center gap-2">
-                        {listMembers.map(member => (
+                        {householdMembers.map(member => (
                             <div key={member.id} className="group relative">
                                 <div className="w-8 h-8 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-xs font-bold text-indigo-700 dark:text-indigo-200 ring-2 ring-white dark:ring-gray-800">
                                     {getInitials(member.display_name)}
@@ -325,7 +325,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                         ))}
                     </div>
                 </div>
-                 <button onClick={handleShareList} disabled={shareStatus !== 'idle'} className="w-full flex items-center justify-center gap-2 text-sm bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-70">
+                 <button onClick={handleShareHousehold} disabled={shareStatus !== 'idle'} className="w-full flex items-center justify-center gap-2 text-sm bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-70">
                     {shareStatus === 'copying' && <SpinnerIcon className="w-5 h-5" />}
                     {shareStatus === 'copied' && <CheckCircleIcon className="w-5 h-5" />}
                     {shareStatus === 'idle' && <UserPlusIcon className="w-5 h-5"/>}
@@ -351,7 +351,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                         onToggleChecked={onToggleChecked}
                                         isExpanded={expandedItemId === item.id}
                                         onExpand={handleExpand}
-                                        members={listMembers}
+                                        members={householdMembers}
                                         currentUser={currentUser}
                                     />
                                 ))}
