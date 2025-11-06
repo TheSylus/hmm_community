@@ -648,12 +648,13 @@ const App: React.FC = () => {
   const handleHouseholdCreate = useCallback(async (name: string) => {
     if (!user) return;
     try {
-        // Call the secure database function. This call is now compatible with the function returning a UUID.
-        // The client will receive a valid response and won't throw the coerce error.
-        const { error } = await supabase.rpc('create_household', { household_name: name });
+        // Call the secure database function, specifying that we expect a single row back.
+        // This aligns with the updated database function that now returns the new household record.
+        const { error } = await supabase.rpc('create_household', { household_name: name }).single();
         if (error) throw error;
         
-        // Refetch profile to update the UI state
+        // Refetch profile to update the UI state. This is a reliable way to ensure all
+        // household-related data is fresh after the creation.
         const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         if (profileError) throw profileError;
 
@@ -663,9 +664,9 @@ const App: React.FC = () => {
         }
 
     } catch (error: any) {
-        if (error.message && error.message.includes('Cannot coerce')) {
-            setDbError(t('household.error.coerce'));
-        } else if (error.message && error.message.includes('violates row-level security policy')) {
+        // Simplified error handling. The RLS check is a safeguard.
+        // The "coerce" error should no longer happen with this new architecture.
+        if (error.message && error.message.includes('violates row-level security policy')) {
             setDbError(t('household.error.rls'));
         } else {
             setDbError(t('household.error.generic', { message: error.message }));
