@@ -128,7 +128,7 @@ const App: React.FC = () => {
             .from('food_items').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
         if (foodItemsError) throw foodItemsError;
         if (foodItemsData) {
-            const mappedData = foodItemsData.map(({ image_url, ...rest }) => ({ ...rest, image: image_url || undefined }));
+            const mappedData = foodItemsData.map(({ image_url, is_public, ...rest }) => ({ ...rest, image: image_url || undefined, isFamilyFavorite: is_public }));
             setFoodItems(mappedData as FoodItem[]);
         }
     } catch (error: any) {
@@ -161,10 +161,10 @@ const App: React.FC = () => {
         setHouseholdMembers(membersData || []);
 
         // Fetch family favorite items
-        const { data: familyItemsData, error: familyItemsError } = await supabase.from('food_items').select('*').eq('is_family_favorite', true).eq('is_family_favorite', true);
+        const { data: familyItemsData, error: familyItemsError } = await supabase.from('food_items').select('*').eq('is_public', true);
 
         if (familyItemsError) throw familyItemsError;
-        setFamilyFoodItems((familyItemsData?.map(({ image_url, ...rest }) => ({...rest, image: image_url || undefined})) || []) as FoodItem[]);
+        setFamilyFoodItems((familyItemsData?.map(({ image_url, is_public, ...rest }) => ({...rest, image: image_url || undefined, isFamilyFavorite: is_public})) || []) as FoodItem[]);
 
 
         // Fetch shopping lists for the household
@@ -412,8 +412,8 @@ const App: React.FC = () => {
         }
     }
 
-    const { image, ...restOfItemData } = itemData;
-    const dbPayload = { ...restOfItemData, image_url: imageUrl || null, user_id: user.id, is_family_favorite: itemData.isFamilyFavorite || false };
+    const { image, isFamilyFavorite, ...restOfItemData } = itemData;
+    const dbPayload = { ...restOfItemData, image_url: imageUrl || null, user_id: user.id, is_public: isFamilyFavorite || false };
     
     if (editingItem) {
         const { data, error } = await supabase.from('food_items').update(dbPayload).eq('id', editingItem.id).select().single();
@@ -421,7 +421,7 @@ const App: React.FC = () => {
             setDbError(`Failed to update item: ${error.message}`);
             setFoodItems(originalItems);
         } else if(data) {
-            const finalItem = { ...data, image: data.image_url || undefined } as FoodItem;
+            const finalItem = { ...data, image: data.image_url || undefined, isFamilyFavorite: data.is_public } as FoodItem;
             setFoodItems(prev => prev.map(item => item.id === finalItem.id ? finalItem : item));
         }
     } else {
@@ -437,7 +437,7 @@ const App: React.FC = () => {
             setDbError(`Failed to save item: ${error.message}`);
             setFoodItems(originalItems);
         } else if(data) {
-            const finalItem = { ...data, image: data.image_url || undefined } as FoodItem;
+            const finalItem = { ...data, image: data.image_url || undefined, isFamilyFavorite: data.is_public } as FoodItem;
             setFoodItems(prev => prev.map(item => item.id === tempId ? finalItem : item));
         }
     }
