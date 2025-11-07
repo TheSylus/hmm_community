@@ -58,7 +58,6 @@ export type HydratedShoppingListItem = FoodItem & {
   checked: boolean;
   added_by_user_id: string;
   checked_by_user_id: string | null;
-  quantity: number;
 };
 
 
@@ -557,6 +556,28 @@ const App: React.FC = () => {
     setActiveView('dashboard');
   }, [clearAiSearch]);
   
+  const handleAddToShoppingList = useCallback(async (item: FoodItem) => {
+      if (!user || !activeShoppingListId) return;
+      if (shoppingListItems.some(sli => sli.food_item_id === item.id && sli.list_id === activeShoppingListId)) return;
+      
+      const originalItems = shoppingListItems;
+      const tempItem: ShoppingListItem = {
+        id: `temp_${Date.now()}`, list_id: activeShoppingListId, food_item_id: item.id, added_by_user_id: user.id,
+        checked: false, created_at: new Date().toISOString(), checked_by_user_id: null
+      };
+      setShoppingListItems(prev => [...prev, tempItem]);
+      setToastMessage(t('shoppingList.addedToast', { name: item.name }));
+
+      const { error } = await supabase
+          .from('shopping_list_items')
+          .insert({ food_item_id: item.id, list_id: activeShoppingListId, added_by_user_id: user.id });
+      
+      if (error && isOnline) {
+          setDbError(`Error adding to shopping list: ${error.message}`);
+          setShoppingListItems(originalItems);
+      }
+  }, [user, shoppingListItems, activeShoppingListId, t, isOnline]);
+
   const handleRemoveFromShoppingList = useCallback(async (shoppingListItemId: string) => {
       const originalItems = shoppingListItems;
       setShoppingListItems(prev => prev.filter(i => i.id !== shoppingListItemId));
@@ -567,52 +588,6 @@ const App: React.FC = () => {
           setShoppingListItems(originalItems);
       }
   }, [shoppingListItems, isOnline]);
-
-  const handleUpdateShoppingListItemQuantity = useCallback(async (shoppingListItemId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      handleRemoveFromShoppingList(shoppingListItemId);
-      return;
-    }
-    
-    const originalItems = [...shoppingListItems];
-    setShoppingListItems(prev => prev.map(i => i.id === shoppingListItemId ? {...i, quantity: newQuantity} : i));
-
-    const { error } = await supabase.from('shopping_list_items').update({ quantity: newQuantity }).eq('id', shoppingListItemId);
-
-    if (error && isOnline) {
-      setDbError(`Error updating quantity: ${error.message}`);
-      setShoppingListItems(originalItems);
-    }
-  }, [shoppingListItems, isOnline, handleRemoveFromShoppingList]);
-
-  const handleAddToShoppingList = useCallback(async (item: FoodItem) => {
-    if (!user || !activeShoppingListId) return;
-
-    const existingItem = shoppingListItems.find(sli => sli.food_item_id === item.id && sli.list_id === activeShoppingListId);
-
-    if (existingItem) {
-        // Item exists, so increment quantity
-        handleUpdateShoppingListItemQuantity(existingItem.id, existingItem.quantity + 1);
-    } else {
-        // Item does not exist, so add it
-        const originalItems = [...shoppingListItems];
-        const tempItem: ShoppingListItem = {
-            id: `temp_${Date.now()}`, list_id: activeShoppingListId, food_item_id: item.id, added_by_user_id: user.id,
-            checked: false, created_at: new Date().toISOString(), checked_by_user_id: null, quantity: 1,
-        };
-        setShoppingListItems(prev => [...prev, tempItem]);
-        setToastMessage(t('shoppingList.addedToast', { name: item.name }));
-
-        const { error } = await supabase
-            .from('shopping_list_items')
-            .insert({ food_item_id: item.id, list_id: activeShoppingListId, added_by_user_id: user.id, quantity: 1 });
-        
-        if (error && isOnline) {
-            setDbError(`Error adding to shopping list: ${error.message}`);
-            setShoppingListItems(originalItems);
-        }
-    }
-  }, [user, shoppingListItems, activeShoppingListId, t, isOnline, handleUpdateShoppingListItemQuantity]);
   
   const handleToggleCheckedItem = useCallback(async (shoppingListItemId: string, isChecked: boolean) => {
     if (!user) return;
@@ -834,7 +809,7 @@ const App: React.FC = () => {
         case 'name_asc': return a.name.localeCompare(b.name);
         case 'name_desc': return b.name.localeCompare(a.name);
         case 'date_desc':
-        default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        default: return new Date(b.created_at).getTime() - new Date(b.created_at).getTime();
       }
     });
   }, [foodItems, familyFoodItems, activeView, searchTerm, ratingFilter, typeFilter, sortBy, aiSearchResults.ids]);
@@ -847,7 +822,7 @@ const App: React.FC = () => {
         const foodItemDetails = foodItemMap.get(sli.food_item_id);
         if (foodItemDetails) {
           hydratedItems.push(Object.assign({}, foodItemDetails, {
-            shoppingListItemId: sli.id, checked: sli.checked, added_by_user_id: sli.added_by_user_id, checked_by_user_id: sli.checked_by_user_id, quantity: sli.quantity
+            shoppingListItemId: sli.id, checked: sli.checked, added_by_user_id: sli.added_by_user_id, checked_by_user_id: sli.checked_by_user_id,
           }));
         }
       }
@@ -909,7 +884,7 @@ const App: React.FC = () => {
             </div>
           );
         }
-        return <FoodItemList items={filteredAndSortedItems} onDelete={handleDeleteItem} onEdit={handleStartEdit} onViewDetails={handleViewDetails} onAddToShoppingList={handleAddToShoppingList} shoppingListItems={shoppingListItems} onUpdateQuantity={handleUpdateShoppingListItemQuantity} />;
+        return <FoodItemList items={filteredAndSortedItems} onDelete={handleDeleteItem} onEdit={handleStartEdit} onViewDetails={handleViewDetails} onAddToShoppingList={handleAddToShoppingList} />;
       case 'list':
       default:
         return (
@@ -933,8 +908,6 @@ const App: React.FC = () => {
               onEdit={handleStartEdit}
               onViewDetails={handleViewDetails}
               onAddToShoppingList={handleAddToShoppingList}
-              shoppingListItems={shoppingListItems}
-              onUpdateQuantity={handleUpdateShoppingListItemQuantity}
             />
           </>
         );
@@ -1075,7 +1048,6 @@ const App: React.FC = () => {
             onSelectList={setActiveShoppingListId}
             onCreateList={handleCreateNewList}
             onDeleteList={handleDeleteList}
-            onUpdateQuantity={handleUpdateShoppingListItemQuantity}
         />
       }
 

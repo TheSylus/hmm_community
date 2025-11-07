@@ -56,7 +56,6 @@ export interface ShoppingListItem {
   checked: boolean;
   created_at: string;
   checked_by_user_id: string | null;
-  quantity: number; // The number of this item to buy
 }
 
 // Represents a user's public profile information.

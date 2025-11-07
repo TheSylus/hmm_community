@@ -20,7 +20,6 @@ interface ShoppingListModalProps {
   onSelectList: (listId: string) => void;
   onCreateList: (name: string) => void;
   onDeleteList: (listId: string) => void;
-  onUpdateQuantity: (shoppingListItemId: string, newQuantity: number) => void;
 }
 
 const ActivityLog: React.FC<{
@@ -57,12 +56,11 @@ const ShoppingListItem: React.FC<{
   item: HydratedShoppingListItem;
   onRemove: (id: string) => void;
   onToggleChecked: (id: string, isChecked: boolean) => void;
-  onUpdateQuantity: (id: string, newQuantity: number) => void;
   isExpanded: boolean;
   onExpand: (id: string) => void;
   members: UserProfile[];
   currentUser: User | null;
-}> = ({ item, onRemove, onToggleChecked, onUpdateQuantity, isExpanded, onExpand, members, currentUser }) => {
+}> = ({ item, onRemove, onToggleChecked, isExpanded, onExpand, members, currentUser }) => {
   const { t } = useTranslation();
   const displayItem = useTranslatedItem(item);
 
@@ -86,15 +84,13 @@ const ShoppingListItem: React.FC<{
                 </div>
             </div>
             <div className="flex items-center gap-1 pl-2">
-                <div className="flex items-center gap-1 bg-white dark:bg-gray-600 rounded-full border border-gray-200 dark:border-gray-500">
-                    <button onClick={() => onUpdateQuantity(displayItem.shoppingListItemId, displayItem.quantity - 1)} className="p-1 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors">
-                        <span className="font-bold text-md leading-none px-1">{displayItem.quantity === 1 ? <TrashIcon className="w-4 h-4"/> : '-'}</span>
-                    </button>
-                    <span className="font-bold text-sm text-gray-800 dark:text-gray-200 min-w-[20px] text-center">{displayItem.quantity}</span>
-                    <button onClick={() => onUpdateQuantity(displayItem.shoppingListItemId, displayItem.quantity + 1)} className="p-1 text-gray-600 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 transition-colors">
-                        <span className="font-bold text-md leading-none px-1">+</span>
-                    </button>
-                </div>
+                <button
+                    onClick={() => onRemove(displayItem.shoppingListItemId)}
+                    className="p-1.5 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    aria-label={t('shoppingList.removeAria', { name: displayItem.name })}
+                >
+                    <TrashIcon className="w-5 h-5" />
+                </button>
                 <button
                     onClick={() => onExpand(displayItem.id)}
                     className="p-1.5 rounded-full text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
@@ -106,7 +102,7 @@ const ShoppingListItem: React.FC<{
         </div>
         {isExpanded && (
             <div className="px-3 pb-3 pt-2 border-t border-gray-200 dark:border-gray-600 animate-fade-in-down space-y-2">
-                <div className="pl-1">
+                <div className="pl-8">
                     <ActivityLog action="added" userId={displayItem.added_by_user_id} members={members} currentUser={currentUser} />
                     {displayItem.checked && (
                         <ActivityLog action="checked" userId={displayItem.checked_by_user_id} members={members} currentUser={currentUser} />
@@ -134,7 +130,7 @@ const ShoppingListItem: React.FC<{
 
 
 export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ 
-  allLists, activeListId, listData, household, householdMembers, currentUser, onRemove, onClear, onClose, onToggleChecked, onSelectList, onCreateList, onDeleteList, onUpdateQuantity
+  allLists, activeListId, listData, household, householdMembers, currentUser, onRemove, onClear, onClose, onToggleChecked, onSelectList, onCreateList, onDeleteList
 }) => {
   const { t } = useTranslation();
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
@@ -353,7 +349,6 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                         item={item}
                                         onRemove={onRemove}
                                         onToggleChecked={onToggleChecked}
-                                        onUpdateQuantity={onUpdateQuantity}
                                         isExpanded={expandedItemId === item.id}
                                         onExpand={handleExpand}
                                         members={householdMembers}
