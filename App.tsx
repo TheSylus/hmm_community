@@ -648,39 +648,48 @@ const App: React.FC = () => {
     if (!user) return;
     setDbError(null);
     try {
+        // Step 1: Create the household via RPC, which returns the new ID
         const { data: newHouseholdId, error: rpcError } = await supabase
             .rpc('create_household', { household_name: name });
 
-        if (rpcError) throw rpcError;
+        if (rpcError) {
+             if (rpcError.message.includes('violates row-level security policy for table "households"')) {
+                throw new Error('RLS_INSERT_VIOLATION');
+            }
+            throw rpcError;
+        }
+
         if (!newHouseholdId || typeof newHouseholdId !== 'string') {
             throw new Error("Database function did not return a valid household ID.");
         }
         
-        const { error: updateError } = await supabase
+        // Step 2: Update the user's profile with the new ID
+        const { data: updatedProfile, error: updateError } = await supabase
             .from('profiles')
             .update({ household_id: newHouseholdId })
-            .eq('id', user.id);
+            .eq('id', user.id)
+            .select()
+            .single();
 
         if (updateError) throw updateError;
-        
-        const { data: refreshedProfile, error: profileError } = await supabase
-          .from('profiles').select('*').eq('id', user.id).single();
 
-        if (profileError) throw profileError;
-        
-        setUserProfile(refreshedProfile);
+        // Step 3: Update local state and fetch new household data
+        setUserProfile(updatedProfile);
+        fetchHouseholdData(newHouseholdId);
         
         setToastMessage(t('shoppingList.joinSuccess', { householdName: name }));
 
     } catch (error: any) {
-        let errorMessage = t('household.error.generic', { message: error.message });
-        if (error?.message?.includes('violates row-level security policy for table "households"')) {
+        let errorMessage;
+        if (error?.message === 'RLS_INSERT_VIOLATION') {
             errorMessage = t('household.error.rls.insert');
+        } else {
+            errorMessage = t('household.error.generic', { message: error.message });
         }
         setDbError(errorMessage);
         console.error("Error in household creation:", error);
     }
-  }, [user, t]);
+  }, [user, t, fetchHouseholdData]);
 
 
   const handleHouseholdLeave = useCallback(async () => {
