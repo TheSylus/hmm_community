@@ -1,5 +1,5 @@
-import React from 'react';
-import { FoodItem, NutriScore } from '../types';
+import React, { useMemo } from 'react';
+import { FoodItem, NutriScore, ShoppingListItem } from '../types';
 import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, GlobeAltIcon, LockClosedIcon } from './Icons';
 import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
@@ -11,6 +11,8 @@ interface FoodItemCardProps {
   onEdit: (id: string) => void;
   onViewDetails: (item: FoodItem) => void;
   onAddToShoppingList: (item: FoodItem) => void;
+  onUpdateQuantity: (shoppingListItemId: string, newQuantity: number) => void;
+  shoppingListItems: ShoppingListItem[];
   isPreview?: boolean;
 }
 
@@ -44,9 +46,11 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
     );
 }
 
-export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, isPreview = false }) => {
+export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, onUpdateQuantity, shoppingListItems, isPreview = false }) => {
   const { t } = useTranslation();
   const displayItem = useTranslatedItem(item);
+
+  const shoppingListItem = useMemo(() => shoppingListItems.find(sli => sli.food_item_id === item.id), [shoppingListItems, item.id]);
 
   if (!displayItem) {
     return null; // Render nothing if the item is not available
@@ -99,13 +103,21 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                     {!isPreview && (
                         <div className="flex items-center gap-1 flex-shrink-0">
                             {displayItem.itemType === 'product' && (
-                                <button
-                                onClick={(e) => { e.stopPropagation(); onAddToShoppingList(item); }}
-                                className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors"
-                                aria-label={t('shoppingList.addAria', { name: displayItem.name })}
-                                >
-                                <ShoppingBagIcon className="w-5 h-5" />
-                            </button>
+                                shoppingListItem ? (
+                                    <div className="flex items-center gap-1 bg-gray-200 dark:bg-gray-700 rounded-full">
+                                        <button onClick={(e) => { e.stopPropagation(); onUpdateQuantity(shoppingListItem.id, shoppingListItem.quantity - 1);}} className="p-1.5 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors">
+                                            <span className="font-bold text-md leading-none">{shoppingListItem.quantity === 1 ? <TrashIcon className="w-4 h-4" /> : '-'}</span>
+                                        </button>
+                                        <span className="font-bold text-sm text-gray-800 dark:text-gray-200 min-w-[20px] text-center">{shoppingListItem.quantity}</span>
+                                        <button onClick={(e) => { e.stopPropagation(); onAddToShoppingList(item); }} className="p-1.5 text-gray-600 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400 transition-colors">
+                                            <span className="font-bold text-md leading-none">+</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button onClick={(e) => { e.stopPropagation(); onAddToShoppingList(item); }} className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors" aria-label={t('shoppingList.addAria', { name: displayItem.name })}>
+                                        <ShoppingBagIcon className="w-5 h-5" />
+                                    </button>
+                                )
                             )}
                             <button
                             onClick={(e) => { e.stopPropagation(); onEdit(item.id); }}

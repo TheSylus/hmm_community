@@ -1,5 +1,5 @@
 import React from 'react';
-import { FoodItem } from '../types';
+import { FoodItem, ShoppingListItem } from '../types';
 import { FoodItemCard } from './FoodItemCard';
 import { useTranslation } from '../i18n/index';
 
@@ -9,9 +9,11 @@ interface FoodItemListProps {
   onEdit: (id: string) => void;
   onViewDetails: (item: FoodItem) => void;
   onAddToShoppingList: (item: FoodItem) => void;
+  shoppingListItems: ShoppingListItem[];
+  onUpdateQuantity: (shoppingListItemId: string, newQuantity: number) => void;
 }
 
-export const FoodItemList: React.FC<FoodItemListProps> = ({ items, onDelete, onEdit, onViewDetails, onAddToShoppingList }) => {
+export const FoodItemList: React.FC<FoodItemListProps> = ({ items, onDelete, onEdit, onViewDetails, onAddToShoppingList, shoppingListItems, onUpdateQuantity }) => {
   const { t } = useTranslation();
 
   if (items.length === 0) {
@@ -33,6 +35,8 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, onDelete, onE
           onEdit={onEdit}
           onViewDetails={onViewDetails}
           onAddToShoppingList={onAddToShoppingList}
+          shoppingListItems={shoppingListItems}
+          onUpdateQuantity={onUpdateQuantity}
         />
       ))}
     </div>
