@@ -646,51 +646,36 @@ const App: React.FC = () => {
 
   const handleHouseholdCreate = useCallback(async (name: string) => {
     if (!user) return;
+    setDbError(null);
     try {
-        // We call the RPC function and assume it will not error, even if the internal profile update fails.
-        const { error: rpcError } = await supabase
+        // Step 1: Call the RPC function to create the household and get its ID.
+        // This requires a simpler database function that only inserts and returns the new ID.
+        const { data: newHouseholdId, error: rpcError } = await supabase
             .rpc('create_household', { household_name: name });
 
         if (rpcError) throw rpcError;
-        
-        // After the RPC call, we must verify that the user's profile was actually updated.
-        // We poll for a few seconds to account for potential database replication delays.
-        let updatedProfile: UserProfile | null = null;
-        for (let i = 0; i < 5; i++) { // Poll for up to 2.5 seconds
-            const { data: profileData, error: profileError } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .maybeSingle();
-            
-            if (profileError) {
-              // A real error occurred during polling, not just "not found".
-              throw profileError;
-            }
+        if (!newHouseholdId) throw new Error("Household created, but no ID was returned from the database function.");
 
-            if (profileData && profileData.household_id) {
-                updatedProfile = profileData;
-                break; // Success! The profile has been updated.
-            }
-            
-            // Wait before the next poll.
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
+        // Step 2: Update the user's profile with the new household ID directly from the client.
+        // This call is authorized by the RLS policy that allows users to update their own profile.
+        const { data: updatedProfile, error: updateError } = await supabase
+            .from('profiles')
+            .update({ household_id: newHouseholdId })
+            .eq('id', user.id)
+            .select()
+            .single();
 
-        if (updatedProfile && updatedProfile.household_id) {
-            // The operation was successful and verified.
-            setUserProfile(updatedProfile);
-            fetchHouseholdData(updatedProfile.household_id);
-            setToastMessage(t('shoppingList.joinSuccess', { householdName: name }));
-        } else {
-            // The profile was not updated, indicating a backend permission issue.
-            console.error("Profile not updated after creating household. This is likely a Supabase RLS or function permission issue.");
-            setDbError(t('household.error.rls'));
-        }
+        if (updateError) throw updateError;
+
+        // Success!
+        setUserProfile(updatedProfile);
+        fetchHouseholdData(newHouseholdId);
+        setToastMessage(t('shoppingList.joinSuccess', { householdName: name }));
 
     } catch (error: any) {
-        // Catch any other errors from the RPC call or polling.
+        // Provide a more generic but still helpful error message for the new flow.
         setDbError(t('household.error.generic', { message: error.message }));
+        console.error("Error in two-step household creation:", error);
     }
   }, [user, fetchHouseholdData, t]);
 
