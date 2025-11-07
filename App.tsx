@@ -80,6 +80,9 @@ const mapDbToFoodItem = (dbItem: any): FoodItem => {
     is_lactose_free,
     is_vegan,
     is_gluten_free,
+    purchase_location,
+    restaurant_name,
+    cuisine_type,
     ...rest
   } = dbItem;
 
@@ -91,6 +94,9 @@ const mapDbToFoodItem = (dbItem: any): FoodItem => {
     isLactoseFree: is_lactose_free,
     isVegan: is_vegan,
     isGlutenFree: is_gluten_free,
+    purchaseLocation: purchase_location,
+    restaurantName: restaurant_name,
+    cuisineType: cuisine_type,
   } as FoodItem;
 };
 
@@ -103,6 +109,9 @@ const mapFoodItemToDbPayload = (itemData: Omit<FoodItem, 'id' | 'user_id' | 'cre
         isLactoseFree,
         isVegan,
         isGlutenFree,
+        purchaseLocation,
+        restaurantName,
+        cuisineType,
         ...restOfItemData
     } = itemData;
 
@@ -113,6 +122,9 @@ const mapFoodItemToDbPayload = (itemData: Omit<FoodItem, 'id' | 'user_id' | 'cre
         is_lactose_free: isLactoseFree || false,
         is_vegan: isVegan || false,
         is_gluten_free: isGlutenFree || false,
+        purchase_location: purchaseLocation,
+        restaurant_name: restaurantName,
+        cuisine_type: cuisineType,
     };
 };
 // --- End Data Mapping Layer ---
@@ -461,7 +473,7 @@ const App: React.FC = () => {
 
     const dbPayload = {
         ...mapFoodItemToDbPayload(itemData),
-        image_url: imageUrl || null,
+        image_url: imageUrl || undefined,
         user_id: user.id,
     };
     
