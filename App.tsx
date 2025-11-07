@@ -647,28 +647,49 @@ const App: React.FC = () => {
   const handleHouseholdCreate = useCallback(async (name: string) => {
     if (!user) return;
     try {
-        const { error } = await supabase
+        // We call the RPC function and assume it will not error, even if the internal profile update fails.
+        const { error: rpcError } = await supabase
             .rpc('create_household', { household_name: name });
 
-        if (error) throw error;
+        if (rpcError) throw rpcError;
         
-        // Refetch profile which will trigger a cascade of data fetching for the new household.
-        // Use .maybeSingle() to be more resilient to potential replication delays or RLS issues.
-        const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
-        if (profileError) throw profileError;
-
-        if (profileData) {
-            setUserProfile(profileData);
-            if (profileData.household_id) {
-              fetchHouseholdData(profileData.household_id);
+        // After the RPC call, we must verify that the user's profile was actually updated.
+        // We poll for a few seconds to account for potential database replication delays.
+        let updatedProfile: UserProfile | null = null;
+        for (let i = 0; i < 5; i++) { // Poll for up to 2.5 seconds
+            const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .maybeSingle();
+            
+            if (profileError) {
+              // A real error occurred during polling, not just "not found".
+              throw profileError;
             }
+
+            if (profileData && profileData.household_id) {
+                updatedProfile = profileData;
+                break; // Success! The profile has been updated.
+            }
+            
+            // Wait before the next poll.
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        if (updatedProfile && updatedProfile.household_id) {
+            // The operation was successful and verified.
+            setUserProfile(updatedProfile);
+            fetchHouseholdData(updatedProfile.household_id);
+            setToastMessage(t('shoppingList.joinSuccess', { householdName: name }));
         } else {
-            console.error("Could not refetch user profile after household creation.");
-            // A refresh might be needed. The UI should still be okay.
-            setToastMessage("Household created! Please refresh to see changes if they don't appear automatically.");
+            // The profile was not updated, indicating a backend permission issue.
+            console.error("Profile not updated after creating household. This is likely a Supabase RLS or function permission issue.");
+            setDbError(t('household.error.rls'));
         }
 
     } catch (error: any) {
+        // Catch any other errors from the RPC call or polling.
         setDbError(t('household.error.generic', { message: error.message }));
     }
   }, [user, fetchHouseholdData, t]);
