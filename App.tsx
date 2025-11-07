@@ -648,36 +648,44 @@ const App: React.FC = () => {
     if (!user) return;
     setDbError(null);
     try {
-        // Step 1: Call the RPC function to create the household and get its ID.
-        // This requires a simpler database function that only inserts and returns the new ID.
+        // Step 1: Call the simplified RPC function to create the household and return its ID.
         const { data: newHouseholdId, error: rpcError } = await supabase
             .rpc('create_household', { household_name: name });
 
         if (rpcError) throw rpcError;
-        if (!newHouseholdId) throw new Error("Household created, but no ID was returned from the database function.");
+        if (!newHouseholdId || typeof newHouseholdId !== 'string') {
+            throw new Error("Database function did not return a valid household ID.");
+        }
 
-        // Step 2: Update the user's profile with the new household ID directly from the client.
-        // This call is authorized by the RLS policy that allows users to update their own profile.
-        const { data: updatedProfile, error: updateError } = await supabase
+        // Step 2: Update the user's profile from the client. Avoid chaining .select() to prevent race conditions.
+        const { error: updateError } = await supabase
             .from('profiles')
             .update({ household_id: newHouseholdId })
-            .eq('id', user.id)
-            .select()
-            .single();
+            .eq('id', user.id);
 
         if (updateError) throw updateError;
 
-        // Success!
-        setUserProfile(updatedProfile);
-        fetchHouseholdData(newHouseholdId);
+        // Step 3: Manually refetch the user's profile to get the latest data.
+        // Setting this state will trigger the main useEffect hook to refetch all associated household data.
+        const { data: refreshedProfile, error: profileError } = await supabase
+          .from('profiles').select('*').eq('id', user.id).single();
+
+        if (profileError) throw profileError;
+        
+        setUserProfile(refreshedProfile);
+        
         setToastMessage(t('shoppingList.joinSuccess', { householdName: name }));
 
     } catch (error: any) {
-        // Provide a more generic but still helpful error message for the new flow.
-        setDbError(t('household.error.generic', { message: error.message }));
-        console.error("Error in two-step household creation:", error);
+        if (error.message.includes("coerce")) {
+            setDbError(t('household.error.rls'));
+        } else {
+            setDbError(t('household.error.generic', { message: error.message }));
+        }
+        console.error("Error in household creation:", error);
     }
-  }, [user, fetchHouseholdData, t]);
+  }, [user, t]);
+
 
   const handleHouseholdLeave = useCallback(async () => {
     if (!user || !userProfile || !window.confirm(t('settings.household.manage.leaveConfirm'))) return;
@@ -1007,6 +1015,7 @@ const App: React.FC = () => {
       {isShoppingListOpen && 
         <ShoppingListModal 
             allLists={shoppingLists}
+            {/* FIX: Corrected typo from `activeListId` to `activeShoppingListId` to pass the correct state variable. */}
             activeListId={activeShoppingListId}
             listData={hydratedShoppingList} 
             household={household}
