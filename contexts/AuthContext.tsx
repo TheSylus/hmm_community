@@ -21,34 +21,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const setData = async (session: Session | null) => {
       setSession(session);
       setUser(session?.user ?? null);
-
-      // If a user has logged in, check for and create a profile if it doesn't exist.
-      // This handles the first login after email confirmation and fixes the registration bug.
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', session.user.id)
-          .single();
-
-        // If no profile is found, create one.
-        if (!profile) {
-          const { error: insertError } = await supabase
-            .from('profiles')
-            .insert({
-              id: session.user.id,
-              // Use email as a default display name, stripping the domain for privacy/brevity.
-              display_name: session.user.email?.split('@')[0] || 'New User',
-            });
-
-          if (insertError) {
-            console.error('Error creating user profile:', insertError.message);
-            // This error will likely be due to RLS policies. The user must ensure
-            // that authenticated users are allowed to insert into the profiles table.
-          }
-        }
-      }
-      
       setLoading(false);
     };
 
