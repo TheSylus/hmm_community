@@ -648,25 +648,29 @@ const App: React.FC = () => {
     if (!user) return;
     setDbError(null);
     try {
-        // Step 1: Create the household via RPC, which returns the new ID
-        const { data: newHouseholdId, error: rpcError } = await supabase
-            .rpc('create_household', { household_name: name });
+        // Step 1: Directly insert the new household from the client, bypassing the RPC function.
+        const { data: newHousehold, error: insertError } = await supabase
+            .from('households')
+            .insert({ name: name, owner_id: user.id })
+            .select()
+            .single();
 
-        if (rpcError) {
-             if (rpcError.message.includes('violates row-level security policy for table "households"')) {
+        if (insertError) {
+             // The error message from Supabase for RLS violations is very specific
+             if (insertError.message.includes('violates row-level security policy for table "households"')) {
                 throw new Error('RLS_INSERT_VIOLATION');
             }
-            throw rpcError;
+            throw insertError;
         }
 
-        if (!newHouseholdId || typeof newHouseholdId !== 'string') {
-            throw new Error("Database function did not return a valid household ID.");
+        if (!newHousehold || !newHousehold.id) {
+            throw new Error("Database did not return a valid household after creation.");
         }
         
         // Step 2: Update the user's profile with the new ID
         const { data: updatedProfile, error: updateError } = await supabase
             .from('profiles')
-            .update({ household_id: newHouseholdId })
+            .update({ household_id: newHousehold.id })
             .eq('id', user.id)
             .select()
             .single();
@@ -675,7 +679,7 @@ const App: React.FC = () => {
 
         // Step 3: Update local state and fetch new household data
         setUserProfile(updatedProfile);
-        fetchHouseholdData(newHouseholdId);
+        await fetchHouseholdData(newHousehold.id);
         
         setToastMessage(t('shoppingList.joinSuccess', { householdName: name }));
 
