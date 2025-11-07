@@ -648,8 +648,7 @@ const App: React.FC = () => {
     if (!user) return;
     try {
         const { error } = await supabase
-            .rpc('create_household', { household_name: name })
-            .single();
+            .rpc('create_household', { household_name: name });
 
         if (error) throw error;
         
