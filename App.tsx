@@ -648,7 +648,6 @@ const App: React.FC = () => {
     if (!user) return;
     setDbError(null);
     try {
-        // Step 1: Call the simplified RPC function to create the household and return its ID.
         const { data: newHouseholdId, error: rpcError } = await supabase
             .rpc('create_household', { household_name: name });
 
@@ -656,17 +655,14 @@ const App: React.FC = () => {
         if (!newHouseholdId || typeof newHouseholdId !== 'string') {
             throw new Error("Database function did not return a valid household ID.");
         }
-
-        // Step 2: Update the user's profile from the client. Avoid chaining .select() to prevent race conditions.
+        
         const { error: updateError } = await supabase
             .from('profiles')
             .update({ household_id: newHouseholdId })
             .eq('id', user.id);
 
         if (updateError) throw updateError;
-
-        // Step 3: Manually refetch the user's profile to get the latest data.
-        // Setting this state will trigger the main useEffect hook to refetch all associated household data.
+        
         const { data: refreshedProfile, error: profileError } = await supabase
           .from('profiles').select('*').eq('id', user.id).single();
 
@@ -677,11 +673,11 @@ const App: React.FC = () => {
         setToastMessage(t('shoppingList.joinSuccess', { householdName: name }));
 
     } catch (error: any) {
-        if (error.message.includes("coerce")) {
-            setDbError(t('household.error.rls'));
-        } else {
-            setDbError(t('household.error.generic', { message: error.message }));
+        let errorMessage = t('household.error.generic', { message: error.message });
+        if (error?.message?.includes('violates row-level security policy for table "households"')) {
+            errorMessage = t('household.error.rls.insert');
         }
+        setDbError(errorMessage);
         console.error("Error in household creation:", error);
     }
   }, [user, t]);
@@ -1015,7 +1011,6 @@ const App: React.FC = () => {
       {isShoppingListOpen && 
         <ShoppingListModal 
             allLists={shoppingLists}
-            {/* FIX: Corrected typo from `activeListId` to `activeShoppingListId` to pass the correct state variable. */}
             activeListId={activeShoppingListId}
             listData={hydratedShoppingList} 
             household={household}
