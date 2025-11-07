@@ -653,12 +653,19 @@ const App: React.FC = () => {
         if (error) throw error;
         
         // Refetch profile which will trigger a cascade of data fetching for the new household.
-        const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        // Use .maybeSingle() to be more resilient to potential replication delays or RLS issues.
+        const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
         if (profileError) throw profileError;
 
-        setUserProfile(profileData);
-        if (profileData?.household_id) {
-          fetchHouseholdData(profileData.household_id);
+        if (profileData) {
+            setUserProfile(profileData);
+            if (profileData.household_id) {
+              fetchHouseholdData(profileData.household_id);
+            }
+        } else {
+            console.error("Could not refetch user profile after household creation.");
+            // A refresh might be needed. The UI should still be okay.
+            setToastMessage("Household created! Please refresh to see changes if they don't appear automatically.");
         }
 
     } catch (error: any) {
