@@ -14,12 +14,11 @@ import { Auth } from './components/Auth';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './contexts/AuthContext';
 import { useFoodData } from './hooks/useFoodData';
+import { useHousehold } from './hooks/useHousehold';
+import { useShoppingList } from './hooks/useShoppingList';
 import * as geminiService from './services/geminiService';
-import * as foodItemService from './services/foodItemService';
-import { supabase } from './services/supabaseClient';
 import { useTranslation } from './i18n/index';
 import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, GlobeAltIcon } from './components/Icons';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 // Helper function to decode from URL-safe Base64 and decompress the data
 const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
@@ -62,14 +61,24 @@ const ActiveFilterPill: React.FC<{onDismiss: () => void, children: React.ReactNo
 const App: React.FC = () => {
   const { t } = useTranslation();
   const { session, user } = useAuth();
-  const realtimeChannelRef = React.useRef<RealtimeChannel | null>(null);
 
-  // User & Household State
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [household, setHousehold] = useState<Household | null>(null);
-  const [householdMembers, setHouseholdMembers] = useState<UserProfile[]>([]);
+  // --- Hook Integration ---
   
-  // Use Custom Hook for Food Data
+  // 1. Household Management
+  const { 
+    userProfile, 
+    household, 
+    householdMembers, 
+    loading: isHouseholdLoading,
+    error: householdError,
+    createHousehold,
+    joinHousehold,
+    leaveHousehold,
+    deleteHousehold,
+    refreshHousehold
+  } = useHousehold(user);
+
+  // 2. Food Data Management
   const { 
     foodItems, 
     familyFoodItems, 
@@ -80,10 +89,24 @@ const App: React.FC = () => {
     refreshData: refreshFoodData
   } = useFoodData(user, userProfile?.household_id);
 
-  // Shopping List State
-  const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
-  const [activeShoppingListId, setActiveShoppingListId] = useState<string | null>(null);
-  const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
+  // 3. Shopping List Management
+  const {
+    shoppingLists,
+    activeShoppingListId,
+    shoppingListItems,
+    error: shoppingListError,
+    setActiveShoppingListId,
+    createList,
+    deleteList,
+    addItemToList,
+    updateQuantity,
+    removeItem,
+    toggleChecked,
+    clearCompleted
+  } = useShoppingList(user, household);
+
+
+  // --- Local UI State ---
   
   // UI/View State
   const [activeView, setActiveView] = useState<AppView>('dashboard');
@@ -110,129 +133,37 @@ const App: React.FC = () => {
   const [isItemTypeModalVisible, setIsItemTypeModalVisible] = useState(false);
   const [newItemType, setNewItemType] = useState<FoodItemType>('product');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [generalError, setGeneralError] = useState<string | null>(null);
   
   // Offline State
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const isAnyFilterActive = useMemo(() => searchTerm.trim() !== '' || ratingFilter !== 'all' || typeFilter !== 'all' || aiSearchQuery !== '', [searchTerm, ratingFilter, typeFilter, aiSearchQuery]);
   
-  // Fetch Household Meta Data (Members, Shopping Lists)
-  // NOTE: Food Items are handled by useFoodData hook now.
-  const fetchHouseholdMetaData = useCallback(async (householdId: string) => {
-    if (!user || !householdId) {
-        setHousehold(null);
-        setHouseholdMembers([]);
-        setShoppingLists([]);
-        setActiveShoppingListId(null);
-        return;
-    }
-    
-    try {
-        // Fetch household details
-        const { data: householdData, error: householdError } = await supabase.from('households').select('*').eq('id', householdId).single();
-        if (householdError) throw householdError;
-        setHousehold(householdData);
-
-        // Fetch household members
-        const { data: membersData, error: membersError } = await supabase.from('profiles').select('*').eq('household_id', householdId);
-        if (membersError) throw membersError;
-        setHouseholdMembers(membersData || []);
-
-        // Fetch shopping lists for the household
-        const { data: listsData, error: listsError } = await supabase.from('shopping_lists').select('*').eq('household_id', householdId);
-        if (listsError) throw listsError;
-        
-        if (listsData && listsData.length === 0) {
-            const { data: newList, error: newListError } = await supabase
-                .from('shopping_lists')
-                .insert({ household_id: householdId, name: t('shoppingList.defaultListName') })
-                .select().single();
-            if (newListError) throw newListError;
-            if (newList) {
-                setShoppingLists([newList]);
-                setActiveShoppingListId(newList.id);
-            }
-        } else if (listsData) {
-            setShoppingLists(listsData);
-            const lastUsedListId = localStorage.getItem(`activeShoppingListId_${householdId}`);
-            const listExists = listsData.some(l => l.id === lastUsedListId);
-            setActiveShoppingListId(listExists ? lastUsedListId : listsData[0]?.id || null);
-        }
-    } catch (error: any) {
-        if (isOnline) setGeneralError(`Error loading household data: ${error.message}.`);
-        console.error("Household meta data fetch error:", error);
-    }
-  }, [user, isOnline, t]);
-
-
-  useEffect(() => {
-    if (user) {
-        const fetchProfile = async () => {
-            const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-            if (error) console.error("Error fetching profile:", error);
-            setUserProfile(data);
-            if (data?.household_id) {
-                fetchHouseholdMetaData(data.household_id);
-            } else {
-                fetchHouseholdMetaData(''); // Clear household data
-            }
-        };
-        fetchProfile();
-    } else {
-        // Clear all data on logout
-        setShoppingLists([]);
-        setShoppingListItems([]);
-        setActiveShoppingListId(null);
-        setUserProfile(null);
-        setHousehold(null);
-        setHouseholdMembers([]);
-    }
-  }, [user, fetchHouseholdMetaData]);
-
-  const handleJoinHousehold = useCallback(async (householdId: string) => {
-    if (!user || !userProfile) return;
-    try {
-        // Update profile
-        const { data, error } = await supabase.from('profiles').update({ household_id: householdId }).eq('id', user.id).select().single();
-        if (error) throw error;
-        
-        setUserProfile(data); // Refresh profile state
-        fetchHouseholdMetaData(householdId); // Fetch new household data
-
-        setToastMessage(t('shoppingList.joinSuccess', { householdName: data?.name || '' }));
-    } catch (error: any) {
-        console.error("Error joining household:", error);
-        setGeneralError(`Error joining household: ${error.message}`);
-    }
-  }, [user, userProfile, fetchHouseholdMetaData, t]);
-
-
+  // Handle Join Household via URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const householdInvite = params.get('join_household');
-    if (householdInvite && userProfile) { // Check for profile to avoid race condition on startup
-        handleJoinHousehold(householdInvite);
-        window.history.replaceState({}, document.title, window.location.pathname);
+    if (householdInvite && userProfile && !userProfile.household_id) {
+       joinHousehold(householdInvite)
+        .then((name) => setToastMessage(t('shoppingList.joinSuccess', { householdName: name || '' })))
+        .catch(console.error);
+       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, [userProfile, handleJoinHousehold]);
-
+  }, [userProfile, joinHousehold, t]);
 
   // Listen for online/offline status changes
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     return () => {
         window.removeEventListener('online', handleOnline);
         window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  // Listen for messages from the service worker (e.g., after a sync)
+  // Listen for service worker sync messages
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
         if (event.data && event.data.type === 'SYNC_COMPLETE') {
@@ -240,7 +171,7 @@ const App: React.FC = () => {
             setToastMessage(t('offline.syncComplete'));
             if(user) {
               refreshFoodData();
-              if(userProfile?.household_id) fetchHouseholdMetaData(userProfile.household_id);
+              refreshHousehold();
             }
         }
     };
@@ -252,44 +183,7 @@ const App: React.FC = () => {
         navigator.serviceWorker.removeEventListener('message', handleMessage);
       }
     };
-  }, [refreshFoodData, fetchHouseholdMetaData, user, userProfile, t]);
-
-
-  // Fetch shopping list items when active list changes
-  useEffect(() => {
-    if (!activeShoppingListId || !user || activeShoppingListId.startsWith('temp_') || !household) {
-      setShoppingListItems([]);
-      return;
-    }
-    localStorage.setItem(`activeShoppingListId_${household.id}`, activeShoppingListId);
-
-    const fetchListItems = async () => {
-      try {
-        const { data, error } = await supabase.from('shopping_list_items').select('*').eq('list_id', activeShoppingListId);
-        if (error) throw error;
-        setShoppingListItems(data || []);
-      } catch(error: any) {
-          if(isOnline) setGeneralError(`Error loading list data: ${error.message}.`);
-          console.error("List fetch error:", error);
-      }
-    };
-    fetchListItems();
-
-    if (realtimeChannelRef.current) realtimeChannelRef.current.unsubscribe();
-    
-    const channel = supabase.channel(`shopping_list:${activeShoppingListId}`);
-    channel
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => setShoppingListItems(prev => [...prev, payload.new as ShoppingListItem]))
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => setShoppingListItems(prev => prev.map(item => item.id === payload.new.id ? payload.new as ShoppingListItem : item)))
-        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => setShoppingListItems(prev => prev.filter(item => item.id !== (payload.old as any).id)))
-        .subscribe();
-
-    realtimeChannelRef.current = channel;
-    
-    return () => {
-        if (realtimeChannelRef.current) realtimeChannelRef.current.unsubscribe();
-    };
-  }, [activeShoppingListId, user, isOnline, household]);
+  }, [refreshFoodData, refreshHousehold, user, t]);
 
 
   // Toast Message Timeout
@@ -334,7 +228,7 @@ const App: React.FC = () => {
     }
   }, [searchTerm, ratingFilter, typeFilter, aiSearchResults.ids]);
 
-  // Main Action Handlers utilizing useFoodData Hook
+  // Main Action Handlers utilizing Hooks
   const handleSaveFormItem = useCallback(async (itemData: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
       // Check for duplicates only if adding new item
       if (!editingItem) {
@@ -397,225 +291,20 @@ const App: React.FC = () => {
     setActiveView('dashboard');
   }, [clearAiSearch]);
   
-  const handleAddToShoppingList = useCallback(async (item: FoodItem) => {
-      if (!user || !activeShoppingListId) return;
+  const handleAddToShoppingListWrapper = useCallback((item: FoodItem) => {
+      addItemToList(item.id, 1);
+      setToastMessage(t('shoppingList.addedToast', { name: item.name }));
+  }, [addItemToList, t]);
 
-      const existingItem = shoppingListItems.find(sli => sli.food_item_id === item.id && sli.list_id === activeShoppingListId);
-
-      if (existingItem) {
-          // Item exists, so we increment quantity
-          const newQuantity = existingItem.quantity + 1;
-          const originalItems = [...shoppingListItems];
-          setShoppingListItems(prev => prev.map(sli => sli.id === existingItem.id ? { ...sli, quantity: newQuantity } : sli));
-          setToastMessage(t('shoppingList.addedAnotherToast', { name: item.name }));
-
-          const { error } = await supabase
-              .from('shopping_list_items')
-              .update({ quantity: newQuantity })
-              .eq('id', existingItem.id);
-          
-          if (error && isOnline) {
-              setGeneralError(`Error updating quantity: ${error.message}`);
-              setShoppingListItems(originalItems);
-          }
-      } else {
-          // Item does not exist, so we add it with quantity 1
-          const originalItems = [...shoppingListItems];
-          const tempItem: ShoppingListItem = {
-            id: `temp_${Date.now()}`, list_id: activeShoppingListId, food_item_id: item.id, added_by_user_id: user.id,
-            checked: false, created_at: new Date().toISOString(), checked_by_user_id: null, quantity: 1
-          };
-          setShoppingListItems(prev => [...prev, tempItem]);
-          setToastMessage(t('shoppingList.addedToast', { name: item.name }));
-
-          const { error } = await supabase
-              .from('shopping_list_items')
-              .insert({ food_item_id: item.id, list_id: activeShoppingListId, added_by_user_id: user.id, quantity: 1 });
-          
-          if (error && isOnline) {
-              setGeneralError(`Error adding to shopping list: ${error.message}`);
-              setShoppingListItems(originalItems);
-          }
+  const handleHouseholdCreateWrapper = useCallback(async (name: string) => {
+      try {
+          await createHousehold(name);
+          setToastMessage(t('shoppingList.joinSuccess', { householdName: name }));
+      } catch (e) {
+          // Error handled in hook, but we might want toast
       }
-  }, [user, shoppingListItems, activeShoppingListId, t, isOnline]);
-
-
-  const handleUpdateShoppingItemQuantity = useCallback(async (shoppingListItemId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-        handleRemoveFromShoppingList(shoppingListItemId);
-        return;
-    }
-
-    const originalItems = [...shoppingListItems];
-    setShoppingListItems(prev => prev.map(i => i.id === shoppingListItemId ? {...i, quantity: newQuantity } : i));
-
-    const { error } = await supabase
-        .from('shopping_list_items')
-        .update({ quantity: newQuantity })
-        .eq('id', shoppingListItemId);
-    
-    if (error && isOnline) {
-        setGeneralError(`Error updating item quantity: ${error.message}`);
-        setShoppingListItems(originalItems);
-    }
-}, [shoppingListItems, isOnline]);
-
-  const handleRemoveFromShoppingList = useCallback(async (shoppingListItemId: string) => {
-      const originalItems = shoppingListItems;
-      setShoppingListItems(prev => prev.filter(i => i.id !== shoppingListItemId));
-      
-      const { error } = await supabase.from('shopping_list_items').delete().eq('id', shoppingListItemId);
-      if (error && isOnline) {
-          setGeneralError(`Error removing item: ${error.message}`);
-          setShoppingListItems(originalItems);
-      }
-  }, [shoppingListItems, isOnline]);
+  }, [createHousehold, t]);
   
-  const handleToggleCheckedItem = useCallback(async (shoppingListItemId: string, isChecked: boolean) => {
-    if (!user) return;
-    const originalItems = shoppingListItems;
-    setShoppingListItems(prev => prev.map(i => i.id === shoppingListItemId ? {...i, checked: isChecked, checked_by_user_id: isChecked ? user.id : null} : i));
-
-    const { error } = await supabase
-        .from('shopping_list_items')
-        .update({ checked: isChecked, checked_by_user_id: isChecked ? user.id : null })
-        .eq('id', shoppingListItemId);
-    
-    if (error && isOnline) {
-        setGeneralError(`Error updating item: ${error.message}`);
-        setShoppingListItems(originalItems);
-    }
-  }, [user, shoppingListItems, isOnline]);
-
-  const handleClearCompletedShoppingList = useCallback(async () => {
-    if (!activeShoppingListId) return;
-    const checkedIds = shoppingListItems.filter(item => item.checked).map(item => item.id);
-    if (checkedIds.length === 0) return;
-    
-    const originalItems = shoppingListItems;
-    setShoppingListItems(prev => prev.filter(i => !i.checked));
-
-    const { error } = await supabase.from('shopping_list_items').delete().in('id', checkedIds);
-    if (error && isOnline) {
-        setGeneralError(`Error clearing completed items: ${error.message}`);
-        setShoppingListItems(originalItems);
-    }
-  }, [shoppingListItems, activeShoppingListId, isOnline]);
-
-  const handleCreateNewList = useCallback(async (name: string) => {
-    if (!user || !household || !name.trim()) return;
-    const originalLists = shoppingLists;
-    const tempList: ShoppingList = {
-        id: `temp_${Date.now()}`, name: name.trim(), household_id: household.id, created_at: new Date().toISOString()
-    };
-    setShoppingLists(prev => [...prev, tempList]);
-    setActiveShoppingListId(tempList.id);
-
-    const { error } = await supabase.from('shopping_lists').insert({ name: name.trim(), household_id: household.id }).select().single();
-    if (error && isOnline) {
-        setGeneralError("Error creating new list:" + error.message);
-        setShoppingLists(originalLists);
-    } else {
-        fetchHouseholdMetaData(household.id);
-    }
-  }, [user, isOnline, shoppingLists, household, fetchHouseholdMetaData]);
-
-  const handleDeleteList = useCallback(async (listId: string) => {
-      const originalLists = [...shoppingLists];
-      const newLists = shoppingLists.filter(l => l.id !== listId);
-      setShoppingLists(newLists);
-      if (activeShoppingListId === listId) {
-        const newActiveId = newLists[0]?.id || null;
-        setActiveShoppingListId(newActiveId);
-        if (newActiveId && household) localStorage.setItem(`activeShoppingListId_${household.id}`, newActiveId);
-        else if(household) localStorage.removeItem(`activeShoppingListId_${household.id}`);
-      }
-
-      const { error } = await supabase.from('shopping_lists').delete().eq('id', listId);
-      if (error && isOnline) {
-          setGeneralError(`Error deleting list: ${error.message}`);
-          setShoppingLists(originalLists);
-      }
-  }, [shoppingLists, activeShoppingListId, isOnline, household]);
-
-  const handleHouseholdCreate = useCallback(async (name: string) => {
-    if (!user) return;
-    setGeneralError(null);
-    try {
-        const { data: newHousehold, error: insertError } = await supabase
-            .from('households')
-            .insert({ name: name, owner_id: user.id })
-            .select()
-            .single();
-
-        if (insertError) {
-             if (insertError.message.includes('violates row-level security policy for table "households"')) {
-                throw new Error('RLS_INSERT_VIOLATION');
-            }
-            throw insertError;
-        }
-
-        if (!newHousehold || !newHousehold.id) {
-            throw new Error("Database did not return a valid household after creation.");
-        }
-        
-        const { data: updatedProfile, error: updateError } = await supabase
-            .from('profiles')
-            .update({ household_id: newHousehold.id })
-            .eq('id', user.id)
-            .select()
-            .single();
-
-        if (updateError) throw updateError;
-
-        setUserProfile(updatedProfile);
-        await fetchHouseholdMetaData(newHousehold.id);
-        refreshFoodData(); // Refresh food data as well since household ID changed
-        
-        setToastMessage(t('shoppingList.joinSuccess', { householdName: name }));
-
-    } catch (error: any) {
-        let errorMessage;
-        if (error?.message === 'RLS_INSERT_VIOLATION') {
-            errorMessage = t('household.error.rls.insert');
-        } else {
-            errorMessage = t('household.error.generic', { message: error.message });
-        }
-        setGeneralError(errorMessage);
-        console.error("Error in household creation:", error);
-    }
-  }, [user, t, fetchHouseholdMetaData, refreshFoodData]);
-
-
-  const handleHouseholdLeave = useCallback(async () => {
-    if (!user || !userProfile || !window.confirm(t('settings.household.manage.leaveConfirm'))) return;
-    try {
-        const { data, error } = await supabase.from('profiles').update({ household_id: null }).eq('id', user.id).select().single();
-        if (error) throw error;
-        setUserProfile(data);
-        fetchHouseholdMetaData(''); 
-        refreshFoodData();
-    } catch (error: any) {
-        setGeneralError("Error leaving household: " + error.message);
-    }
-  }, [user, userProfile, fetchHouseholdMetaData, refreshFoodData, t]);
-
-  const handleHouseholdDelete = useCallback(async () => {
-    if (!user || !household || household.owner_id !== user.id || !window.confirm(t('settings.household.manage.deleteConfirm'))) return;
-    try {
-        const { error } = await supabase.from('households').delete().eq('id', household.id);
-        if (error) throw error;
-        const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-        if(profileError) throw profileError;
-        setUserProfile(profileData);
-        fetchHouseholdMetaData('');
-        refreshFoodData();
-    } catch (error: any) {
-        setGeneralError("Error deleting household: " + error.message);
-    }
-  }, [user, household, fetchHouseholdMetaData, refreshFoodData, t]);
-
-
   const handleAddSharedItem = useCallback(async () => {
     if (sharedItemToShow) {
       await saveItem(sharedItemToShow);
@@ -713,11 +402,11 @@ const App: React.FC = () => {
   }
 
   const renderContent = () => {
-    if (isFoodLoading) {
+    if (isFoodLoading || (userProfile?.household_id && !household && isHouseholdLoading)) {
        return (
            <div className="flex flex-col items-center justify-center pt-20">
               <SpinnerIcon className="w-12 h-12 text-indigo-500" />
-              <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">Loading your food memories...</p>
+              <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">Loading...</p>
            </div>
        );
     }
@@ -742,12 +431,10 @@ const App: React.FC = () => {
             onEdit={handleStartEdit}
             onDelete={handleDeleteFormItem}
             onViewDetails={handleViewDetails}
-            onAddToShoppingList={handleAddToShoppingList}
+            onAddToShoppingList={handleAddToShoppingListWrapper}
           />
         );
       case 'family':
-        // Since family fetching is integrated in useFoodData, we don't need a separate loading state here strictly,
-        // but we can check if household exists.
         if (!household) {
           return (
             <div className="text-center py-10 px-4">
@@ -756,7 +443,7 @@ const App: React.FC = () => {
             </div>
           );
         }
-        return <FoodItemList items={filteredAndSortedItems} onDelete={handleDeleteFormItem} onEdit={handleStartEdit} onViewDetails={handleViewDetails} onAddToShoppingList={handleAddToShoppingList} />;
+        return <FoodItemList items={filteredAndSortedItems} onDelete={handleDeleteFormItem} onEdit={handleStartEdit} onViewDetails={handleViewDetails} onAddToShoppingList={handleAddToShoppingListWrapper} />;
       case 'list':
       default:
         return (
@@ -779,14 +466,15 @@ const App: React.FC = () => {
               onDelete={handleDeleteFormItem} 
               onEdit={handleStartEdit}
               onViewDetails={handleViewDetails}
-              onAddToShoppingList={handleAddToShoppingList}
+              onAddToShoppingList={handleAddToShoppingListWrapper}
             />
           </>
         );
     }
   }
 
-  const displayError = foodError || generalError;
+  // Aggregate errors for display
+  const displayError = foodError || householdError || shoppingListError;
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans transition-colors duration-300 pb-20">
@@ -903,9 +591,9 @@ const App: React.FC = () => {
       {isSettingsOpen && <SettingsModal 
           onClose={() => setIsSettingsOpen(false)} 
           household={household}
-          onHouseholdCreate={handleHouseholdCreate}
-          onHouseholdLeave={handleHouseholdLeave}
-          onHouseholdDelete={handleHouseholdDelete}
+          onHouseholdCreate={handleHouseholdCreateWrapper}
+          onHouseholdLeave={leaveHousehold}
+          onHouseholdDelete={deleteHousehold}
       />}
       {isShoppingListOpen && 
         <ShoppingListModal 
@@ -915,14 +603,14 @@ const App: React.FC = () => {
             household={household}
             householdMembers={householdMembers}
             currentUser={user}
-            onRemove={handleRemoveFromShoppingList} 
-            onClear={handleClearCompletedShoppingList} 
-            onToggleChecked={handleToggleCheckedItem} 
+            onRemove={removeItem} 
+            onClear={clearCompleted} 
+            onToggleChecked={toggleChecked} 
             onClose={() => setIsShoppingListOpen(false)}
             onSelectList={setActiveShoppingListId}
-            onCreateList={handleCreateNewList}
-            onDeleteList={handleDeleteList}
-            onUpdateQuantity={handleUpdateShoppingItemQuantity}
+            onCreateList={createList}
+            onDeleteList={deleteList}
+            onUpdateQuantity={updateQuantity}
         />
       }
 
