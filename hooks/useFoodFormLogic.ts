@@ -128,14 +128,6 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
     }
   }, [highlightedFields]);
 
-  // Auto-find restaurants for new dishes
-  useEffect(() => {
-    const isEditing = !!initialData;
-    if (itemType === 'dish' && !isEditing && isAiAvailable) {
-      handleFindNearby();
-    }
-  }, [itemType, initialData, isAiAvailable]); // Note: handleFindNearby dependency omitted to avoid loop, strictly relying on effect trigger conditions
-
   // --- Logic Handlers ---
 
   const handleFindNearby = useCallback(() => {
@@ -174,6 +166,16 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
       { timeout: 10000 }
     );
   }, [t]);
+
+  // Auto-find restaurants for new dishes
+  // MOVED: This useEffect must be AFTER handleFindNearby is defined
+  useEffect(() => {
+    const isEditing = !!initialData;
+    if (itemType === 'dish' && !isEditing && isAiAvailable) {
+      handleFindNearby();
+    }
+  }, [itemType, initialData, isAiAvailable, handleFindNearby]);
+
 
   const handleScanMainImage = useCallback(() => {
     setScanMode('main');
