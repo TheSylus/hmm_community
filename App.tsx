@@ -13,8 +13,9 @@ import { FoodItemDetailView } from './components/FoodItemDetailView';
 import { Auth } from './components/Auth';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './contexts/AuthContext';
+import { useFoodData } from './hooks/useFoodData';
 import * as geminiService from './services/geminiService';
-import * as foodItemService from './services/foodItemService'; // Import the new service
+import * as foodItemService from './services/foodItemService';
 import { supabase } from './services/supabaseClient';
 import { useTranslation } from './i18n/index';
 import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, GlobeAltIcon } from './components/Icons';
@@ -31,21 +32,6 @@ const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
   const decompressed = await new Response(stream).text();
   return JSON.parse(decompressed);
 };
-
-// Helper function to convert a base64 string to a Blob for uploading
-const base64ToBlob = (base64: string, mimeType: string): Blob => {
-    const byteCharacters = atob(base64.split(',')[1]);
-    const byteArrays = [];
-    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-        const slice = byteCharacters.slice(offset, offset + 512);
-        const byteNumbers = new Array(slice.length);
-        for (let i = 0; i < slice.length; i++) { byteNumbers[i] = slice.charCodeAt(i); }
-        const byteArray = new Uint8Array(byteNumbers);
-        byteArrays.push(byteArray);
-    }
-    return new Blob(byteArrays, { type: mimeType });
-};
-
 
 export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
 export type RatingFilter = 'liked' | 'disliked' | 'all';
@@ -78,19 +64,27 @@ const App: React.FC = () => {
   const { session, user } = useAuth();
   const realtimeChannelRef = React.useRef<RealtimeChannel | null>(null);
 
-  // Main Data State
-  const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
-  const [familyFoodItems, setFamilyFoodItems] = useState<FoodItem[]>([]);
-  const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
-  const [activeShoppingListId, setActiveShoppingListId] = useState<string | null>(null);
-  const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
+  // User & Household State
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
   const [householdMembers, setHouseholdMembers] = useState<UserProfile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isFamilyItemsLoading, setIsFamilyItemsLoading] = useState(true);
-  const [dbError, setDbError] = useState<string | null>(null);
+  
+  // Use Custom Hook for Food Data
+  const { 
+    foodItems, 
+    familyFoodItems, 
+    isLoading: isFoodLoading, 
+    error: foodError, 
+    saveItem, 
+    deleteItem,
+    refreshData: refreshFoodData
+  } = useFoodData(user, userProfile?.household_id);
 
+  // Shopping List State
+  const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
+  const [activeShoppingListId, setActiveShoppingListId] = useState<string | null>(null);
+  const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
+  
   // UI/View State
   const [activeView, setActiveView] = useState<AppView>('dashboard');
   const [isFormVisible, setIsFormVisible] = useState(false);
@@ -116,37 +110,24 @@ const App: React.FC = () => {
   const [isItemTypeModalVisible, setIsItemTypeModalVisible] = useState(false);
   const [newItemType, setNewItemType] = useState<FoodItemType>('product');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState<string | null>(null);
   
   // Offline State
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const isAnyFilterActive = useMemo(() => searchTerm.trim() !== '' || ratingFilter !== 'all' || typeFilter !== 'all' || aiSearchQuery !== '', [searchTerm, ratingFilter, typeFilter, aiSearchQuery]);
   
-  const fetchPersonalData = useCallback(async () => {
-    if (!user) return;
-    setIsLoading(true);
-    setDbError(null);
-    try {
-        const items = await foodItemService.fetchUserFoodItems(user.id);
-        setFoodItems(items);
-    } catch (error: any) {
-        if (isOnline) setDbError(`Error loading personal data: ${error.message}.`);
-        console.error("Personal data fetch error:", error);
-    } finally {
-        setIsLoading(false);
-    }
-  }, [user, isOnline]);
-
-  const fetchHouseholdData = useCallback(async (householdId: string) => {
+  // Fetch Household Meta Data (Members, Shopping Lists)
+  // NOTE: Food Items are handled by useFoodData hook now.
+  const fetchHouseholdMetaData = useCallback(async (householdId: string) => {
     if (!user || !householdId) {
         setHousehold(null);
         setHouseholdMembers([]);
-        setFamilyFoodItems([]);
         setShoppingLists([]);
         setActiveShoppingListId(null);
         return;
     }
-    setIsFamilyItemsLoading(true);
+    
     try {
         // Fetch household details
         const { data: householdData, error: householdError } = await supabase.from('households').select('*').eq('id', householdId).single();
@@ -157,10 +138,6 @@ const App: React.FC = () => {
         const { data: membersData, error: membersError } = await supabase.from('profiles').select('*').eq('household_id', householdId);
         if (membersError) throw membersError;
         setHouseholdMembers(membersData || []);
-
-        // Fetch family favorite items using the Service
-        const familyItems = await foodItemService.fetchFamilyFavorites();
-        setFamilyFoodItems(familyItems);
 
         // Fetch shopping lists for the household
         const { data: listsData, error: listsError } = await supabase.from('shopping_lists').select('*').eq('household_id', householdId);
@@ -183,10 +160,8 @@ const App: React.FC = () => {
             setActiveShoppingListId(listExists ? lastUsedListId : listsData[0]?.id || null);
         }
     } catch (error: any) {
-        if (isOnline) setDbError(`Error loading household data: ${error.message}.`);
-        console.error("Household data fetch error:", error);
-    } finally {
-      setIsFamilyItemsLoading(false);
+        if (isOnline) setGeneralError(`Error loading household data: ${error.message}.`);
+        console.error("Household meta data fetch error:", error);
     }
   }, [user, isOnline, t]);
 
@@ -194,33 +169,26 @@ const App: React.FC = () => {
   useEffect(() => {
     if (user) {
         const fetchProfile = async () => {
-            setIsLoading(true);
             const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
             if (error) console.error("Error fetching profile:", error);
             setUserProfile(data);
-            fetchPersonalData();
             if (data?.household_id) {
-                fetchHouseholdData(data.household_id);
+                fetchHouseholdMetaData(data.household_id);
             } else {
-                fetchHouseholdData(''); // Clear household data
-                setIsFamilyItemsLoading(false);
+                fetchHouseholdMetaData(''); // Clear household data
             }
         };
         fetchProfile();
     } else {
         // Clear all data on logout
-        setFoodItems([]);
-        setFamilyFoodItems([]);
         setShoppingLists([]);
         setShoppingListItems([]);
         setActiveShoppingListId(null);
         setUserProfile(null);
         setHousehold(null);
         setHouseholdMembers([]);
-        setIsLoading(false);
-        setIsFamilyItemsLoading(false);
     }
-  }, [user, fetchPersonalData, fetchHouseholdData]);
+  }, [user, fetchHouseholdMetaData]);
 
   const handleJoinHousehold = useCallback(async (householdId: string) => {
     if (!user || !userProfile) return;
@@ -230,14 +198,14 @@ const App: React.FC = () => {
         if (error) throw error;
         
         setUserProfile(data); // Refresh profile state
-        fetchHouseholdData(householdId); // Fetch new household data
+        fetchHouseholdMetaData(householdId); // Fetch new household data
 
         setToastMessage(t('shoppingList.joinSuccess', { householdName: data?.name || '' }));
     } catch (error: any) {
         console.error("Error joining household:", error);
-        setDbError(`Error joining household: ${error.message}`);
+        setGeneralError(`Error joining household: ${error.message}`);
     }
-  }, [user, userProfile, fetchHouseholdData, t]);
+  }, [user, userProfile, fetchHouseholdMetaData, t]);
 
 
   useEffect(() => {
@@ -271,8 +239,8 @@ const App: React.FC = () => {
             console.log('Sync complete! Re-fetching data.');
             setToastMessage(t('offline.syncComplete'));
             if(user) {
-              fetchPersonalData();
-              if(userProfile?.household_id) fetchHouseholdData(userProfile.household_id);
+              refreshFoodData();
+              if(userProfile?.household_id) fetchHouseholdMetaData(userProfile.household_id);
             }
         }
     };
@@ -284,7 +252,7 @@ const App: React.FC = () => {
         navigator.serviceWorker.removeEventListener('message', handleMessage);
       }
     };
-  }, [fetchPersonalData, fetchHouseholdData, user, userProfile, t]);
+  }, [refreshFoodData, fetchHouseholdMetaData, user, userProfile, t]);
 
 
   // Fetch shopping list items when active list changes
@@ -301,7 +269,7 @@ const App: React.FC = () => {
         if (error) throw error;
         setShoppingListItems(data || []);
       } catch(error: any) {
-          if(isOnline) setDbError(`Error loading list data: ${error.message}.`);
+          if(isOnline) setGeneralError(`Error loading list data: ${error.message}.`);
           console.error("List fetch error:", error);
       }
     };
@@ -366,99 +334,40 @@ const App: React.FC = () => {
     }
   }, [searchTerm, ratingFilter, typeFilter, aiSearchResults.ids]);
 
-  // Handlers
-  const handleSaveItem = useCallback(async (itemData: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>): Promise<void> => {
-    if (!user) {
-        setDbError("You must be logged in to save items.");
-        return;
-    }
-    
-    setDbError(null);
-    let imageUrl = itemData.image;
-    const originalItems = [...foodItems];
-
-    const tempId = `temp_${Date.now()}`;
-    const optimisticItem: FoodItem = {
-        ...itemData, id: editingItem ? editingItem.id : tempId, user_id: user.id, created_at: new Date().toISOString(), image: imageUrl || undefined, tags: itemData.tags || [],
-    };
-    
-    // Optimistic UI Update
-    if (editingItem) {
-        setFoodItems(prev => prev.map(item => item.id === editingItem.id ? optimisticItem : item));
-    } else {
-        setFoodItems(prev => [optimisticItem, ...prev]);
-    }
-    handleCancelForm();
-    
-    // Image Upload Logic
-    if (imageUrl && imageUrl.startsWith('data:image')) {
-        if (!isOnline) {
-            setToastMessage("Offline: Image will be uploaded later. Saving text data now.");
-            imageUrl = undefined;
-        } else {
-            const mimeType = imageUrl.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/jpeg';
-            const blob = base64ToBlob(imageUrl, mimeType);
-            const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
-            const { error: uploadError } = await supabase.storage.from('food-images').upload(fileName, blob, { contentType: mimeType });
-            if (uploadError) {
-                setDbError(`Failed to upload image: ${uploadError.message}`);
-                setFoodItems(originalItems);
-                return;
-            }
-            const { data: urlData } = supabase.storage.from('food-images').getPublicUrl(fileName);
-            imageUrl = urlData.publicUrl;
-        }
-    }
-
-    try {
-      if (editingItem) {
-          const updatedItem = await foodItemService.updateFoodItem(editingItem.id, itemData, user.id, imageUrl);
-          setFoodItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
-      } else {
-          // Check duplicates logic
-          const duplicates = foodItems.filter(item => item.name.trim().toLowerCase() === itemData.name.trim().toLowerCase() && item.id !== tempId);
-          if (duplicates.length > 0 && !editingItem) {
+  // Main Action Handlers utilizing useFoodData Hook
+  const handleSaveFormItem = useCallback(async (itemData: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
+      // Check for duplicates only if adding new item
+      if (!editingItem) {
+          const duplicates = foodItems.filter(item => item.name.trim().toLowerCase() === itemData.name.trim().toLowerCase());
+          if (duplicates.length > 0) {
               setPotentialDuplicates(duplicates);
               setItemToAdd(itemData);
-              setFoodItems(prev => prev.filter(item => item.id !== tempId)); // Revert optimistic add
               return;
           }
-          const newItem = await foodItemService.createFoodItem(itemData, user.id, imageUrl);
-          setFoodItems(prev => prev.map(item => item.id === tempId ? newItem : item));
       }
-    } catch(error: any) {
-      if (isOnline) {
-        setDbError(`Failed to save item: ${error.message}`);
-        setFoodItems(originalItems); // Revert on error
-      }
-    }
 
-    if (itemData.isFamilyFavorite && userProfile?.household_id) fetchHouseholdData(userProfile.household_id);
-  }, [editingItem, foodItems, handleCancelForm, user, isOnline, userProfile, fetchHouseholdData, setToastMessage]);
+      const success = await saveItem(itemData, editingItem?.id);
+      if (success) {
+        handleCancelForm();
+      }
+  }, [editingItem, foodItems, saveItem, handleCancelForm]);
+
 
   const handleConfirmDuplicateAdd = useCallback(async () => {
     if (itemToAdd) {
-        await handleSaveItem(itemToAdd);
+        await saveItem(itemToAdd);
     }
     setItemToAdd(null);
     setPotentialDuplicates([]);
-  }, [itemToAdd, handleSaveItem]);
-
-  const handleDeleteItem = useCallback(async (id: string) => {
-    setDbError(null);
-    const originalItems = foodItems;
-    setFoodItems(prevItems => prevItems.filter(item => item.id !== id));
-    
-    try {
-      await foodItemService.deleteFoodItem(id);
-    } catch(error: any) {
-      if (isOnline) {
-        setDbError(`Failed to delete item: ${error.message}`);
-        setFoodItems(originalItems);
-      }
-    }
-  }, [foodItems, isOnline]);
+    handleCancelForm();
+  }, [itemToAdd, saveItem, handleCancelForm]);
   
+  const handleDeleteFormItem = useCallback(async (id: string) => {
+      await deleteItem(id);
+  }, [deleteItem]);
+
+
+  // Other Handlers
   const handleConversationalSearch = useCallback(async (query: string) => {
     setAiSearchQuery(query);
     setIsFilterPanelVisible(false);
@@ -506,7 +415,7 @@ const App: React.FC = () => {
               .eq('id', existingItem.id);
           
           if (error && isOnline) {
-              setDbError(`Error updating quantity: ${error.message}`);
+              setGeneralError(`Error updating quantity: ${error.message}`);
               setShoppingListItems(originalItems);
           }
       } else {
@@ -524,7 +433,7 @@ const App: React.FC = () => {
               .insert({ food_item_id: item.id, list_id: activeShoppingListId, added_by_user_id: user.id, quantity: 1 });
           
           if (error && isOnline) {
-              setDbError(`Error adding to shopping list: ${error.message}`);
+              setGeneralError(`Error adding to shopping list: ${error.message}`);
               setShoppingListItems(originalItems);
           }
       }
@@ -546,7 +455,7 @@ const App: React.FC = () => {
         .eq('id', shoppingListItemId);
     
     if (error && isOnline) {
-        setDbError(`Error updating item quantity: ${error.message}`);
+        setGeneralError(`Error updating item quantity: ${error.message}`);
         setShoppingListItems(originalItems);
     }
 }, [shoppingListItems, isOnline]);
@@ -557,7 +466,7 @@ const App: React.FC = () => {
       
       const { error } = await supabase.from('shopping_list_items').delete().eq('id', shoppingListItemId);
       if (error && isOnline) {
-          setDbError(`Error removing item: ${error.message}`);
+          setGeneralError(`Error removing item: ${error.message}`);
           setShoppingListItems(originalItems);
       }
   }, [shoppingListItems, isOnline]);
@@ -573,7 +482,7 @@ const App: React.FC = () => {
         .eq('id', shoppingListItemId);
     
     if (error && isOnline) {
-        setDbError(`Error updating item: ${error.message}`);
+        setGeneralError(`Error updating item: ${error.message}`);
         setShoppingListItems(originalItems);
     }
   }, [user, shoppingListItems, isOnline]);
@@ -588,7 +497,7 @@ const App: React.FC = () => {
 
     const { error } = await supabase.from('shopping_list_items').delete().in('id', checkedIds);
     if (error && isOnline) {
-        setDbError(`Error clearing completed items: ${error.message}`);
+        setGeneralError(`Error clearing completed items: ${error.message}`);
         setShoppingListItems(originalItems);
     }
   }, [shoppingListItems, activeShoppingListId, isOnline]);
@@ -604,12 +513,12 @@ const App: React.FC = () => {
 
     const { error } = await supabase.from('shopping_lists').insert({ name: name.trim(), household_id: household.id }).select().single();
     if (error && isOnline) {
-        setDbError("Error creating new list:" + error.message);
+        setGeneralError("Error creating new list:" + error.message);
         setShoppingLists(originalLists);
     } else {
-        fetchHouseholdData(household.id);
+        fetchHouseholdMetaData(household.id);
     }
-  }, [user, isOnline, shoppingLists, household, fetchHouseholdData]);
+  }, [user, isOnline, shoppingLists, household, fetchHouseholdMetaData]);
 
   const handleDeleteList = useCallback(async (listId: string) => {
       const originalLists = [...shoppingLists];
@@ -624,16 +533,15 @@ const App: React.FC = () => {
 
       const { error } = await supabase.from('shopping_lists').delete().eq('id', listId);
       if (error && isOnline) {
-          setDbError(`Error deleting list: ${error.message}`);
+          setGeneralError(`Error deleting list: ${error.message}`);
           setShoppingLists(originalLists);
       }
   }, [shoppingLists, activeShoppingListId, isOnline, household]);
 
   const handleHouseholdCreate = useCallback(async (name: string) => {
     if (!user) return;
-    setDbError(null);
+    setGeneralError(null);
     try {
-        // Step 1: Directly insert the new household from the client, bypassing the RPC function.
         const { data: newHousehold, error: insertError } = await supabase
             .from('households')
             .insert({ name: name, owner_id: user.id })
@@ -641,7 +549,6 @@ const App: React.FC = () => {
             .single();
 
         if (insertError) {
-             // The error message from Supabase for RLS violations is very specific
              if (insertError.message.includes('violates row-level security policy for table "households"')) {
                 throw new Error('RLS_INSERT_VIOLATION');
             }
@@ -652,7 +559,6 @@ const App: React.FC = () => {
             throw new Error("Database did not return a valid household after creation.");
         }
         
-        // Step 2: Update the user's profile with the new ID
         const { data: updatedProfile, error: updateError } = await supabase
             .from('profiles')
             .update({ household_id: newHousehold.id })
@@ -662,9 +568,9 @@ const App: React.FC = () => {
 
         if (updateError) throw updateError;
 
-        // Step 3: Update local state and fetch new household data
         setUserProfile(updatedProfile);
-        await fetchHouseholdData(newHousehold.id);
+        await fetchHouseholdMetaData(newHousehold.id);
+        refreshFoodData(); // Refresh food data as well since household ID changed
         
         setToastMessage(t('shoppingList.joinSuccess', { householdName: name }));
 
@@ -675,10 +581,10 @@ const App: React.FC = () => {
         } else {
             errorMessage = t('household.error.generic', { message: error.message });
         }
-        setDbError(errorMessage);
+        setGeneralError(errorMessage);
         console.error("Error in household creation:", error);
     }
-  }, [user, t, fetchHouseholdData]);
+  }, [user, t, fetchHouseholdMetaData, refreshFoodData]);
 
 
   const handleHouseholdLeave = useCallback(async () => {
@@ -687,36 +593,35 @@ const App: React.FC = () => {
         const { data, error } = await supabase.from('profiles').update({ household_id: null }).eq('id', user.id).select().single();
         if (error) throw error;
         setUserProfile(data);
-        fetchHouseholdData(''); // Clear household data
+        fetchHouseholdMetaData(''); 
+        refreshFoodData();
     } catch (error: any) {
-        setDbError("Error leaving household: " + error.message);
+        setGeneralError("Error leaving household: " + error.message);
     }
-  }, [user, userProfile, fetchHouseholdData, t]);
+  }, [user, userProfile, fetchHouseholdMetaData, refreshFoodData, t]);
 
   const handleHouseholdDelete = useCallback(async () => {
     if (!user || !household || household.owner_id !== user.id || !window.confirm(t('settings.household.manage.deleteConfirm'))) return;
     try {
-        // This should be a cascading delete in the DB or handled via an RPC function for security.
-        // For simplicity here, we'll just delete the household record.
         const { error } = await supabase.from('households').delete().eq('id', household.id);
         if (error) throw error;
-        // The profiles would need to be updated, ideally via a DB trigger. We'll refetch to clear state.
         const { data: profileData, error: profileError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
         if(profileError) throw profileError;
         setUserProfile(profileData);
-        fetchHouseholdData('');
+        fetchHouseholdMetaData('');
+        refreshFoodData();
     } catch (error: any) {
-        setDbError("Error deleting household: " + error.message);
+        setGeneralError("Error deleting household: " + error.message);
     }
-  }, [user, household, fetchHouseholdData, t]);
+  }, [user, household, fetchHouseholdMetaData, refreshFoodData, t]);
 
 
-  const handleAddSharedItem = useCallback(() => {
+  const handleAddSharedItem = useCallback(async () => {
     if (sharedItemToShow) {
-      handleSaveItem(sharedItemToShow);
+      await saveItem(sharedItemToShow);
       setSharedItemToShow(null);
     }
-  }, [sharedItemToShow, handleSaveItem]);
+  }, [sharedItemToShow, saveItem]);
 
   const handleViewDetails = useCallback((item: FoodItem) => {
     setDetailItem(item);
@@ -808,7 +713,7 @@ const App: React.FC = () => {
   }
 
   const renderContent = () => {
-    if (isLoading) {
+    if (isFoodLoading) {
        return (
            <div className="flex flex-col items-center justify-center pt-20">
               <SpinnerIcon className="w-12 h-12 text-indigo-500" />
@@ -819,7 +724,7 @@ const App: React.FC = () => {
     if (isFormVisible) {
         return (
             <FoodItemForm 
-                onSaveItem={handleSaveItem} 
+                onSaveItem={handleSaveFormItem} 
                 onCancel={handleCancelForm}
                 initialData={editingItem}
                 itemType={editingItem?.itemType || newItemType}
@@ -835,20 +740,14 @@ const App: React.FC = () => {
             onViewAll={() => setActiveView('list')}
             onAddNew={handleAddNewClick}
             onEdit={handleStartEdit}
-            onDelete={handleDeleteItem}
+            onDelete={handleDeleteFormItem}
             onViewDetails={handleViewDetails}
             onAddToShoppingList={handleAddToShoppingList}
           />
         );
       case 'family':
-        if (isFamilyItemsLoading) {
-           return (
-             <div className="flex flex-col items-center justify-center pt-20">
-                <SpinnerIcon className="w-12 h-12 text-indigo-500" />
-                <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">{t('family.loading')}</p>
-             </div>
-           );
-        }
+        // Since family fetching is integrated in useFoodData, we don't need a separate loading state here strictly,
+        // but we can check if household exists.
         if (!household) {
           return (
             <div className="text-center py-10 px-4">
@@ -857,7 +756,7 @@ const App: React.FC = () => {
             </div>
           );
         }
-        return <FoodItemList items={filteredAndSortedItems} onDelete={handleDeleteItem} onEdit={handleStartEdit} onViewDetails={handleViewDetails} onAddToShoppingList={handleAddToShoppingList} />;
+        return <FoodItemList items={filteredAndSortedItems} onDelete={handleDeleteFormItem} onEdit={handleStartEdit} onViewDetails={handleViewDetails} onAddToShoppingList={handleAddToShoppingList} />;
       case 'list':
       default:
         return (
@@ -877,7 +776,7 @@ const App: React.FC = () => {
             {aiSearchResults.error && <p className="text-red-500 dark:text-red-400 text-center my-4">{aiSearchResults.error}</p>}
             <FoodItemList 
               items={filteredAndSortedItems} 
-              onDelete={handleDeleteItem} 
+              onDelete={handleDeleteFormItem} 
               onEdit={handleStartEdit}
               onViewDetails={handleViewDetails}
               onAddToShoppingList={handleAddToShoppingList}
@@ -886,6 +785,8 @@ const App: React.FC = () => {
         );
     }
   }
+
+  const displayError = foodError || generalError;
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans transition-colors duration-300 pb-20">
@@ -943,7 +844,7 @@ const App: React.FC = () => {
       <OfflineIndicator isOnline={isOnline} />
 
       <main className="container mx-auto p-4 md:p-8">
-        {dbError && isOnline && <div className="bg-red-100 dark:bg-red-900/50 border border-red-400 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg relative mb-6" role="alert">{dbError}</div>}
+        {displayError && isOnline && <div className="bg-red-100 dark:bg-red-900/50 border border-red-400 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg relative mb-6" role="alert">{displayError}</div>}
         {renderContent()}
       </main>
 
