@@ -84,6 +84,7 @@ const mapDbToFoodItem = (dbItem: any): FoodItem => {
     purchase_location,
     restaurant_name,
     cuisine_type,
+    nutri_score,
     ...rest
   } = dbItem;
 
@@ -98,6 +99,7 @@ const mapDbToFoodItem = (dbItem: any): FoodItem => {
     purchaseLocation: purchase_location,
     restaurantName: restaurant_name,
     cuisineType: cuisine_type,
+    nutriScore: nutri_score,
   } as FoodItem;
 };
 
@@ -113,6 +115,7 @@ const mapFoodItemToDbPayload = (itemData: Omit<FoodItem, 'id' | 'user_id' | 'cre
         purchaseLocation,
         restaurantName,
         cuisineType,
+        nutriScore,
         ...restOfItemData
     } = itemData;
 
@@ -126,6 +129,7 @@ const mapFoodItemToDbPayload = (itemData: Omit<FoodItem, 'id' | 'user_id' | 'cre
         purchase_location: purchaseLocation,
         restaurant_name: restaurantName,
         cuisine_type: cuisineType,
+        nutri_score: nutriScore,
     };
 };
 // --- End Data Mapping Layer ---
