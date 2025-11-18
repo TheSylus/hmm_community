@@ -14,6 +14,7 @@ import { Auth } from './components/Auth';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { useAuth } from './contexts/AuthContext';
 import * as geminiService from './services/geminiService';
+import * as foodItemService from './services/foodItemService'; // Import the new service
 import { supabase } from './services/supabaseClient';
 import { useTranslation } from './i18n/index';
 import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, GlobeAltIcon } from './components/Icons';
@@ -71,69 +72,6 @@ const ActiveFilterPill: React.FC<{onDismiss: () => void, children: React.ReactNo
   </div>
 );
 
-// --- Data Mapping Layer ---
-// Converts DB snake_case to frontend camelCase
-const mapDbToFoodItem = (dbItem: any): FoodItem => {
-  const {
-    image_url,
-    item_type,
-    is_family_favorite,
-    is_lactose_free,
-    is_vegan,
-    is_gluten_free,
-    purchase_location,
-    restaurant_name,
-    cuisine_type,
-    nutri_score,
-    ...rest
-  } = dbItem;
-
-  return {
-    ...rest,
-    itemType: item_type,
-    image: image_url || undefined,
-    isFamilyFavorite: is_family_favorite,
-    isLactoseFree: is_lactose_free,
-    isVegan: is_vegan,
-    isGlutenFree: is_gluten_free,
-    purchaseLocation: purchase_location,
-    restaurantName: restaurant_name,
-    cuisineType: cuisine_type,
-    nutriScore: nutri_score,
-  } as FoodItem;
-};
-
-// Converts frontend camelCase to DB snake_case for saving
-const mapFoodItemToDbPayload = (itemData: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
-    const {
-        image, // Handled separately as it involves upload
-        itemType,
-        isFamilyFavorite,
-        isLactoseFree,
-        isVegan,
-        isGlutenFree,
-        purchaseLocation,
-        restaurantName,
-        cuisineType,
-        nutriScore,
-        ...restOfItemData
-    } = itemData;
-
-    return {
-        ...restOfItemData,
-        item_type: itemType,
-        is_family_favorite: isFamilyFavorite || false,
-        is_lactose_free: isLactoseFree || false,
-        is_vegan: isVegan || false,
-        is_gluten_free: isGlutenFree || false,
-        purchase_location: purchaseLocation,
-        restaurant_name: restaurantName,
-        cuisine_type: cuisineType,
-        nutri_score: nutriScore,
-    };
-};
-// --- End Data Mapping Layer ---
-
 
 const App: React.FC = () => {
   const { t } = useTranslation();
@@ -189,12 +127,8 @@ const App: React.FC = () => {
     setIsLoading(true);
     setDbError(null);
     try {
-        const { data: foodItemsData, error: foodItemsError } = await supabase
-            .from('food_items').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-        if (foodItemsError) throw foodItemsError;
-        if (foodItemsData) {
-            setFoodItems(foodItemsData.map(mapDbToFoodItem));
-        }
+        const items = await foodItemService.fetchUserFoodItems(user.id);
+        setFoodItems(items);
     } catch (error: any) {
         if (isOnline) setDbError(`Error loading personal data: ${error.message}.`);
         console.error("Personal data fetch error:", error);
@@ -224,12 +158,9 @@ const App: React.FC = () => {
         if (membersError) throw membersError;
         setHouseholdMembers(membersData || []);
 
-        // Fetch family favorite items
-        const { data: familyItemsData, error: familyItemsError } = await supabase.from('food_items').select('*').eq('is_family_favorite', true);
-
-        if (familyItemsError) throw familyItemsError;
-        setFamilyFoodItems(familyItemsData?.map(mapDbToFoodItem) || []);
-
+        // Fetch family favorite items using the Service
+        const familyItems = await foodItemService.fetchFamilyFavorites();
+        setFamilyFoodItems(familyItems);
 
         // Fetch shopping lists for the household
         const { data: listsData, error: listsError } = await supabase.from('shopping_lists').select('*').eq('household_id', householdId);
@@ -450,6 +381,8 @@ const App: React.FC = () => {
     const optimisticItem: FoodItem = {
         ...itemData, id: editingItem ? editingItem.id : tempId, user_id: user.id, created_at: new Date().toISOString(), image: imageUrl || undefined, tags: itemData.tags || [],
     };
+    
+    // Optimistic UI Update
     if (editingItem) {
         setFoodItems(prev => prev.map(item => item.id === editingItem.id ? optimisticItem : item));
     } else {
@@ -457,6 +390,7 @@ const App: React.FC = () => {
     }
     handleCancelForm();
     
+    // Image Upload Logic
     if (imageUrl && imageUrl.startsWith('data:image')) {
         if (!isOnline) {
             setToastMessage("Offline: Image will be uploaded later. Saving text data now.");
@@ -476,38 +410,29 @@ const App: React.FC = () => {
         }
     }
 
-    const dbPayload = {
-        ...mapFoodItemToDbPayload(itemData),
-        image_url: imageUrl || undefined,
-        user_id: user.id,
-    };
-    
-    if (editingItem) {
-        const { data, error } = await supabase.from('food_items').update(dbPayload).eq('id', editingItem.id).select().single();
-        if (error && isOnline) {
-            setDbError(`Failed to update item: ${error.message}`);
-            setFoodItems(originalItems);
-        } else if(data) {
-            const finalItem = mapDbToFoodItem(data);
-            setFoodItems(prev => prev.map(item => item.id === finalItem.id ? finalItem : item));
-        }
-    } else {
-        const duplicates = foodItems.filter(item => item.name.trim().toLowerCase() === itemData.name.trim().toLowerCase() && item.id !== tempId);
-        if (duplicates.length > 0 && !editingItem) {
-            setPotentialDuplicates(duplicates);
-            setItemToAdd(itemData);
-            setFoodItems(prev => prev.filter(item => item.id !== tempId));
-            return;
-        }
-        const { data, error } = await supabase.from('food_items').insert(dbPayload).select().single();
-        if (error && isOnline) {
-            setDbError(`Failed to save item: ${error.message}`);
-            setFoodItems(originalItems);
-        } else if(data) {
-            const finalItem = mapDbToFoodItem(data);
-            setFoodItems(prev => prev.map(item => item.id === tempId ? finalItem : item));
-        }
+    try {
+      if (editingItem) {
+          const updatedItem = await foodItemService.updateFoodItem(editingItem.id, itemData, user.id, imageUrl);
+          setFoodItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+      } else {
+          // Check duplicates logic
+          const duplicates = foodItems.filter(item => item.name.trim().toLowerCase() === itemData.name.trim().toLowerCase() && item.id !== tempId);
+          if (duplicates.length > 0 && !editingItem) {
+              setPotentialDuplicates(duplicates);
+              setItemToAdd(itemData);
+              setFoodItems(prev => prev.filter(item => item.id !== tempId)); // Revert optimistic add
+              return;
+          }
+          const newItem = await foodItemService.createFoodItem(itemData, user.id, imageUrl);
+          setFoodItems(prev => prev.map(item => item.id === tempId ? newItem : item));
+      }
+    } catch(error: any) {
+      if (isOnline) {
+        setDbError(`Failed to save item: ${error.message}`);
+        setFoodItems(originalItems); // Revert on error
+      }
     }
+
     if (itemData.isFamilyFavorite && userProfile?.household_id) fetchHouseholdData(userProfile.household_id);
   }, [editingItem, foodItems, handleCancelForm, user, isOnline, userProfile, fetchHouseholdData, setToastMessage]);
 
@@ -524,11 +449,13 @@ const App: React.FC = () => {
     const originalItems = foodItems;
     setFoodItems(prevItems => prevItems.filter(item => item.id !== id));
     
-    const { error } = await supabase.from('food_items').delete().eq('id', id);
-
-    if (error && isOnline) {
+    try {
+      await foodItemService.deleteFoodItem(id);
+    } catch(error: any) {
+      if (isOnline) {
         setDbError(`Failed to delete item: ${error.message}`);
         setFoodItems(originalItems);
+      }
     }
   }, [foodItems, isOnline]);
   
