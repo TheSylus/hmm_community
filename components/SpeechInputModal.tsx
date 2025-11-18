@@ -2,6 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n/index';
 import { MicrophoneIcon } from './Icons';
 
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
 interface SpeechInputModalProps {
   onDictate: (transcript: string) => void;
   onClose: () => void;
