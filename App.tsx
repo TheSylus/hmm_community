@@ -591,11 +591,10 @@ const App: React.FC = () => {
       {isSettingsOpen && <SettingsModal 
           onClose={() => setIsSettingsOpen(false)} 
           household={household}
-          householdMembers={householdMembers} // Added prop
           onHouseholdCreate={handleHouseholdCreateWrapper}
           onHouseholdLeave={leaveHousehold}
           onHouseholdDelete={deleteHousehold}
-          error={householdError} 
+          error={householdError} // Passed error here
       />}
       {isShoppingListOpen && 
         <ShoppingListModal 
