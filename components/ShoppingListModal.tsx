@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon, UserGroupIcon, ArrowsUpDownIcon } from './Icons';
+import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, PlusCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, CheckBadgeIcon, UserCircleIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
 import { ShoppingList, UserProfile, Household } from '../types';
@@ -155,11 +155,9 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [isCreatingNewList, setIsCreatingNewList] = useState(false);
   const [newListName, setNewListName] = useState('');
-  const [shareStatus, setShareStatus] = useState<'idle' | 'copying' | 'copied'>('idle');
   const [isManageMenuOpen, setIsManageMenuOpen] = useState(false);
   const manageMenuRef = useRef<HTMLDivElement>(null);
   const [isShoppingMode, setIsShoppingMode] = useState(false);
-  const [currentView, setCurrentView] = useState<'list' | 'members'>('list');
 
 
   const activeList = useMemo(() => allLists.find(l => l.id === activeListId), [allLists, activeListId]);
@@ -183,30 +181,6 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
         onDeleteList(activeList.id);
         setIsManageMenuOpen(false);
     }
-  };
-
-  const handleShareHousehold = useCallback(async () => {
-    if (!household) return;
-    setShareStatus('copying');
-    const inviteUrl = `${window.location.origin}${window.location.pathname}?join_household=${household.id}`;
-    try {
-      await navigator.clipboard.writeText(inviteUrl);
-      setShareStatus('copied');
-      setTimeout(() => setShareStatus('idle'), 2000); // Reset after 2 seconds
-    } catch (err) {
-      console.error('Failed to copy share link:', err);
-      alert(t('shoppingList.share.copyFailed'));
-      setShareStatus('idle');
-    }
-  }, [household, t]);
-
-  const getInitials = (name: string) => {
-      if (!name) return '?';
-      const parts = name.split('@')[0].replace(/[^a-zA-Z\s]/g, ' ').split(' ');
-      if (parts.length > 1 && parts[0] && parts[parts.length -1]) {
-          return (parts[0][0] + (parts[parts.length - 1][0] || '')).toUpperCase();
-      }
-      return name.substring(0, 2).toUpperCase();
   };
 
   const { groupedItems, sortedGroupNames, checkedItemsCount } = useMemo(() => {
@@ -317,40 +291,6 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
       );
   }
 
-  const renderMembersView = () => (
-      <div className="animate-fade-in-fast">
-        <button onClick={() => setCurrentView('list')} className="mb-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-            <ChevronDownIcon className="w-4 h-4 rotate-90" />
-            {t('modal.duplicate.button.goBack')}
-        </button>
-        <div className="bg-gray-100 dark:bg-gray-700/50 p-4 rounded-lg space-y-4">
-            <div>
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">{t('shoppingList.collaboration.members')}</h3>
-                <div className="flex flex-col gap-3">
-                    {householdMembers.map(member => (
-                        <div key={member.id} className="flex items-center gap-3 p-2 bg-white dark:bg-gray-800 rounded-md shadow-sm">
-                            <div className="w-10 h-10 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-sm font-bold text-indigo-700 dark:text-indigo-200 ring-2 ring-white dark:ring-gray-800 shrink-0">
-                                {getInitials(member.display_name)}
-                            </div>
-                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
-                                {member.id === currentUser?.id ? `${member.display_name} (${t('shoppingList.collaboration.you')})` : member.display_name}
-                            </span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
-                <button onClick={handleShareHousehold} disabled={shareStatus !== 'idle'} className="w-full flex items-center justify-center gap-2 text-sm bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-3 rounded-md transition-colors disabled:opacity-70 shadow-sm">
-                    {shareStatus === 'copying' && <SpinnerIcon className="w-5 h-5" />}
-                    {shareStatus === 'copied' && <CheckCircleIcon className="w-5 h-5" />}
-                    {shareStatus === 'idle' && <UserPlusIcon className="w-5 h-5"/>}
-                    <span>{shareStatus === 'copied' ? t('shoppingList.share.linkCopied') : t('shoppingList.share.inviteButton')}</span>
-                </button>
-            </div>
-        </div>
-      </div>
-  );
-
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in"
@@ -365,7 +305,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
       >
         <div className="flex justify-between items-center mb-4 shrink-0">
             <h2 id="shopping-list-title" className="text-2xl font-bold text-gray-900 dark:text-white">
-                {currentView === 'members' ? t('shoppingList.collaboration.members') : t('shoppingList.title')}
+                {t('shoppingList.title')}
             </h2>
             <button
               onClick={onClose}
@@ -376,10 +316,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
             </button>
         </div>
         
-        {currentView === 'members' ? (
-            renderMembersView()
-        ) : (
-            <>
+        
             <div className="mb-4 space-y-4 shrink-0">
                 <div className="space-y-2">
                     <div className="flex gap-2">
@@ -398,11 +335,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                 <EllipsisVerticalIcon className="w-5 h-5"/>
                             </button>
                             {isManageMenuOpen && (
-                                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10 animate-fade-in-fast overflow-hidden">
-                                     <button onClick={() => { setCurrentView('members'); setIsManageMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 transition-colors border-b border-gray-100 dark:border-gray-600">
-                                        <UserGroupIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                        {t('shoppingList.share.inviteButton')} / {t('shoppingList.collaboration.members')}
-                                    </button>
+                                <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10 animate-fade-in-fast overflow-hidden">
                                     <button onClick={handleDelete} className="w-full text-left px-4 py-3 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center gap-2 transition-colors">
                                         <TrashIcon className="w-4 h-4" />
                                         {t('shoppingList.delete.button')}
@@ -481,8 +414,6 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                     </button>
                 )}
             </div>
-            </>
-        )}
       </div>
       <style>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
