@@ -11,15 +11,16 @@ interface StoreLogoProps {
 // Maps common store names to their likely domain to fetch logos via API.
 const STORE_DOMAINS: Record<string, string> = {
   'lidl': 'lidl.com',
-  'aldi': 'aldi.com', // Covers both usually, or specific aldi-nord.de / aldi-sued.de
   'aldi süd': 'aldi-sued.de',
   'aldi sued': 'aldi-sued.de',
   'aldi nord': 'aldi-nord.de',
+  'aldi': 'aldi.com', 
   'rewe': 'rewe.de',
   'edeka': 'edeka.de',
   'kaufland': 'kaufland.com',
-  'netto': 'netto-online.de', // Marken-Discount
   'netto marken-discount': 'netto-online.de',
+  'netto scottie': 'netto.de',
+  'netto': 'netto-online.de', // Defaulting to the red/yellow Netto
   'penny': 'penny.de',
   'dm': 'dm.de',
   'rossmann': 'rossmann.de',
@@ -51,6 +52,11 @@ const STORE_DOMAINS: Record<string, string> = {
   'coop': 'coop.ch',
   'denner': 'denner.ch',
   'volg': 'volg.ch',
+  'ikea': 'ikea.com',
+  'decathlon': 'decathlon.de',
+  'bauhaus': 'bauhaus.info',
+  'obi': 'obi.de',
+  'hornbach': 'hornbach.de',
 };
 
 // Fallback colors if logo fails or isn't found
@@ -93,33 +99,56 @@ const getFallbackColor = (str: string) => {
 
 export const StoreLogo: React.FC<StoreLogoProps> = ({ name, size = 'sm', showName = false, className = '' }) => {
   const normalizedName = name.toLowerCase().trim();
-  const [imgError, setImgError] = useState(false);
   
-  // Reset error state if name changes
-  useEffect(() => {
-    setImgError(false);
-  }, [name]);
-
-  // 1. Try to find a domain for the logo
-  const domainKey = Object.keys(STORE_DOMAINS).find(key => normalizedName.includes(key));
+  // 1. Identify Domain by finding the longest matching key
+  // Sorting by length desc ensures "aldi süd" is matched before "aldi"
+  const domainKey = Object.keys(STORE_DOMAINS)
+    .sort((a, b) => b.length - a.length)
+    .find(key => normalizedName.includes(key));
+    
   const domain = domainKey ? STORE_DOMAINS[domainKey] : null;
-  const logoUrl = domain ? `https://logo.clearbit.com/${domain}?size=80` : null;
+  
+  // Image Source State
+  const [imgSource, setImgSource] = useState<string | null>(null);
+  const [isFallback, setIsFallback] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
-  // 2. Fallback Logic
+  useEffect(() => {
+    // Reset state when name/domain changes
+    setHasError(false);
+    setIsFallback(false);
+    if (domain) {
+        // Start with Clearbit
+        setImgSource(`https://logo.clearbit.com/${domain}?size=128`);
+    } else {
+        setImgSource(null);
+    }
+  }, [domain]);
+
+  const handleImgError = () => {
+    if (imgSource && imgSource.includes('clearbit') && domain) {
+        // If Clearbit failed, try Google Favicon as backup
+        setIsFallback(true);
+        setImgSource(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
+    } else {
+        // If Google also fails (or we weren't using Clearbit), give up
+        setHasError(true);
+    }
+  };
+
+  // Fallback styling logic
   let style = STORE_COLORS[Object.keys(STORE_COLORS).find(key => normalizedName.includes(key)) || ''];
   const isKnownColor = !!style;
   const fallbackBg = getFallbackColor(normalizedName);
 
   const sizeClasses = {
-    sm: 'w-6 h-6 text-[10px]', // Slightly larger to accommodate logos better
+    sm: 'w-6 h-6 text-[10px]',
     md: 'w-9 h-9 text-xs',
     lg: 'w-12 h-12 text-sm',
   };
   
-  // Container styles
   const containerBase = `flex items-center justify-center rounded-full font-bold shrink-0 shadow-sm overflow-hidden bg-white relative ${sizeClasses[size]}`;
   
-  // Styles for the fallback colored circle
   const fallbackStyle = isKnownColor 
     ? `${style.bg} ${style.text} ${style.border ? `border ${style.border}` : ''}` 
     : `${fallbackBg} text-white`;
@@ -128,14 +157,14 @@ export const StoreLogo: React.FC<StoreLogoProps> = ({ name, size = 'sm', showNam
 
   return (
     <div className={`inline-flex items-center gap-2 ${className}`}>
-      {logoUrl && !imgError ? (
-         // Render Real Logo
-        <div className={`${containerBase} border border-gray-200 dark:border-gray-600 p-0.5`} title={name}>
+      {imgSource && !hasError ? (
+         // Render Real Logo (Clearbit or Google)
+        <div className={`${containerBase} border border-gray-200 dark:border-gray-600 bg-white`} title={name}>
           <img 
-            src={logoUrl} 
+            src={imgSource} 
             alt={name} 
-            className="w-full h-full object-contain" 
-            onError={() => setImgError(true)}
+            className={`w-full h-full object-contain ${isFallback ? 'scale-75' : ''}`} // Google favicons might need padding
+            onError={handleImgError}
             loading="lazy"
           />
         </div>
