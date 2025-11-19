@@ -4,6 +4,7 @@ import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFree
 import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
+import { StoreLogo } from './StoreLogo';
 
 interface FoodItemCardProps {
   item: FoodItem;
@@ -55,9 +56,6 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   const hasDietaryOrAllergens = displayItem.itemType === 'product' && (displayItem.isLactoseFree || displayItem.isVegan || displayItem.isGlutenFree || (displayItem.allergens && displayItem.allergens.length > 0));
   const hasTags = displayItem.tags && displayItem.tags.length > 0;
   const isClickable = !!onViewDetails;
-
-  // Join purchase locations for display
-  const purchaseLocationDisplay = displayItem.purchaseLocation?.join(', ');
 
   return (
     <div 
@@ -134,10 +132,11 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                   </p>
                 )}
 
-                {displayItem.itemType === 'product' && purchaseLocationDisplay && (
-                  <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-                    <BuildingStorefrontIcon className="w-4 h-4 flex-shrink-0" />
-                    <p className="truncate italic" title={purchaseLocationDisplay}>{purchaseLocationDisplay}</p>
+                {displayItem.itemType === 'product' && displayItem.purchaseLocation && displayItem.purchaseLocation.length > 0 && (
+                  <div className="flex items-center gap-1 mt-1 overflow-hidden">
+                    {displayItem.purchaseLocation.map((loc, idx) => (
+                         <StoreLogo key={idx} name={loc} size="sm" showName={displayItem.purchaseLocation!.length < 3} className="mr-1" />
+                    ))}
                   </div>
                 )}
                 

@@ -3,8 +3,9 @@ import { useTranslation } from '../i18n/index';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppSettings } from '../contexts/AppSettingsContext';
 import { useAuth } from '../contexts/AuthContext';
-import { XMarkIcon, SpinnerIcon } from './Icons';
+import { XMarkIcon, SpinnerIcon, PlusCircleIcon, TrashIcon } from './Icons';
 import { Household, UserProfile } from '../types';
+import { StoreLogo } from './StoreLogo';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -91,6 +92,54 @@ const HouseholdManager: React.FC<Omit<SettingsModalProps, 'onClose'>> = ({ house
     );
 };
 
+const StoreManager: React.FC = () => {
+    const { t } = useTranslation();
+    const { savedShops, addSavedShop, removeSavedShop } = useAppSettings();
+    const [newShop, setNewShop] = useState('');
+
+    const handleAdd = () => {
+        if(newShop.trim()) {
+            addSavedShop(newShop);
+            setNewShop('');
+        }
+    };
+
+    return (
+        <div>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">{t('settings.shops.title')}</h3>
+            <div className="bg-gray-100 dark:bg-gray-900/50 p-4 rounded-lg space-y-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('settings.shops.description')}</p>
+                
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={newShop}
+                        onChange={(e) => setNewShop(e.target.value)}
+                        placeholder={t('settings.shops.placeholder')}
+                        className="flex-grow w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
+                        onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                    />
+                    <button onClick={handleAdd} disabled={!newShop.trim()} className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-400 dark:disabled:bg-gray-600">
+                        <PlusCircleIcon className="w-6 h-6" />
+                    </button>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mt-2">
+                    {savedShops.map(shop => (
+                        <div key={shop} className="flex items-center gap-2 bg-white dark:bg-gray-800 pl-2 pr-1 py-1 rounded-full shadow-sm border border-gray-200 dark:border-gray-700">
+                            <StoreLogo name={shop} size="sm" />
+                            <span className="text-sm font-medium">{shop}</span>
+                            <button onClick={() => removeSavedShop(shop)} className="p-1 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+                                <XMarkIcon className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, household, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete, error }) => {
   const { t, language, setLanguage } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -132,6 +181,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, household
             />
             <hr className="border-gray-200 dark:border-gray-700" />
             
+            <StoreManager />
+            
+            <hr className="border-gray-200 dark:border-gray-700" />
+
             {/* Language Selection */}
             <div>
                 <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">{t('settings.language.title')}</h3>

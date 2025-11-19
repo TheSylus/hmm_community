@@ -4,6 +4,7 @@ import { StarIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, BuildingStorefron
 import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
+import { StoreLogo } from './StoreLogo';
 
 interface FoodItemDetailViewProps {
   item: FoodItem;
@@ -53,9 +54,6 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
   const hasIngredients = displayItem.itemType === 'product' && displayItem.ingredients && displayItem.ingredients.length > 0;
   const hasTags = displayItem.tags && displayItem.tags.length > 0;
 
-  // Join purchase locations for display
-  const purchaseLocationDisplay = displayItem.purchaseLocation?.join(', ');
-  
   return (
     <div className="space-y-4 text-sm">
       {/* Header with Image, Name, Rating */}
@@ -72,10 +70,11 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
           <h3 className="text-xl font-bold text-gray-900 dark:text-white">{displayItem.name}</h3>
           
           {/* Purchase location for products */}
-          {displayItem.itemType === 'product' && purchaseLocationDisplay && (
-            <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 mt-1">
-              <BuildingStorefrontIcon className="w-4 h-4 flex-shrink-0" />
-              <p className="truncate italic" title={purchaseLocationDisplay}>{purchaseLocationDisplay}</p>
+          {displayItem.itemType === 'product' && displayItem.purchaseLocation && displayItem.purchaseLocation.length > 0 && (
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+               {displayItem.purchaseLocation.map((loc, idx) => (
+                   <StoreLogo key={idx} name={loc} size="sm" showName={true} className="bg-gray-100 dark:bg-gray-700 rounded-full pr-2 py-0.5" />
+               ))}
             </div>
           )}
 

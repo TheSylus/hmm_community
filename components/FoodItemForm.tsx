@@ -9,6 +9,7 @@ import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useAppSettings } from '../contexts/AppSettingsContext';
 import { useFoodFormLogic } from '../hooks/useFoodFormLogic';
+import { StoreLogo } from './StoreLogo';
 
 interface FoodItemFormProps {
   onSaveItem: (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => void;
@@ -29,7 +30,7 @@ const nutriScoreColors: Record<NutriScore, string> = {
 
 export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel, initialData, itemType, householdId }) => {
   const { t } = useTranslation();
-  const { isBarcodeScannerEnabled } = useAppSettings();
+  const { isBarcodeScannerEnabled, savedShops } = useAppSettings();
   
   const isEditing = !!initialData;
   
@@ -42,6 +43,22 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
     actions,
     fileInputRef
   } = useFoodFormLogic({ initialData, itemType, onSaveItem, onCancel });
+
+  const toggleShop = (shop: string) => {
+      const currentShops = formState.purchaseLocation.split(',').map(s => s.trim()).filter(Boolean);
+      let newShops;
+      if (currentShops.includes(shop)) {
+          newShops = currentShops.filter(s => s !== shop);
+      } else {
+          newShops = [...currentShops, shop];
+      }
+      formSetters.setPurchaseLocation(newShops.join(', '));
+  };
+
+  const isShopSelected = (shop: string) => {
+      const currentShops = formState.purchaseLocation.split(',').map(s => s.trim()).filter(Boolean);
+      return currentShops.includes(shop);
+  };
 
   return (
     <>
@@ -249,13 +266,33 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                 />
                 
                 {itemType === 'product' && (
-                    <input
-                        type="text"
-                        placeholder={t('form.placeholder.purchaseLocation')} // Placeholder updated by translation later, but logic now supports CSV
-                        value={formState.purchaseLocation}
-                        onChange={e => formSetters.setPurchaseLocation(e.target.value)}
-                        className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3"
-                    />
+                    <div>
+                        <input
+                            type="text"
+                            placeholder={t('form.placeholder.purchaseLocation')}
+                            value={formState.purchaseLocation}
+                            onChange={e => formSetters.setPurchaseLocation(e.target.value)}
+                            className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3"
+                        />
+                        {savedShops.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {savedShops.map(shop => {
+                                    const isSelected = isShopSelected(shop);
+                                    return (
+                                        <button
+                                            key={shop}
+                                            type="button"
+                                            onClick={() => toggleShop(shop)}
+                                            className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs border transition-colors ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/50 border-indigo-300 dark:border-indigo-700' : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                        >
+                                            <StoreLogo name={shop} size="sm" />
+                                            <span className={isSelected ? 'font-semibold text-indigo-800 dark:text-indigo-200' : 'text-gray-600 dark:text-gray-300'}>{shop}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 )}
 
                 {itemType === 'product' && (

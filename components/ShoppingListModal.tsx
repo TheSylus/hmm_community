@@ -6,6 +6,7 @@ import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
 import { ShoppingList, UserProfile, Household } from '../types';
 import { User } from '@supabase/supabase-js';
+import { StoreLogo } from './StoreLogo';
 
 interface ShoppingListModalProps {
   allLists: ShoppingList[];
@@ -272,9 +273,12 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                     if (!group || (group.active.length === 0 && group.completed.length === 0)) return null;
                     return (
                         <section key={groupName}>
-                            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2 border-b-2 border-gray-200 dark:border-gray-700 pb-1">
-                                {groupName}
-                            </h3>
+                            <div className="flex items-center gap-2 mb-2 border-b-2 border-gray-200 dark:border-gray-700 pb-1">
+                                {groupName !== t('shoppingList.uncategorized') && <StoreLogo name={groupName} size="md" />}
+                                <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                                    {groupName}
+                                </h3>
+                            </div>
                             <ul className="space-y-3">
                                 {group.active.map(item => (
                                     <ShoppingListItem 
@@ -478,9 +482,12 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                             if (!group || (group.active.length === 0 && group.completed.length === 0)) return null;
                             return (
                                 <section key={groupName}>
-                                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2 border-b-2 border-gray-200 dark:border-gray-700 pb-1">
-                                        {groupName}
-                                    </h3>
+                                    <div className="flex items-center gap-2 mb-2 border-b-2 border-gray-200 dark:border-gray-700 pb-1">
+                                        {groupName !== t('shoppingList.uncategorized') && <StoreLogo name={groupName} size="md" />}
+                                        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                                            {groupName}
+                                        </h3>
+                                    </div>
                                     <ul className="space-y-3">
                                         {group.active.map(item => (
                                             <ShoppingListItem 

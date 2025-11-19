@@ -7,6 +7,10 @@ interface AppSettingsContextType {
   setIsBarcodeScannerEnabled: (enabled: boolean) => void;
   isOffSearchEnabled: boolean;
   setIsOffSearchEnabled: (enabled: boolean) => void;
+  savedShops: string[];
+  setSavedShops: (shops: string[]) => void;
+  addSavedShop: (shop: string) => void;
+  removeSavedShop: (shop: string) => void;
 }
 
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
@@ -28,6 +32,11 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
     return savedSetting !== null ? JSON.parse(savedSetting) : true;
   });
 
+  const [savedShops, setSavedShopsState] = useState<string[]>(() => {
+      const saved = localStorage.getItem('savedShops');
+      return saved ? JSON.parse(saved) : ['Aldi', 'Lidl', 'Rewe', 'Edeka', 'DM'];
+  });
+
   const setIsAiEnabled = (enabled: boolean) => {
     setIsAiEnabledState(enabled);
     localStorage.setItem('isAiEnabled', JSON.stringify(enabled));
@@ -43,7 +52,29 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
     localStorage.setItem('isOffSearchEnabled', JSON.stringify(enabled));
   };
 
-  const value = { isAiEnabled, setIsAiEnabled, isBarcodeScannerEnabled, setIsBarcodeScannerEnabled, isOffSearchEnabled, setIsOffSearchEnabled };
+  const setSavedShops = (shops: string[]) => {
+      setSavedShopsState(shops);
+      localStorage.setItem('savedShops', JSON.stringify(shops));
+  }
+
+  const addSavedShop = (shop: string) => {
+      const trimmed = shop.trim();
+      if (!trimmed || savedShops.includes(trimmed)) return;
+      const newShops = [...savedShops, trimmed];
+      setSavedShops(newShops);
+  }
+
+  const removeSavedShop = (shop: string) => {
+      const newShops = savedShops.filter(s => s !== shop);
+      setSavedShops(newShops);
+  }
+
+  const value = { 
+      isAiEnabled, setIsAiEnabled, 
+      isBarcodeScannerEnabled, setIsBarcodeScannerEnabled, 
+      isOffSearchEnabled, setIsOffSearchEnabled,
+      savedShops, setSavedShops, addSavedShop, removeSavedShop
+  };
 
   return React.createElement(AppSettingsContext.Provider, { value }, children);
 };
