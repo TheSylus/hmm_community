@@ -1,5 +1,27 @@
 import { supabase } from './supabaseClient';
-import { FoodItem } from '../types';
+import { FoodItem, NutriScore } from '../types';
+
+// Define the exact shape of the database table to ensure type safety
+interface FoodItemDbPayload {
+  user_id: string;
+  name: string;
+  rating: number;
+  notes?: string;
+  image_url?: string;
+  tags?: string[];
+  item_type: 'product' | 'dish';
+  is_family_favorite: boolean;
+  nutri_score?: NutriScore | null;
+  ingredients?: string[];
+  allergens?: string[];
+  is_lactose_free: boolean;
+  is_vegan: boolean;
+  is_gluten_free: boolean;
+  purchase_location?: string;
+  restaurant_name?: string;
+  cuisine_type?: string;
+  price?: number;
+}
 
 // --- Mappers ---
 
@@ -7,8 +29,6 @@ import { FoodItem } from '../types';
  * Konvertiert ein Datenbank-Objekt (Snake Case) in das Frontend-Format (Camel Case).
  */
 export const mapDbToFoodItem = (dbItem: any): FoodItem => {
-  // Destructuring handles removing fields we don't map explicitly if needed,
-  // though here we map explicitly to ensure type safety.
   return {
     id: dbItem.id,
     user_id: dbItem.user_id,
@@ -22,7 +42,7 @@ export const mapDbToFoodItem = (dbItem: any): FoodItem => {
     isFamilyFavorite: dbItem.is_family_favorite, // DB: is_family_favorite
 
     // Product specific
-    nutriScore: dbItem.nutri_score, // FIX: Explicit mapping for the bug
+    nutriScore: dbItem.nutri_score, // Frontend 'nutriScore' <- DB 'nutri_score'
     ingredients: dbItem.ingredients,
     allergens: dbItem.allergens,
     isLactoseFree: dbItem.is_lactose_free,
@@ -39,21 +59,21 @@ export const mapDbToFoodItem = (dbItem: any): FoodItem => {
 
 /**
  * Konvertiert das Frontend-Objekt in das Datenbank-Format.
- * Hier wird sichergestellt, dass 'nutriScore' als 'nutri_score' gesendet wird.
+ * Explicitly constructs the object to prevent any 'nutriScore' keys from leaking into the payload.
  */
-export const mapFoodItemToDbPayload = (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'> & { user_id: string, image_url?: string }) => {
+export const mapFoodItemToDbPayload = (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'> & { user_id: string, image_url?: string }): FoodItemDbPayload => {
   return {
     user_id: item.user_id,
     name: item.name,
     rating: item.rating,
     notes: item.notes,
-    image_url: item.image_url || item.image, // Prioritize explict image_url if passed (e.g. after upload)
+    image_url: item.image_url || item.image,
     tags: item.tags,
     item_type: item.itemType,
     is_family_favorite: item.isFamilyFavorite || false,
 
-    // Product specific mappings
-    nutri_score: item.nutriScore || null, // FIX: The core fix. Frontend 'nutriScore' -> DB 'nutri_score'
+    // Product specific mappings - CRITICAL: Mapping camelCase to snake_case
+    nutri_score: item.nutriScore || null, 
     ingredients: item.ingredients,
     allergens: item.allergens,
     is_lactose_free: item.isLactoseFree || false,
@@ -92,6 +112,7 @@ export const fetchFamilyFavorites = async () => {
 };
 
 export const createFoodItem = async (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>, userId: string, imageUrl?: string) => {
+  // Ensure strict payload construction
   const payload = mapFoodItemToDbPayload({ ...item, user_id: userId, image_url: imageUrl });
   
   const { data, error } = await supabase

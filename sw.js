@@ -1,8 +1,8 @@
 // --- Service Worker for Offline Functionality ---
 
-// v3: Introducing offline queuing for API mutations.
-const APP_SHELL_CACHE_NAME = 'food-memory-tracker-v3-shell'; // For app assets (HTML, JS, CSS)
-const DYNAMIC_CACHE_NAME = 'food-memory-tracker-v3-dynamic'; // For API responses (Supabase)
+// v4: Incrementing version to force cache refresh and fix stale JS.
+const APP_SHELL_CACHE_NAME = 'food-memory-tracker-v4-shell'; // For app assets (HTML, JS, CSS)
+const DYNAMIC_CACHE_NAME = 'food-memory-tracker-v4-dynamic'; // For API responses (Supabase)
 
 // --- IndexedDB Helpers for Queuing Offline Actions ---
 const DB_NAME = 'food-tracker-offline';

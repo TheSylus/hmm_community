@@ -12,9 +12,10 @@ interface SettingsModalProps {
   onHouseholdCreate: (name: string) => Promise<void>;
   onHouseholdLeave: () => Promise<void>;
   onHouseholdDelete: () => Promise<void>;
+  error?: string | null;
 }
 
-const HouseholdManager: React.FC<Omit<SettingsModalProps, 'onClose'>> = ({ household, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete }) => {
+const HouseholdManager: React.FC<Omit<SettingsModalProps, 'onClose'>> = ({ household, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete, error }) => {
     const { t } = useTranslation();
     const [newHouseholdName, setNewHouseholdName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
@@ -77,13 +78,20 @@ const HouseholdManager: React.FC<Omit<SettingsModalProps, 'onClose'>> = ({ house
                         {isCreating ? <SpinnerIcon className="w-5 h-5" /> : t('settings.household.create.button')}
                     </button>
                 </div>
+                {error && (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-sm text-red-600 dark:text-red-300 break-words">
+                         {error.split('`').map((part, i) => 
+                            i % 2 === 1 ? <code key={i} className="block my-1 p-1.5 bg-white dark:bg-black/50 rounded font-mono text-xs border border-red-200 dark:border-red-900 select-all">{part}</code> : <span key={i}>{part}</span>
+                         )}
+                    </div>
+                )}
                 <p className="text-xs text-center text-gray-500 dark:text-gray-400">{t('settings.household.join.description')}</p>
             </div>
         </div>
     );
 };
 
-export const SettingsModal: React.FC<SettingsModalProps & { household: Household | null; onHouseholdCreate: (name: string) => Promise<void>; onHouseholdLeave: () => Promise<void>; onHouseholdDelete: () => Promise<void>; }> = ({ onClose, household, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, household, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete, error }) => {
   const { t, language, setLanguage } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { isAiEnabled, setIsAiEnabled, isBarcodeScannerEnabled, setIsBarcodeScannerEnabled, isOffSearchEnabled, setIsOffSearchEnabled } = useAppSettings();
@@ -115,7 +123,13 @@ export const SettingsModal: React.FC<SettingsModalProps & { household: Household
         
         {/* Scrollable Content */}
         <div className="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto">
-            <HouseholdManager household={household} onHouseholdCreate={onHouseholdCreate} onHouseholdLeave={onHouseholdLeave} onHouseholdDelete={onHouseholdDelete} />
+            <HouseholdManager 
+                household={household} 
+                onHouseholdCreate={onHouseholdCreate} 
+                onHouseholdLeave={onHouseholdLeave} 
+                onHouseholdDelete={onHouseholdDelete} 
+                error={error}
+            />
             <hr className="border-gray-200 dark:border-gray-700" />
             
             {/* Language Selection */}

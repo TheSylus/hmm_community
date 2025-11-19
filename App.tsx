@@ -594,6 +594,7 @@ const App: React.FC = () => {
           onHouseholdCreate={handleHouseholdCreateWrapper}
           onHouseholdLeave={leaveHousehold}
           onHouseholdDelete={deleteHousehold}
+          error={householdError} // Passed error here
       />}
       {isShoppingListOpen && 
         <ShoppingListModal 
