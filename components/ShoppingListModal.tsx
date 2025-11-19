@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n/index';
 import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon, UserGroupIcon, ArrowsUpDownIcon } from './Icons';
@@ -63,7 +64,8 @@ const ShoppingListItem: React.FC<{
   members: UserProfile[];
   currentUser: User | null;
   isShoppingMode?: boolean;
-}> = ({ item, onRemove, onToggleChecked, onUpdateQuantity, isExpanded, onExpand, members, currentUser, isShoppingMode = false }) => {
+  groupPrefix?: string;
+}> = ({ item, onRemove, onToggleChecked, onUpdateQuantity, isExpanded, onExpand, members, currentUser, isShoppingMode = false, groupPrefix }) => {
   const { t } = useTranslation();
   const displayItem = useTranslatedItem(item);
 
@@ -72,23 +74,26 @@ const ShoppingListItem: React.FC<{
   const checkboxSize = isShoppingMode ? 'h-7 w-7' : 'h-5 w-5';
   const textContainerMargin = isShoppingMode ? 'ml-4' : 'ml-3';
   const itemTextSize = isShoppingMode ? 'text-lg' : 'text-md';
+  
+  // Ensure unique ID for the input in case the item is rendered in multiple groups
+  const inputId = `item-${displayItem.shoppingListItemId}-${groupPrefix || 'default'}`;
 
   return (
     <li className="bg-gray-50 dark:bg-gray-700/50 rounded-md transition-shadow duration-200 shadow-sm data-[expanded=true]:shadow-lg" data-expanded={isExpanded}>
         <div className="flex items-center justify-between p-3">
             <div className="flex items-center overflow-hidden flex-1">
                 <input
-                    id={`item-${displayItem.shoppingListItemId}`}
+                    id={inputId}
                     type="checkbox"
                     checked={displayItem.checked}
                     onChange={() => onToggleChecked(displayItem.shoppingListItemId, !displayItem.checked)}
                     className={`${checkboxSize} rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0`}
                 />
                 <div className={`${textContainerMargin} flex-1 overflow-hidden cursor-pointer`} onClick={() => onExpand(displayItem.id)}>
-                    <p className={`${itemTextSize} font-medium text-gray-800 dark:text-gray-200 truncate transition-colors ${displayItem.checked ? 'line-through text-gray-500 dark:text-gray-400' : ''}`}>
+                    <label htmlFor={inputId} className={`${itemTextSize} font-medium text-gray-800 dark:text-gray-200 truncate transition-colors cursor-pointer ${displayItem.checked ? 'line-through text-gray-500 dark:text-gray-400' : ''}`}>
                         {displayItem.name}
                         <span className="ml-2 font-normal text-gray-500 dark:text-gray-400">({displayItem.quantity}x)</span>
-                    </p>
+                    </label>
                 </div>
             </div>
             <div className="flex items-center gap-1 pl-2">
@@ -272,7 +277,19 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                             </h3>
                             <ul className="space-y-3">
                                 {group.active.map(item => (
-                                    <ShoppingListItem key={`${groupName}-${item.shoppingListItemId}`} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} isShoppingMode={true} />
+                                    <ShoppingListItem 
+                                        key={`${groupName}-${item.shoppingListItemId}`} 
+                                        item={item} 
+                                        onRemove={onRemove} 
+                                        onToggleChecked={onToggleChecked} 
+                                        onUpdateQuantity={onUpdateQuantity} 
+                                        isExpanded={expandedItemId === item.id} 
+                                        onExpand={handleExpand} 
+                                        members={householdMembers} 
+                                        currentUser={currentUser} 
+                                        isShoppingMode={true} 
+                                        groupPrefix={groupName} 
+                                    />
                                 ))}
                             </ul>
                             {group.completed.length > 0 && (
@@ -280,7 +297,19 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                     <h4 className="text-md font-medium text-gray-500 dark:text-gray-400 mb-2">{t('shoppingList.mode.completed')} ({group.completed.length})</h4>
                                     <ul className="space-y-3">
                                         {group.completed.map(item => (
-                                            <ShoppingListItem key={`${groupName}-${item.shoppingListItemId}`} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} isShoppingMode={true} />
+                                            <ShoppingListItem 
+                                                key={`${groupName}-${item.shoppingListItemId}`} 
+                                                item={item} 
+                                                onRemove={onRemove} 
+                                                onToggleChecked={onToggleChecked} 
+                                                onUpdateQuantity={onUpdateQuantity} 
+                                                isExpanded={expandedItemId === item.id} 
+                                                onExpand={handleExpand} 
+                                                members={householdMembers} 
+                                                currentUser={currentUser} 
+                                                isShoppingMode={true} 
+                                                groupPrefix={groupName} 
+                                            />
                                         ))}
                                     </ul>
                                 </div>
@@ -454,10 +483,32 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                     </h3>
                                     <ul className="space-y-3">
                                         {group.active.map(item => (
-                                            <ShoppingListItem key={`${groupName}-${item.shoppingListItemId}`} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} />
+                                            <ShoppingListItem 
+                                                key={`${groupName}-${item.shoppingListItemId}`} 
+                                                item={item} 
+                                                onRemove={onRemove} 
+                                                onToggleChecked={onToggleChecked} 
+                                                onUpdateQuantity={onUpdateQuantity} 
+                                                isExpanded={expandedItemId === item.id} 
+                                                onExpand={handleExpand} 
+                                                members={householdMembers} 
+                                                currentUser={currentUser} 
+                                                groupPrefix={groupName} 
+                                            />
                                         ))}
                                         {group.completed.map(item => (
-                                            <ShoppingListItem key={`${groupName}-${item.shoppingListItemId}`} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} />
+                                            <ShoppingListItem 
+                                                key={`${groupName}-${item.shoppingListItemId}`} 
+                                                item={item} 
+                                                onRemove={onRemove} 
+                                                onToggleChecked={onToggleChecked} 
+                                                onUpdateQuantity={onUpdateQuantity} 
+                                                isExpanded={expandedItemId === item.id} 
+                                                onExpand={handleExpand} 
+                                                members={householdMembers} 
+                                                currentUser={currentUser} 
+                                                groupPrefix={groupName} 
+                                            />
                                         ))}
                                     </ul>
                                 </section>

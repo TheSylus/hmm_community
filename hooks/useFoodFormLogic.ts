@@ -288,6 +288,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
       setName(finalName);
       setTags(finalTags.join(', '));
       setNutriScore((productData.nutriScore?.toUpperCase() as NutriScore) || '');
+      setPurchaseLocation(productData.purchaseLocation?.join(', ') || '');
       setImage(productData.image || null);
       setIngredients(finalIngredients);
       setAllergens(finalAllergens);

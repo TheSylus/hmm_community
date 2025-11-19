@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient';
 import { FoodItem, NutriScore } from '../types';
 
@@ -34,7 +35,27 @@ export const mapDbToFoodItem = (dbItem: any): FoodItem => {
   if (Array.isArray(dbItem.purchase_location)) {
     locations = dbItem.purchase_location;
   } else if (typeof dbItem.purchase_location === 'string' && dbItem.purchase_location.trim() !== '') {
-    locations = [dbItem.purchase_location];
+    let raw = dbItem.purchase_location;
+    
+    // Try to detect JSON array format (e.g. '["Lidl", "Aldi"]')
+    if (raw.startsWith('[') && raw.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          locations = parsed.map(String);
+        }
+      } catch (e) {
+        // Fallback to simple split if JSON parse fails
+      }
+    }
+    
+    // Handle Postgres array string format "{A,B}" or simple comma-separated string "A,B"
+    if (locations.length === 0) {
+        if (raw.startsWith('{') && raw.endsWith('}')) {
+            raw = raw.slice(1, -1);
+        }
+        locations = raw.split(',').map((l: string) => l.trim()).filter(Boolean);
+    }
   }
 
   return {

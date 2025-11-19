@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, useContext, ReactNode, useMemo, useCallback } from 'react';
 
 const enTranslations = {
@@ -93,7 +94,7 @@ const enTranslations = {
   "form.placeholder.restaurant": "Restaurant Name",
   "form.placeholder.cuisine": "Cuisine Type (e.g., Italian)",
   "form.placeholder.price": "Price",
-  "form.placeholder.purchaseLocation": "Store / Location (e.g., Lidl)",
+  "form.placeholder.purchaseLocation": "Store / Location (e.g. Lidl, Aldi - comma separated)",
   "form.label.rating": "Rating:",
   "form.aria.rate": "Rate {star} star",
   "form.aria.ratePlural": "Rate {star} stars",
@@ -241,7 +242,21 @@ const enTranslations = {
   "detail.statusFamilyFavorite": "Family Favorite",
   "detail.statusPrivate": "Private",
   "offline.message": "You are currently offline. Changes will be saved and synced when you reconnect.",
-  "offline.syncComplete": "Back online! Your data has been synced."
+  "offline.syncComplete": "Back online! Your data has been synced.",
+  "apiKeyBanner.text": "AI features require a Gemini API Key.",
+  "apiKeyBanner.button": "Enter Key",
+  "settings.apiKeyTest.status.testing": "Testing API key...",
+  "settings.apiKeyTest.status.success": "API key verified successfully!",
+  "settings.apiKeyTest.status.error.generic": "Verification failed: {message}",
+  "settings.apiKeyTest.status.error.invalidKey.start": "Invalid API key. Please check your key or generate a new one at ",
+  "settings.apiKeyTest.status.error.invalidKey.linkText": "Google AI Studio",
+  "settings.apiKeyTest.status.error.invalidKey.end": ".",
+  "settings.apiKeyTest.placeholder": "Enter your Gemini API Key",
+  "settings.apiKeyTest.button": "Test & Save",
+  "apiKeyModal.title": "Welcome to Food Memory Tracker",
+  "apiKeyModal.description": "To unlock AI features like photo analysis and smart search, please provide your Google Gemini API key. Your key is stored locally on your device.",
+  "apiKeyModal.button.testAndSave": "Verify & Start",
+  "apiKeyModal.link.whereToGet": "Get a free API key from Google AI Studio",
 };
 
 const deTranslations = {
@@ -265,12 +280,12 @@ const deTranslations = {
   "header.filter.clearAll": "Alle Filter löschen",
   "header.sort.dateDesc": "Datum (Neueste zuerst)",
   "header.sort.dateAsc": "Datum (Älteste zuerst)",
-  "header.sort.ratingDesc": "Bewertung (Hoch > Niedrig)",
-  "header.sort.ratingAsc": "Bewertung (Niedrig > Hoch)",
+  "header.sort.ratingDesc": "Bewertung (Hoch zu Niedrig)",
+  "header.sort.ratingAsc": "Bewertung (Niedrig zu Hoch)",
   "header.sort.nameAsc": "Name (A-Z)",
   "header.sort.nameDesc": "Name (Z-A)",
   "header.shoppingListAria": "Einkaufsliste öffnen",
-  "footer.text": "Vergiss nie wieder ein Lieblingsprodukt.",
+  "footer.text": "Nie wieder einen Favoriten vergessen.",
   "filterPanel.title": "Filtern & Sortieren",
   "filterPanel.search": "Suchbegriff",
   "filterPanel.aiSearchTitle": "KI-gestützte Suche",
@@ -281,112 +296,112 @@ const deTranslations = {
   "filterPanel.apply": "Anwenden",
   "dashboard.title": "Dashboard",
   "dashboard.welcome": "Willkommen zurück!",
-  "dashboard.recentlyAdded": "Zuletzt hinzugefügt",
-  "dashboard.topRated": "Deine Top-Bewertungen",
-  "dashboard.viewAll": "Alle Produkte anzeigen",
+  "dashboard.recentlyAdded": "Kürzlich hinzugefügt",
+  "dashboard.topRated": "Deine Bestbewerteten",
+  "dashboard.viewAll": "Alle Einträge ansehen",
   "dashboard.empty.title": "Deine kulinarische Reise beginnt hier!",
-  "dashboard.empty.description": "Füge dein erstes Produkt oder Gericht hinzu, um dein persönliches Dashboard zum Leben zu erwecken.",
+  "dashboard.empty.description": "Füge dein erstes Produkt oder Gericht hinzu, um dein persönliches Dashboard zu sehen.",
   "family.title": "Familienfavoriten",
   "family.loading": "Lade Familienfavoriten...",
   "family.empty.title": "Noch keine Familienfavoriten!",
-  "family.empty.description": "Wenn du oder jemand in deinem Haushalt einen Artikel als Favorit markiert, erscheint er hier.",
-  "family.noHousehold.title": "Tritt einem Haushalt bei, um Favoriten zu sehen",
-  "family.noHousehold.description": "Erstelle oder trete einem Haushalt in den Einstellungen bei, um Artikel und Einkaufslisten mit deiner Familie zu teilen.",
-  "conversationalSearch.placeholder": "Frage nach deinem Essen... (z.B. ein glutenfreier Snack, den ich mochte)",
-  "conversationalSearch.tooltip": "Mit KI suchen",
-  "conversationalSearch.buttonAria": "Mit KI suchen",
+  "family.empty.description": "Wenn du oder jemand in deinem Haushalt einen Eintrag hinzufügt und als Favorit markiert, erscheint er hier.",
+  "family.noHousehold.title": "Tritt einem Haushalt bei",
+  "family.noHousehold.description": "Erstelle oder trete einem Haushalt in den Einstellungen bei, um Einträge und Einkaufslisten mit deiner Familie zu teilen.",
+  "conversationalSearch.placeholder": "Frag nach deinem Essen... (z.B. ein glutenfreier Snack, den ich mochte)",
+  "conversationalSearch.tooltip": "Suche mit KI",
+  "conversationalSearch.buttonAria": "Suche mit KI",
   "conversationalSearch.searching": "KI denkt nach...",
   "conversationalSearch.error": "KI-Suche fehlgeschlagen. Bitte versuche eine andere Anfrage.",
   "conversationalSearch.resultsTitle": "KI-Suchergebnisse",
   "conversationalSearch.clear": "KI-Suche löschen",
   "shoppingList.title": "Gemeinsame Liste",
   "shoppingList.empty": "Diese Liste ist leer. Füge Produkte von ihren Karten hinzu, um zu beginnen.",
-  "shoppingList.clear": "Erledigte entfernen",
+  "shoppingList.clear": "Erledigte löschen",
   "shoppingList.addAria": "{name} zur Einkaufsliste hinzufügen",
   "shoppingList.removeAria": "{name} von der Einkaufsliste entfernen",
-  "shoppingList.toggleDetailsAria": "Details ein-/ausblenden",
+  "shoppingList.toggleDetailsAria": "Details umschalten",
   "shoppingList.addedToast": "{name} zur Liste hinzugefügt.",
   "shoppingList.addedAnotherToast": "Ein weiteres {name} zur Liste hinzugefügt.",
   "shoppingList.quantity": "Menge",
-  "shoppingList.uncategorized": "Unkategorisiert",
-  "shoppingList.defaultListName": "Haushaltseinkauf",
+  "shoppingList.uncategorized": "Nicht kategorisiert",
+  "shoppingList.defaultListName": "Haushaltseinkäufe",
   "shoppingList.joinSuccess": "Erfolgreich dem Haushalt beigetreten: {householdName}!",
-  "shoppingList.selectListAria": "Gemeinsame Liste auswählen",
+  "shoppingList.selectListAria": "Wähle eine gemeinsame Liste",
   "shoppingList.newListButton": "Neue Liste erstellen",
   "shoppingList.newListPlaceholder": "Name der neuen Liste...",
   "shoppingList.createButton": "Erstellen",
   "shoppingList.share.inviteButton": "Mitglieder einladen",
   "shoppingList.share.linkCopied": "Einladungslink kopiert!",
-  "shoppingList.share.copyFailed": "Link konnte nicht kopiert werden. Bitte manuell kopieren.",
+  "shoppingList.share.copyFailed": "Konnte Link nicht kopieren. Bitte manuell kopieren.",
   "shoppingList.collaboration.members": "Mitglieder",
   "shoppingList.collaboration.you": "Du",
   "shoppingList.collaboration.someone": "Jemand",
-  "shoppingList.collaboration.addedBy": "{name} hat's hinzugefügt",
-  "shoppingList.collaboration.checkedBy": "{name} hat's abgehakt",
+  "shoppingList.collaboration.addedBy": "Hinzugefügt von {name}",
+  "shoppingList.collaboration.checkedBy": "Abgehakt von {name}",
   "shoppingList.manage.buttonTitle": "Liste verwalten",
   "shoppingList.delete.button": "Liste löschen",
-  "shoppingList.delete.confirm": "Bist du sicher, dass du die Liste \"{listName}\" dauerhaft löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.",
+  "shoppingList.delete.confirm": "Bist du sicher, dass du die Liste \"{listName}\" dauerhaft löschen möchtest? Dies kann nicht rückgängig gemacht werden.",
   "shoppingList.mode.startShopping": "Einkauf starten",
   "shoppingList.mode.done": "Fertig",
   "shoppingList.mode.completed": "Erledigt",
-  "shoppingList.mode.clearCompleted": "{count} Erledigte entfernen",
-  "form.addNewButton": "Neuen Eintrag hinzufügen",
-  "form.editTitle": "Lebensmittel bearbeiten",
+  "shoppingList.mode.clearCompleted": "{count} Erledigte löschen",
+  "form.addNewButton": "Neuer Eintrag",
+  "form.editTitle": "Eintrag bearbeiten",
   "form.placeholder.name": "Produktname",
-  "form.placeholder.dishName": "Name des Gerichts (z.B. Spaghetti Carbonara)",
+  "form.placeholder.dishName": "Gerichtname (z.B. Spaghetti Carbonara)",
   "form.placeholder.restaurant": "Restaurantname",
-  "form.placeholder.cuisine": "Küche (z.B. Italienisch)",
+  "form.placeholder.cuisine": "Küchenart (z.B. Italienisch)",
   "form.placeholder.price": "Preis",
-  "form.placeholder.purchaseLocation": "Geschäft / Ort (z.B. Lidl)",
+  "form.placeholder.purchaseLocation": "Geschäft / Ort (z.B. Lidl, Aldi - mit Komma trennen)",
   "form.label.rating": "Bewertung:",
-  "form.aria.rate": "Bewerte {star} Stern",
-  "form.aria.ratePlural": "Bewerte {star} Sterne",
+  "form.aria.rate": "Bewerte mit {star} Stern",
+  "form.aria.ratePlural": "Bewerte mit {star} Sternen",
   "form.placeholder.notes": "Notizen (z.B. Geschmack, wo gekauft)",
-  "form.placeholder.tags": "Tags (mit Komma getrennt)",
+  "form.placeholder.tags": "Tags (mit Komma trennen)",
   "form.label.nutriScore": "Nutri-Score:",
-  "form.aria.selectNutriScore": "Nutri-Score {score} auswählen",
-  "form.label.selectRestaurant": "Oder wählen Sie ein Restaurant in der Nähe:",
-  "form.placeholder.selectRestaurant": "-- Restaurant auswählen --",
+  "form.aria.selectNutriScore": "Wähle Nutri-Score {score}",
+  "form.label.selectRestaurant": "Oder wähle ein Restaurant in der Nähe:",
+  "form.placeholder.selectRestaurant": "-- Wähle ein Restaurant --",
   "form.error.nameAndRating": "Bitte gib einen Namen und eine Bewertung an.",
-  "form.error.genericAiError": "Bild konnte nicht mit KI analysiert werden. Bitte versuchen Sie es erneut oder geben Sie die Details manuell ein.",
-  "form.error.ingredientsAiError": "Zutatenliste konnte nicht mit KI analysiert werden.",
-  "form.error.barcodeError": "Produktdaten für diesen Barcode konnten nicht abgerufen werden. Das Produkt ist möglicherweise nicht in der Open Food Facts-Datenbank.",
-  "form.error.offSearchDisabled": "Die Lebensmittel-Datenbanksuche ist in den Einstellungen deaktiviert. Sie können sie aktivieren, um diese Funktion zu nutzen.",
-  "form.error.geolocationUnsupported": "Geolokalisierung wird von Ihrem Browser nicht unterstützt.",
-  "form.error.geolocationPermission": "Standort konnte nicht abgerufen werden. Bitte aktivieren Sie die Ortungsdienste und erteilen Sie die Erlaubnis.",
-  "form.error.findRestaurants": "Konnte keine Restaurants in der Nähe finden. Bitte versuchen Sie es erneut oder geben Sie den Namen manuell ein.",
+  "form.error.genericAiError": "Konnte Bild nicht mit KI analysieren. Bitte versuche es erneut oder gib Details manuell ein.",
+  "form.error.ingredientsAiError": "Konnte Zutatenliste nicht analysieren.",
+  "form.error.barcodeError": "Konnte Produktdaten für diesen Barcode nicht abrufen. Das Produkt ist möglicherweise nicht in der Datenbank.",
+  "form.error.offSearchDisabled": "Datenbanksuche ist in den Einstellungen deaktiviert. Aktiviere sie, um diese Funktion zu nutzen.",
+  "form.error.geolocationUnsupported": "Geolokalisierung wird von deinem Browser nicht unterstützt.",
+  "form.error.geolocationPermission": "Konnte Standort nicht abrufen. Bitte aktiviere Standortdienste.",
+  "form.error.findRestaurants": "Konnte keine Restaurants in der Nähe finden. Bitte versuche es erneut oder gib es manuell ein.",
   "form.button.cancel": "Abbrechen",
-  "form.button.save": "Produkt speichern",
-  "form.button.update": "Produkt aktualisieren",
+  "form.button.save": "Speichern",
+  "form.button.update": "Aktualisieren",
   "form.button.scanIngredients": "Zutaten scannen",
   "form.button.scanBarcode": "Barcode scannen",
   "form.button.dictate": "Diktieren",
   "form.button.takePhoto": "Foto aufnehmen",
-  "form.button.findNearby.aria": "Restaurants in der Nähe finden",
+  "form.button.findNearby.aria": "Finde Restaurants in der Nähe",
   "form.findRestaurants.loading": "Suche Restaurants in der Nähe...",
   "form.image.removeAria": "Bild entfernen",
-  "form.image.placeholder": "Scanne ein Produkt oder lade ein Bild hoch, um zu beginnen",
+  "form.image.placeholder": "Scanne ein Produkt oder lade ein Bild hoch",
   "form.button.scanNew": "Foto scannen",
   "form.button.upload": "Hochladen",
   "form.aiProgress.readingName": "Lese Produktnamen...",
-  "form.aiProgress.findingScore": "Suche nach Nutri-Score...",
-  "form.aiProgress.generatingTags": "Generiere passende Tags...",
-  "form.aiProgress.searchingDatabase": "Suche in Datenbank nach Zusatzinfos...",
+  "form.aiProgress.findingScore": "Finde Nutri-Score...",
+  "form.aiProgress.generatingTags": "Generiere Tags...",
+  "form.aiProgress.searchingDatabase": "Suche in Datenbank...",
   "form.aiProgress.locatingProduct": "Lokalisiere Produkt im Bild...",
   "form.aiProgress.complete": "Analyse abgeschlossen!",
-  "form.ingredients.title": "Zutaten & Ernährungsinfo",
-  "form.ingredients.loading": "Zutatenliste wird gescannt...",
+  "form.ingredients.title": "Zutaten & Ernährung",
+  "form.ingredients.loading": "Scanne Zutatenliste...",
   "form.ingredients.ingredientsList": "Zutaten",
-  "form.ingredients.placeholder": "Keine Zutaten gefunden. Scanne den Barcode oder die Zutatenliste, um sie hinzuzufügen.",
+  "form.ingredients.placeholder": "Keine Zutaten gefunden. Scanne den Barcode oder die Liste.",
   "form.allergens.title": "Allergene",
-  "form.dietary.title": "Ernährungsinformation",
+  "form.dietary.title": "Ernährungsinformationen",
   "form.dietary.lactoseFree": "Laktosefrei",
   "form.dietary.vegan": "Vegan",
   "form.dietary.glutenFree": "Glutenfrei",
   "form.familyFavorite.title": "Als Familienfavorit markieren",
-  "form.familyFavorite.description": "Macht diesen Eintrag für alle im Haushalt sichtbar.",
+  "form.familyFavorite.description": "Macht diesen Eintrag für alle in deinem Haushalt sichtbar.",
   "list.empty.title": "Deine Liste ist leer!",
-  "list.empty.description": "Füge ein Lebensmittel über das obige Formular hinzu, um deine Vorlieben zu speichern.",
+  "list.empty.description": "Füge einen Eintrag über das Formular hinzu, um deine Vorlieben zu tracken.",
   "list.resultsFor": "Ergebnisse für \"{searchTerm}\"",
   "card.deleteAria": "Lösche {name}",
   "card.editAria": "Bearbeite {name}",
@@ -400,35 +415,35 @@ const deTranslations = {
   "card.privateTooltip": "Privater Eintrag",
   "card.dishAt": "bei {restaurant}",
   "share.title": "Schau dir dieses Produkt an: {name}",
-  "share.text": "Ich habe \"{name}\" mit {rating}/5 Sternen bewertet. Sieh dir meine Meinung in der Lebensmittel-Tracker App an!",
-  "share.text_unrated": "Schau dir \"{name}\" in der Lebensmittel-Tracker App an!",
+  "share.text": "Ich habe \"{name}\" mit {rating}/5 Sternen bewertet. Sieh dir meine Meinung in der Food Memory Tracker App an!",
+  "share.text_unrated": "Schau dir \"{name}\" in der Food Memory Tracker App an!",
   "camera.title": "Foto aufnehmen",
-  "camera.error": "Konnte nicht auf die Kamera zugreifen. Bitte überprüfe die Berechtigungen und versuche es erneut.",
-  "camera.error.permission": "Der Kamerazugriff wurde verweigert. Bitte überprüfen Sie Ihre Browser- und Systemeinstellungen, um die Erlaubnis zu erteilen.",
+  "camera.error": "Konnte nicht auf die Kamera zugreifen. Bitte prüfe die Berechtigungen.",
+  "camera.error.permission": "Kamerazugriff verweigert. Bitte prüfe deine Browser-Einstellungen.",
   "camera.captureButton": "Foto aufnehmen",
   "barcodeScanner.title": "Barcode scannen",
-  "barcodeScanner.description": "Richte deine Kamera auf den Barcode des Produkts.",
-  "barcodeScanner.error.permission": "Kamerazugriff verweigert. Bitte erlauben Sie den Kamerazugriff in Ihren Browsereinstellungen.",
-  "cropper.title": "Zuschnitt anpassen",
-  "cropper.description": "Passe die von der KI vorgeschlagene Auswahl an oder brich ab, um das ganze Bild zu verwenden.",
-  "cropper.button.cancel": "Abbrechen (Ganzes Bild)",
-  "cropper.button.confirm": "Zuschnitt bestätigen",
+  "barcodeScanner.description": "Richte die Kamera auf den Barcode.",
+  "barcodeScanner.error.permission": "Kamerazugriff verweigert. Bitte erlaube den Zugriff.",
+  "cropper.title": "Ausschnitt anpassen",
+  "cropper.description": "Passe den KI-Vorschlag an oder brich ab für das ganze Bild.",
+  "cropper.button.cancel": "Abbrechen (Vollbild)",
+  "cropper.button.confirm": "Bestätigen",
   "modal.image.closeAria": "Bildansicht schließen",
-  "modal.duplicate.title": "Mögliches Duplikat gefunden",
-  "modal.duplicate.description": "Ein Produkt mit dem Namen \"{itemName}\" existiert bereits. Bitte überprüfe die unten stehenden Produkte.",
+  "modal.duplicate.title": "Mögliches Duplikat",
+  "modal.duplicate.description": "Ein Eintrag namens \"{itemName}\" existiert bereits.",
   "modal.duplicate.button.goBack": "Zurück & Bearbeiten",
   "modal.duplicate.button.addAnyway": "Trotzdem hinzufügen",
-  "modal.shared.title": "Geteiltes Lebensmittel",
-  "modal.shared.description": "Jemand hat diesen Artikel mit dir geteilt. Möchtest du ihn zu deiner Liste hinzufügen?",
-  "modal.shared.addToList": "Zu meiner Liste hinzufügen",
+  "modal.shared.title": "Geteilter Eintrag",
+  "modal.shared.description": "Jemand hat diesen Eintrag mit dir geteilt. Möchtest du ihn hinzufügen?",
+  "modal.shared.addToList": "Zu meiner Liste",
   "modal.shared.close": "Schließen",
-  "modal.shared.summaryNotice": "Hinweis: Dies ist eine Zusammenfassung. Einige Details wie Notizen, Zutaten oder Allergene sind möglicherweise nicht im geteilten Inhalt enthalten.",
-  "modal.itemType.title": "Was fügst du hinzu?",
+  "modal.shared.summaryNotice": "Hinweis: Dies ist eine Zusammenfassung. Manche Details fehlen möglicherweise.",
+  "modal.itemType.title": "Was möchtest du hinzufügen?",
   "modal.itemType.product": "Verpacktes Produkt",
   "modal.itemType.dish": "Restaurantgericht",
-  "speechModal.title": "Name diktieren",
-  "speechModal.description": "Sprechen Sie einfach, und der Name wird transkribiert.",
-  "speechModal.listening": "Höre zu...",
+  "speechModal.title": "Namen diktieren",
+  "speechModal.description": "Sprich jetzt, der Name wird transkribiert.",
+  "speechModal.listening": "Zuhören...",
   "settings.title": "Einstellungen",
   "settings.closeAria": "Einstellungen schließen",
   "settings.theme.title": "Design",
@@ -437,39 +452,39 @@ const deTranslations = {
   "settings.theme.system": "System",
   "settings.language.title": "Sprache",
   "settings.ai.title": "KI-Funktionen",
-  "settings.ai.description": "Aktiviere die KI-Analyse, um Details automatisch aus Fotos auszufüllen.",
-  "settings.barcodeScanner.title": "Barcode-Scanner",
-  "settings.barcodeScanner.description": "Aktiviere die Barcode-Scanner-Funktion, um Produkte nachzuschlagen.",
-  "settings.offSearch.title": "Lebensmittel-Datenbanksuche",
-  "settings.offSearch.description": "Automatische Suche nach Produktinformationen in der Open Food Facts-Datenbank aktivieren.",
+  "settings.ai.description": "Aktiviere KI-Analyse für Fotos.",
+  "settings.barcodeScanner.title": "Barcode Scanner",
+  "settings.barcodeScanner.description": "Aktiviere den Barcode-Scanner.",
+  "settings.offSearch.title": "Datenbanksuche",
+  "settings.offSearch.description": "Aktiviere automatische Suche in Open Food Facts.",
   "settings.button.done": "Fertig",
   "settings.session.title": "Konto",
-  "settings.session.loggedInAs": "Eingeloggt als:",
-  "settings.session.logout": "Ausloggen",
+  "settings.session.loggedInAs": "Angemeldet als:",
+  "settings.session.logout": "Abmelden",
   "settings.household.title": "Haushalt",
   "settings.household.create.button": "Haushalt erstellen",
-  "settings.household.create.placeholder": "Haushaltsname (z.B. Familie Schmidt)",
-  "settings.household.join.description": "Bitte ein Haushaltsmitglied um einen Einladungslink.",
+  "settings.household.create.placeholder": "Haushaltsname (z.B. Familie Müller)",
+  "settings.household.join.description": "Frage ein Mitglied nach einem Einladungslink.",
   "settings.household.manage.members": "Mitglieder",
   "settings.household.manage.invite": "Mitglieder einladen",
   "settings.household.manage.leave": "Haushalt verlassen",
-  "settings.household.manage.leaveConfirm": "Möchtest du diesen Haushalt wirklich verlassen?",
+  "settings.household.manage.leaveConfirm": "Willst du diesen Haushalt wirklich verlassen?",
   "settings.household.manage.delete": "Haushalt löschen",
-  "settings.household.manage.deleteConfirm": "Bist du sicher? Dies löscht den Haushalt und alle geteilten Daten für alle Mitglieder. Dies kann nicht rückgängig gemacht werden.",
-  "settings.household.manage.linkCopied": "Einladungslink in die Zwischenablage kopiert!",
-  "household.error.rls.insert": "Zugriff verweigert: Datenbankregeln verhindern das Erstellen. Dies ist ein Supabase-Problem. **Lösung:** Führen Sie im SQL Editor dies aus: `CREATE POLICY \"Allow insert\" ON public.households FOR INSERT WITH CHECK (auth.uid() = owner_id);` und `CREATE POLICY \"Allow select\" ON public.households FOR SELECT USING (auth.uid() = owner_id);`",
-  "household.error.generic": "Fehler beim Erstellen des Haushalts: {message}",
+  "settings.household.manage.deleteConfirm": "Bist du sicher? Dies löscht alle geteilten Daten. Unwiderruflich.",
+  "settings.household.manage.linkCopied": "Link kopiert!",
+  "household.error.rls.insert": "Fehler: Datenbankregeln verhindern Erstellung. Prüfe Supabase Policies.",
+  "household.error.generic": "Fehler beim Erstellen: {message}",
   "auth.emailPlaceholder": "E-Mail",
   "auth.passwordPlaceholder": "Passwort",
   "auth.signIn": "Anmelden",
   "auth.signUp": "Registrieren",
-  "auth.magicLink": "Magic-Link senden",
-  "auth.magicLinkSuccess": "Überprüfe deine E-Mails für den Anmelde-Link!",
-  "auth.toggle.signUp": "Noch kein Konto? Registrieren",
-  "auth.toggle.signIn": "Bereits ein Konto? Anmelden",
-  "auth.error.generic": "Authentifizierung fehlgeschlagen. Bitte versuche es erneut.",
+  "auth.magicLink": "Magic Link senden",
+  "auth.magicLinkSuccess": "Prüfe deine E-Mails für den Link!",
+  "auth.toggle.signUp": "Kein Konto? Registrieren",
+  "auth.toggle.signIn": "Hast du ein Konto? Anmelden",
+  "auth.error.generic": "Authentifizierung fehlgeschlagen.",
   "allergen.gluten": "Enthält Gluten",
-  "allergen.dairy": "Enthält Milchprodukte",
+  "allergen.dairy": "Enthält Milch",
   "allergen.peanuts": "Enthält Erdnüsse",
   "allergen.tree_nuts": "Enthält Schalenfrüchte",
   "allergen.soy": "Enthält Soja",
@@ -480,69 +495,63 @@ const deTranslations = {
   "detail.tagsTitle": "Tags",
   "detail.ingredientsTitle": "Zutaten",
   "detail.allergensTitle": "Allergene",
-  "detail.dietaryTitle": "Ernährungsinformation",
+  "detail.dietaryTitle": "Ernährung",
   "detail.status": "Status",
   "detail.statusFamilyFavorite": "Familienfavorit",
   "detail.statusPrivate": "Privat",
-  "offline.message": "Sie sind derzeit offline. Änderungen werden gespeichert und synchronisiert, wenn Sie wieder online sind.",
-  "offline.syncComplete": "Wieder online! Deine Daten wurden synchronisiert."
+  "offline.message": "Du bist offline. Änderungen werden gespeichert und später synchronisiert.",
+  "offline.syncComplete": "Wieder online! Daten wurden synchronisiert.",
+  "apiKeyBanner.text": "KI-Funktionen benötigen einen Gemini API Key.",
+  "apiKeyBanner.button": "Key eingeben",
+  "settings.apiKeyTest.status.testing": "Teste API Key...",
+  "settings.apiKeyTest.status.success": "API Key erfolgreich verifiziert!",
+  "settings.apiKeyTest.status.error.generic": "Verifizierung fehlgeschlagen: {message}",
+  "settings.apiKeyTest.status.error.invalidKey.start": "Ungültiger API Key. Bitte prüfe ihn oder erstelle einen neuen im ",
+  "settings.apiKeyTest.status.error.invalidKey.linkText": "Google AI Studio",
+  "settings.apiKeyTest.status.error.invalidKey.end": ".",
+  "settings.apiKeyTest.placeholder": "Gib deinen Gemini API Key ein",
+  "settings.apiKeyTest.button": "Testen & Speichern",
+  "apiKeyModal.title": "Willkommen beim Food Memory Tracker",
+  "apiKeyModal.description": "Um KI-Funktionen wie Fotoanalyse und intelligente Suche freizuschalten, gib bitte deinen Google Gemini API Key ein. Dein Schlüssel wird lokal auf deinem Gerät gespeichert.",
+  "apiKeyModal.button.testAndSave": "Verifizieren & Starten",
+  "apiKeyModal.link.whereToGet": "Hol dir einen kostenlosen API Key vom Google AI Studio",
 };
 
-// Type for the translation function
-type TFunction = (key: string, options?: Record<string, string | number>) => string;
-
-// Define the context shape
+// --- Context Setup ---
 interface I18nContextType {
-  t: TFunction;
-  setLanguage: (lang: 'en' | 'de') => void;
   language: 'en' | 'de';
+  setLanguage: (lang: 'en' | 'de') => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
 
-const translationsData: Record<'en' | 'de', Record<string, string>> = {
-  en: enTranslations,
-  de: deTranslations,
-};
-
-const getInitialLocale = (): 'en' | 'de' => {
-  const browserLang = navigator.language.split('-')[0];
-  if (browserLang in translationsData) {
-    return browserLang as 'en' | 'de';
-  }
-  return 'en';
-};
-
 export const I18nProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<'en' | 'de'>(() => {
-    const savedLang = localStorage.getItem('language');
-    if (savedLang === 'en' || savedLang === 'de') {
-      return savedLang;
-    }
-    return getInitialLocale();
+  const [language, setLanguageState] = useState<'en' | 'de'>(() => {
+    const saved = localStorage.getItem('language') as 'en' | 'de';
+    return saved || (navigator.language.startsWith('de') ? 'de' : 'en');
   });
 
-  const t: TFunction = useCallback((key, options) => {
-    const translationSet = translationsData[language];
-    let translation = translationSet[key] || key;
-    if (options) {
-      Object.keys(options).forEach(optionKey => {
-        translation = translation.replace(`{${optionKey}}`, String(options[optionKey]));
+  const setLanguage = (lang: 'en' | 'de') => {
+    setLanguageState(lang);
+    localStorage.setItem('language', lang);
+  };
+
+  const translations = useMemo(() => {
+    return language === 'de' ? deTranslations : enTranslations;
+  }, [language]);
+
+  const t = useCallback((key: string, params?: Record<string, string | number>) => {
+    let text = (translations as any)[key] || key;
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        text = text.replace(`{${k}}`, String(v));
       });
     }
-    return translation;
-  }, [language]);
-  
-  const handleSetLanguage = useCallback((lang: 'en' | 'de') => {
-      setLanguage(lang);
-      localStorage.setItem('language', lang);
-  }, []);
+    return text;
+  }, [translations]);
 
-  useEffect(() => {
-      document.documentElement.lang = language;
-  }, [language]);
-
-  const value = useMemo(() => ({ t, setLanguage: handleSetLanguage, language }), [t, handleSetLanguage, language]);
+  const value = { language, setLanguage, t };
 
   return React.createElement(I18nContext.Provider, { value }, children);
 };
