@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon } from './Icons';
+import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon, UserGroupIcon, ArrowsUpDownIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
 import { ShoppingList, UserProfile, Household } from '../types';
@@ -159,6 +159,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
   const [isManageMenuOpen, setIsManageMenuOpen] = useState(false);
   const manageMenuRef = useRef<HTMLDivElement>(null);
   const [isShoppingMode, setIsShoppingMode] = useState(false);
+  const [currentView, setCurrentView] = useState<'list' | 'members'>('list');
 
 
   const activeList = useMemo(() => allLists.find(l => l.id === activeListId), [allLists, activeListId]);
@@ -302,8 +303,6 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
   }
 
   if (!household) {
-      // This state should ideally be handled before opening the modal,
-      // but as a fallback:
       return (
          <div
             className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in"
@@ -318,6 +317,40 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
       );
   }
 
+  const renderMembersView = () => (
+      <div className="animate-fade-in-fast">
+        <button onClick={() => setCurrentView('list')} className="mb-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+            <ChevronDownIcon className="w-4 h-4 rotate-90" />
+            {t('modal.duplicate.button.goBack')}
+        </button>
+        <div className="bg-gray-100 dark:bg-gray-700/50 p-4 rounded-lg space-y-4">
+            <div>
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">{t('shoppingList.collaboration.members')}</h3>
+                <div className="flex flex-col gap-3">
+                    {householdMembers.map(member => (
+                        <div key={member.id} className="flex items-center gap-3 p-2 bg-white dark:bg-gray-800 rounded-md shadow-sm">
+                            <div className="w-10 h-10 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-sm font-bold text-indigo-700 dark:text-indigo-200 ring-2 ring-white dark:ring-gray-800 shrink-0">
+                                {getInitials(member.display_name)}
+                            </div>
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                                {member.id === currentUser?.id ? `${member.display_name} (${t('shoppingList.collaboration.you')})` : member.display_name}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                <button onClick={handleShareHousehold} disabled={shareStatus !== 'idle'} className="w-full flex items-center justify-center gap-2 text-sm bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-3 rounded-md transition-colors disabled:opacity-70 shadow-sm">
+                    {shareStatus === 'copying' && <SpinnerIcon className="w-5 h-5" />}
+                    {shareStatus === 'copied' && <CheckCircleIcon className="w-5 h-5" />}
+                    {shareStatus === 'idle' && <UserPlusIcon className="w-5 h-5"/>}
+                    <span>{shareStatus === 'copied' ? t('shoppingList.share.linkCopied') : t('shoppingList.share.inviteButton')}</span>
+                </button>
+            </div>
+        </div>
+      </div>
+  );
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in"
@@ -330,8 +363,10 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
         className="relative bg-white dark:bg-gray-800 p-6 rounded-lg shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center mb-4">
-            <h2 id="shopping-list-title" className="text-2xl font-bold text-gray-900 dark:text-white">{t('shoppingList.title')}</h2>
+        <div className="flex justify-between items-center mb-4 shrink-0">
+            <h2 id="shopping-list-title" className="text-2xl font-bold text-gray-900 dark:text-white">
+                {currentView === 'members' ? t('shoppingList.collaboration.members') : t('shoppingList.title')}
+            </h2>
             <button
               onClick={onClose}
               className="p-1 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -341,126 +376,112 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
             </button>
         </div>
         
-        <div className="mb-4 space-y-4">
-             <div className="space-y-2">
-                <div className="flex gap-2">
-                    <select 
-                        value={activeListId || ''} 
-                        onChange={(e) => onSelectList(e.target.value)}
-                        className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
-                        aria-label={t('shoppingList.selectListAria')}
-                    >
-                        {allLists.map(list => (
-                            <option key={list.id} value={list.id}>{list.name}</option>
-                        ))}
-                    </select>
-                     <div ref={manageMenuRef} className="relative">
-                        <button onClick={() => setIsManageMenuOpen(prev => !prev)} className="p-2 h-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors" title={t('shoppingList.manage.buttonTitle')}>
-                            <EllipsisVerticalIcon className="w-5 h-5"/>
-                        </button>
-                        {isManageMenuOpen && activeList && (
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10 animate-fade-in-fast">
-                                <button onClick={handleDelete} className="w-full text-left px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center gap-2 transition-colors">
-                                    <TrashIcon className="w-4 h-4" />
-                                    {t('shoppingList.delete.button')}
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-                 {isCreatingNewList ? (
-                    <form onSubmit={handleCreateList} className="flex gap-2 animate-fade-in-down">
-                        <input
-                            type="text"
-                            value={newListName}
-                            onChange={(e) => setNewListName(e.target.value)}
-                            placeholder={t('shoppingList.newListPlaceholder')}
+        {currentView === 'members' ? (
+            renderMembersView()
+        ) : (
+            <>
+            <div className="mb-4 space-y-4 shrink-0">
+                <div className="space-y-2">
+                    <div className="flex gap-2">
+                        <select 
+                            value={activeListId || ''} 
+                            onChange={(e) => onSelectList(e.target.value)}
                             className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
-                            autoFocus
-                        />
-                        <button type="submit" className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold text-sm">{t('shoppingList.createButton')}</button>
-                        <button type="button" onClick={() => setIsCreatingNewList(false)} className="px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 font-semibold text-sm">{t('form.button.cancel')}</button>
-                    </form>
+                            aria-label={t('shoppingList.selectListAria')}
+                        >
+                            {allLists.map(list => (
+                                <option key={list.id} value={list.id}>{list.name}</option>
+                            ))}
+                        </select>
+                        <div ref={manageMenuRef} className="relative">
+                            <button onClick={() => setIsManageMenuOpen(prev => !prev)} className="p-2 h-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors" title={t('shoppingList.manage.buttonTitle')}>
+                                <EllipsisVerticalIcon className="w-5 h-5"/>
+                            </button>
+                            {isManageMenuOpen && (
+                                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 z-10 animate-fade-in-fast overflow-hidden">
+                                     <button onClick={() => { setCurrentView('members'); setIsManageMenuOpen(false); }} className="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 transition-colors border-b border-gray-100 dark:border-gray-600">
+                                        <UserGroupIcon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                        {t('shoppingList.share.inviteButton')} / {t('shoppingList.collaboration.members')}
+                                    </button>
+                                    <button onClick={handleDelete} className="w-full text-left px-4 py-3 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 flex items-center gap-2 transition-colors">
+                                        <TrashIcon className="w-4 h-4" />
+                                        {t('shoppingList.delete.button')}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    {isCreatingNewList ? (
+                        <form onSubmit={handleCreateList} className="flex gap-2 animate-fade-in-down">
+                            <input
+                                type="text"
+                                value={newListName}
+                                onChange={(e) => setNewListName(e.target.value)}
+                                placeholder={t('shoppingList.newListPlaceholder')}
+                                className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
+                                autoFocus
+                            />
+                            <button type="submit" className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold text-sm">{t('shoppingList.createButton')}</button>
+                            <button type="button" onClick={() => setIsCreatingNewList(false)} className="px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 font-semibold text-sm">{t('form.button.cancel')}</button>
+                        </form>
+                    ) : (
+                        <button onClick={() => setIsCreatingNewList(true)} className="w-full flex items-center justify-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold py-2 px-3 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/50 transition-colors">
+                            <PlusCircleIcon className="w-5 h-5"/>
+                            {t('shoppingList.newListButton')}
+                        </button>
+                    )}
+                </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-2 -mr-2 border-t border-gray-200 dark:border-gray-700 pt-4">
+                {listData.length > 0 ? (
+                    <div className="space-y-6">
+                        {sortedGroupNames.map(groupName => {
+                            const group = groupedItems[groupName];
+                            if (!group || (group.active.length === 0 && group.completed.length === 0)) return null;
+                            return (
+                                <section key={groupName}>
+                                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2 border-b-2 border-gray-200 dark:border-gray-700 pb-1">
+                                        {groupName}
+                                    </h3>
+                                    <ul className="space-y-3">
+                                        {group.active.map(item => (
+                                            <ShoppingListItem key={item.shoppingListItemId} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} />
+                                        ))}
+                                        {group.completed.map(item => (
+                                            <ShoppingListItem key={item.shoppingListItemId} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} />
+                                        ))}
+                                    </ul>
+                                </section>
+                            )
+                        })}
+                    </div>
                 ) : (
-                    <button onClick={() => setIsCreatingNewList(true)} className="w-full flex items-center justify-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold py-2 px-3 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/50 transition-colors">
-                        <PlusCircleIcon className="w-5 h-5"/>
-                        {t('shoppingList.newListButton')}
-                    </button>
+                    <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
+                        <ShoppingBagIcon className="w-16 h-16 mb-4" />
+                        <p>{t('shoppingList.empty')}</p>
+                    </div>
                 )}
             </div>
 
-            <div className="bg-gray-100 dark:bg-gray-700/50 p-3 rounded-lg space-y-3">
-                 <div>
-                    <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">{t('shoppingList.collaboration.members')}</h3>
-                    <div className="flex flex-wrap items-center gap-2">
-                        {householdMembers.map(member => (
-                            <div key={member.id} className="group relative">
-                                <div className="w-8 h-8 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-xs font-bold text-indigo-700 dark:text-indigo-200 ring-2 ring-white dark:ring-gray-800">
-                                    {getInitials(member.display_name)}
-                                </div>
-                                <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                    {member.id === currentUser?.id ? `${member.display_name} (${t('shoppingList.collaboration.you')})` : member.display_name}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                 <button onClick={handleShareHousehold} disabled={shareStatus !== 'idle'} className="w-full flex items-center justify-center gap-2 text-sm bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-70">
-                    {shareStatus === 'copying' && <SpinnerIcon className="w-5 h-5" />}
-                    {shareStatus === 'copied' && <CheckCircleIcon className="w-5 h-5" />}
-                    {shareStatus === 'idle' && <UserPlusIcon className="w-5 h-5"/>}
-                    <span>{shareStatus === 'copied' ? t('shoppingList.share.linkCopied') : t('shoppingList.share.inviteButton')}</span>
-                </button>
+            <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3 shrink-0">
+                {listData.length > 0 && (
+                    <button onClick={() => setIsShoppingMode(true)} className="w-full flex items-center justify-center gap-2 text-lg bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-md transition-colors shadow-lg hover:shadow-xl">
+                        <ShoppingBagIcon className="w-6 h-6"/>
+                        {t('shoppingList.mode.startShopping')}
+                    </button>
+                )}
+                {listData.length > 0 && checkedItemsCount > 0 && (
+                    <button
+                        onClick={onClear}
+                        disabled={checkedItemsCount === 0}
+                        className="w-full px-6 py-2 bg-red-600 text-white rounded-md font-semibold hover:bg-red-700 transition-colors disabled:bg-red-400 dark:disabled:bg-gray-600"
+                    >
+                        {t('shoppingList.clear')} ({checkedItemsCount})
+                    </button>
+                )}
             </div>
-            {listData.length > 0 && (
-                <button onClick={() => setIsShoppingMode(true)} className="w-full flex items-center justify-center gap-2 text-lg bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-md transition-colors shadow-lg hover:shadow-xl">
-                    <ShoppingBagIcon className="w-6 h-6"/>
-                    {t('shoppingList.mode.startShopping')}
-                </button>
-            )}
-        </div>
-        
-        <div className="flex-1 overflow-y-auto pr-2 -mr-2 border-t border-gray-200 dark:border-gray-700 pt-4">
-            {listData.length > 0 ? (
-                <div className="space-y-6">
-                    {sortedGroupNames.map(groupName => {
-                        const group = groupedItems[groupName];
-                        if (!group || (group.active.length === 0 && group.completed.length === 0)) return null;
-                        return (
-                            <section key={groupName}>
-                                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2 border-b-2 border-gray-200 dark:border-gray-700 pb-1">
-                                    {groupName}
-                                </h3>
-                                <ul className="space-y-3">
-                                    {group.active.map(item => (
-                                        <ShoppingListItem key={item.shoppingListItemId} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} />
-                                    ))}
-                                    {group.completed.map(item => (
-                                        <ShoppingListItem key={item.shoppingListItemId} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} />
-                                    ))}
-                                </ul>
-                            </section>
-                        )
-                    })}
-                </div>
-            ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
-                    <ShoppingBagIcon className="w-16 h-16 mb-4" />
-                    <p>{t('shoppingList.empty')}</p>
-                </div>
-            )}
-        </div>
-
-        {listData.length > 0 && checkedItemsCount > 0 && (
-            <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
-                <button
-                    onClick={onClear}
-                    disabled={checkedItemsCount === 0}
-                    className="w-full px-6 py-2 bg-red-600 text-white rounded-md font-semibold hover:bg-red-700 transition-colors disabled:bg-red-400 dark:disabled:bg-gray-600"
-                >
-                    {t('shoppingList.clear')} ({checkedItemsCount})
-                </button>
-            </div>
+            </>
         )}
       </div>
       <style>{`
