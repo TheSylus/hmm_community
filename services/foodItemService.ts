@@ -17,7 +17,7 @@ interface FoodItemDbPayload {
   is_lactose_free: boolean;
   is_vegan: boolean;
   is_gluten_free: boolean;
-  purchase_location?: string;
+  purchase_location?: string[];
   restaurant_name?: string;
   cuisine_type?: string;
   price?: number;
@@ -29,6 +29,14 @@ interface FoodItemDbPayload {
  * Konvertiert ein Datenbank-Objekt (Snake Case) in das Frontend-Format (Camel Case).
  */
 export const mapDbToFoodItem = (dbItem: any): FoodItem => {
+  // Handle legacy data where purchase_location might be a string
+  let locations: string[] = [];
+  if (Array.isArray(dbItem.purchase_location)) {
+    locations = dbItem.purchase_location;
+  } else if (typeof dbItem.purchase_location === 'string' && dbItem.purchase_location.trim() !== '') {
+    locations = [dbItem.purchase_location];
+  }
+
   return {
     id: dbItem.id,
     user_id: dbItem.user_id,
@@ -48,7 +56,7 @@ export const mapDbToFoodItem = (dbItem: any): FoodItem => {
     isLactoseFree: dbItem.is_lactose_free,
     isVegan: dbItem.is_vegan,
     isGlutenFree: dbItem.is_gluten_free,
-    purchaseLocation: dbItem.purchase_location,
+    purchaseLocation: locations,
 
     // Dish specific
     restaurantName: dbItem.restaurant_name,

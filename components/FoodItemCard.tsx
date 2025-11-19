@@ -56,6 +56,9 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   const hasTags = displayItem.tags && displayItem.tags.length > 0;
   const isClickable = !!onViewDetails;
 
+  // Join purchase locations for display
+  const purchaseLocationDisplay = displayItem.purchaseLocation?.join(', ');
+
   return (
     <div 
         className={`bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-lg flex flex-col p-4 transition-all duration-300 hover:shadow-xl dark:hover:shadow-2xl hover:-translate-y-1 relative ${isClickable ? 'cursor-pointer' : ''}`}
@@ -131,10 +134,10 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                   </p>
                 )}
 
-                {displayItem.itemType === 'product' && displayItem.purchaseLocation && (
+                {displayItem.itemType === 'product' && purchaseLocationDisplay && (
                   <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-                    <BuildingStorefrontIcon className="w-4 h-4" />
-                    <p className="truncate italic" title={displayItem.purchaseLocation}>{displayItem.purchaseLocation}</p>
+                    <BuildingStorefrontIcon className="w-4 h-4 flex-shrink-0" />
+                    <p className="truncate italic" title={purchaseLocationDisplay}>{purchaseLocationDisplay}</p>
                   </div>
                 )}
                 

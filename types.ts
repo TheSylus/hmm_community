@@ -23,7 +23,7 @@ export interface FoodItem {
   isLactoseFree?: boolean;
   isVegan?: boolean;
   isGlutenFree?: boolean;
-  purchaseLocation?: string; // e.g., "Lidl", "Whole Foods"
+  purchaseLocation?: string[]; // e.g., ["Lidl", "Whole Foods"]
   
   // Dish-specific fields
   restaurantName?: string;

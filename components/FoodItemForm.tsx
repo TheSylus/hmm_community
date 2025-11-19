@@ -251,7 +251,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                 {itemType === 'product' && (
                     <input
                         type="text"
-                        placeholder={t('form.placeholder.purchaseLocation')}
+                        placeholder={t('form.placeholder.purchaseLocation')} // Placeholder updated by translation later, but logic now supports CSV
                         value={formState.purchaseLocation}
                         onChange={e => formSetters.setPurchaseLocation(e.target.value)}
                         className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3"

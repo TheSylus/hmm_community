@@ -34,7 +34,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
   
   // Product-specific
   const [nutriScore, setNutriScore] = useState<NutriScore | ''>('');
-  const [purchaseLocation, setPurchaseLocation] = useState('');
+  const [purchaseLocation, setPurchaseLocation] = useState(''); // Kept as string for comma-separated input
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [allergens, setAllergens] = useState<string[]>([]);
   const [dietary, setDietary] = useState({
@@ -100,7 +100,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
       
       if(initialData.itemType === 'product') {
         setNutriScore(initialData.nutriScore || '');
-        setPurchaseLocation(initialData.purchaseLocation || '');
+        setPurchaseLocation(initialData.purchaseLocation?.join(', ') || '');
         setIngredients(initialData.ingredients || []);
         setAllergens(initialData.allergens || []);
         setDietary({
@@ -520,7 +520,8 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
         onSaveItem({
           ...commonData,
           nutriScore: nutriScore || undefined,
-          purchaseLocation: purchaseLocation || undefined,
+          // Parse purchaseLocation string into array
+          purchaseLocation: purchaseLocation ? purchaseLocation.split(',').map(loc => loc.trim()).filter(Boolean) : undefined,
           ingredients: ingredients.length > 0 ? ingredients : undefined,
           allergens: allergens.length > 0 ? allergens : undefined,
           isLactoseFree: dietary.isLactoseFree,

@@ -65,6 +65,11 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Pa
              foodItem.tags = product.categories_tags.map((tag: string) => tag.substring(tag.indexOf(':') + 1).replace(/-/g, ' '));
         }
 
+        // Note: OFF often returns stores as a comma-separated string in 'stores'.
+        if (product.stores) {
+            foodItem.purchaseLocation = product.stores.split(',').map((s: string) => s.trim()).filter(Boolean);
+        }
+
         // Check labels for dietary information
         if (product.labels_tags && Array.isArray(product.labels_tags)) {
             const labels = product.labels_tags.join(' ').toLowerCase();
@@ -91,7 +96,7 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Pa
 };
 
 export const searchProductByNameFromOpenFoodFacts = async (productName: string): Promise<Partial<FoodItem>> => {
-    const searchUrl = `${API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,nutriscore_grade,ingredients_text,allergens_tags,categories_tags,labels_tags&page_size=1&sort_by=popularity_key`;
+    const searchUrl = `${API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,nutriscore_grade,ingredients_text,allergens_tags,categories_tags,labels_tags,stores&page_size=1&sort_by=popularity_key`;
     
     try {
         const response = await fetch(searchUrl);
@@ -125,6 +130,10 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string):
         
         if (product.categories_tags && Array.isArray(product.categories_tags)) {
              foodItem.tags = product.categories_tags.map((tag: string) => tag.substring(tag.indexOf(':') + 1).replace(/-/g, ' '));
+        }
+        
+        if (product.stores) {
+             foodItem.purchaseLocation = product.stores.split(',').map((s: string) => s.trim()).filter(Boolean);
         }
 
         if (product.labels_tags && Array.isArray(product.labels_tags)) {

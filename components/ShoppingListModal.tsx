@@ -213,18 +213,26 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
       const uncategorizedKey = t('shoppingList.uncategorized');
       const checkedCount = listData.filter(item => item.checked).length;
       
-      const groups = listData.reduce((acc, item) => {
-          const key = item.purchaseLocation || uncategorizedKey;
-          if (!acc[key]) {
-              acc[key] = { active: [], completed: [] };
-          }
-          if (item.checked) {
-              acc[key].completed.push(item);
-          } else {
-              acc[key].active.push(item);
-          }
-          return acc;
-      }, {} as Record<string, { active: HydratedShoppingListItem[], completed: HydratedShoppingListItem[] }>);
+      const groups: Record<string, { active: HydratedShoppingListItem[], completed: HydratedShoppingListItem[] }> = {};
+
+      listData.forEach(item => {
+          // If item has multiple locations, it goes into multiple groups
+          const locations = (item.purchaseLocation && item.purchaseLocation.length > 0) 
+                            ? item.purchaseLocation 
+                            : [uncategorizedKey];
+
+          locations.forEach(location => {
+              if (!groups[location]) {
+                  groups[location] = { active: [], completed: [] };
+              }
+              
+              if (item.checked) {
+                  groups[location].completed.push(item);
+              } else {
+                  groups[location].active.push(item);
+              }
+          });
+      });
 
       const sortedNames = Object.keys(groups).sort((a, b) => {
           if (a === uncategorizedKey) return 1;
@@ -264,7 +272,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                             </h3>
                             <ul className="space-y-3">
                                 {group.active.map(item => (
-                                    <ShoppingListItem key={item.shoppingListItemId} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} isShoppingMode={true} />
+                                    <ShoppingListItem key={`${groupName}-${item.shoppingListItemId}`} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} isShoppingMode={true} />
                                 ))}
                             </ul>
                             {group.completed.length > 0 && (
@@ -272,7 +280,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                     <h4 className="text-md font-medium text-gray-500 dark:text-gray-400 mb-2">{t('shoppingList.mode.completed')} ({group.completed.length})</h4>
                                     <ul className="space-y-3">
                                         {group.completed.map(item => (
-                                            <ShoppingListItem key={item.shoppingListItemId} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} isShoppingMode={true} />
+                                            <ShoppingListItem key={`${groupName}-${item.shoppingListItemId}`} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} isShoppingMode={true} />
                                         ))}
                                     </ul>
                                 </div>
@@ -446,10 +454,10 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                     </h3>
                                     <ul className="space-y-3">
                                         {group.active.map(item => (
-                                            <ShoppingListItem key={item.shoppingListItemId} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} />
+                                            <ShoppingListItem key={`${groupName}-${item.shoppingListItemId}`} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} />
                                         ))}
                                         {group.completed.map(item => (
-                                            <ShoppingListItem key={item.shoppingListItemId} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} />
+                                            <ShoppingListItem key={`${groupName}-${item.shoppingListItemId}`} item={item} onRemove={onRemove} onToggleChecked={onToggleChecked} onUpdateQuantity={onUpdateQuantity} isExpanded={expandedItemId === item.id} onExpand={handleExpand} members={householdMembers} currentUser={currentUser} />
                                         ))}
                                     </ul>
                                 </section>
