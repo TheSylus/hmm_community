@@ -1,33 +1,30 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useTranslation } from '../i18n/index';
+import { XMarkIcon } from './Icons';
 
 interface CameraCaptureProps {
   onCapture: (imageDataUrl: string) => void;
   onClose: () => void;
+  mode?: 'main' | 'ingredients'; // 'main' = square crop (product), 'ingredients' = rectangle (text)
 }
 
-export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => {
+export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose, mode = 'main' }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Use useRef for the stream to prevent re-renders from affecting it. This is the key to fixing the flicker.
   const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
 
   useEffect(() => {
-    // This flag prevents state updates if the component has already unmounted
     let isMounted = true;
 
     const startCamera = async () => {
-      // Don't start a new stream if one is already active
-      if (streamRef.current) {
-        return;
-      }
+      if (streamRef.current) return;
       
       try {
         const constraints = {
-          video: { facingMode: 'environment' }, // Prefer rear camera
+          video: { facingMode: 'environment' },
           audio: false,
         };
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -35,7 +32,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
             streamRef.current = mediaStream;
             if (videoRef.current) {
                 videoRef.current.srcObject = mediaStream;
-                // Wait for the video to be ready before enabling the capture button
                 videoRef.current.onloadedmetadata = () => {
                   if(isMounted) setIsCameraReady(true);
                 };
@@ -46,10 +42,9 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
 
         if (err.name === 'NotAllowedError') {
             if (isMounted) setError(t('camera.error.permission'));
-            return; // Don't try fallback if permission is denied
+            return;
         }
         
-        // Fallback to any camera if environment (rear) camera fails for other reasons
         try {
           const fallbackConstraints = { video: true, audio: false };
           const mediaStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
@@ -63,7 +58,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
             }
           }
         } catch (fallbackErr: any) {
-          console.error("Error accessing any camera:", fallbackErr);
           if (isMounted) {
             if (fallbackErr.name === 'NotAllowedError') {
                 setError(t('camera.error.permission'));
@@ -77,7 +71,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
 
     startCamera();
 
-    // Cleanup function: this will be called when the component is unmounted.
     return () => {
       isMounted = false;
       if (streamRef.current) {
@@ -85,58 +78,130 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
         streamRef.current = null;
       }
     };
-  }, [t]); // Add t to dependency array
+  }, [t]);
 
   const handleCapture = () => {
     if (videoRef.current && canvasRef.current && isCameraReady) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const context = canvas.getContext('2d');
-      if (context) {
-        // Flip the image horizontally if it's a front-facing camera (user camera)
-        // This makes "selfies" look natural instead of mirrored.
-        if (streamRef.current?.getVideoTracks()[0]?.getSettings().facingMode === 'user') {
-            context.translate(video.videoWidth, 0);
-            context.scale(-1, 1);
+      const ctx = canvas.getContext('2d');
+      
+      if (ctx) {
+        // Calculate crop dimensions based on the overlay aspect ratio
+        const videoW = video.videoWidth;
+        const videoH = video.videoHeight;
+        const minDim = Math.min(videoW, videoH);
+        
+        let cropW, cropH, startX, startY;
+
+        if (mode === 'main') {
+            // Square crop for products (saves tokens, focuses on object)
+            // We take 80% of the smallest dimension to match the UI overlay roughly
+            const cropSize = minDim * 0.8; 
+            cropW = cropSize;
+            cropH = cropSize;
+        } else {
+            // Taller rectangle for ingredients/receipts
+            // Width 80% of minDim, Height based on 3:4 ratio roughly
+            cropW = minDim * 0.8;
+            cropH = cropW * 1.33;
+            
+            // Ensure we don't go out of bounds vertically
+            if (cropH > videoH * 0.9) {
+                cropH = videoH * 0.9;
+                cropW = cropH / 1.33;
+            }
         }
-        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-        const imageDataUrl = canvas.toDataURL('image/jpeg');
+
+        // Center the crop area
+        startX = (videoW - cropW) / 2;
+        startY = (videoH - cropH) / 2;
+
+        // Set canvas size to the crop size
+        canvas.width = cropW;
+        canvas.height = cropH;
+
+        // Handle mirroring if user facing camera
+        const isUserFacing = streamRef.current?.getVideoTracks()[0]?.getSettings().facingMode === 'user';
+        
+        if (isUserFacing) {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+        }
+
+        // Draw only the cropped area
+        ctx.drawImage(
+            video, 
+            startX, startY, cropW, cropH, // Source coords
+            0, 0, canvas.width, canvas.height // Dest coords
+        );
+        
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
         onCapture(imageDataUrl);
       }
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-xl relative w-full max-w-lg mx-4">
-        <button onClick={onClose} className="absolute top-2 right-3 text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white text-3xl font-bold z-10 leading-none">&times;</button>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 text-center">{t('camera.title')}</h3>
-        {error ? (
-          <div className="text-red-500 dark:text-red-400 bg-red-100 dark:bg-red-900/50 p-4 rounded-md text-center">{error}</div>
-        ) : (
-          <div className="relative bg-gray-200 dark:bg-gray-900 rounded-md overflow-hidden">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted // Muted is important for autoplay policies in many browsers
-              className="w-full h-auto"
-            />
-            <canvas ref={canvasRef} className="hidden" />
+    <div className="fixed inset-0 bg-black bg-opacity-95 flex flex-col items-center justify-center z-50">
+      <div className="absolute top-0 left-0 w-full p-4 z-20 flex justify-between items-center">
+         <h3 className="text-lg font-bold text-white drop-shadow-md">{t('camera.title')}</h3>
+         <button onClick={onClose} className="text-white hover:text-gray-300 p-2">
+            <XMarkIcon className="w-8 h-8" />
+         </button>
+      </div>
+
+      {error ? (
+        <div className="text-red-400 p-8 text-center max-w-xs">{error}</div>
+      ) : (
+        <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+          {/* Video Layer */}
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          
+          {/* Dark Overlay with "Hole" via Clip Path or borders */}
+          {/* Using a simpler border approach for cross-browser reliability visually */}
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+             <div 
+                className={`relative border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] transition-all duration-300 ${
+                    mode === 'main' 
+                    ? 'aspect-square w-[80vw] max-w-[80vh] rounded-xl' 
+                    : 'aspect-[3/4] w-[70vw] max-w-[60vh] rounded-lg'
+                }`}
+             >
+                {/* Corner markers for aesthetics */}
+                <div className="absolute top-[-2px] left-[-2px] w-6 h-6 border-t-4 border-l-4 border-indigo-500 rounded-tl-xl"></div>
+                <div className="absolute top-[-2px] right-[-2px] w-6 h-6 border-t-4 border-r-4 border-indigo-500 rounded-tr-xl"></div>
+                <div className="absolute bottom-[-2px] left-[-2px] w-6 h-6 border-b-4 border-l-4 border-indigo-500 rounded-bl-xl"></div>
+                <div className="absolute bottom-[-2px] right-[-2px] w-6 h-6 border-b-4 border-r-4 border-indigo-500 rounded-br-xl"></div>
+                
+                {/* Helper text inside the frame */}
+                <div className="absolute bottom-4 left-0 right-0 text-center">
+                    <span className="text-white/80 text-xs bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">
+                        {mode === 'main' ? 'Produkt hier platzieren' : 'Zutatenliste hier platzieren'}
+                    </span>
+                </div>
+             </div>
           </div>
-        )}
-        <div className="mt-6 flex justify-center">
-          <button
-            onClick={handleCapture}
-            disabled={!isCameraReady || !!error}
-            className="px-8 py-4 bg-indigo-600 text-white text-lg rounded-full font-semibold hover:bg-indigo-700 disabled:bg-indigo-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 transition-opacity"
-            aria-label={t('camera.captureButton')}
-          >
-            {t('camera.captureButton')}
-          </button>
+
+          <canvas ref={canvasRef} className="hidden" />
         </div>
+      )}
+      
+      <div className="absolute bottom-0 left-0 w-full p-8 z-20 flex justify-center bg-gradient-to-t from-black/80 to-transparent">
+        <button
+          onClick={handleCapture}
+          disabled={!isCameraReady || !!error}
+          className="w-20 h-20 bg-white rounded-full border-4 border-gray-300 shadow-lg flex items-center justify-center hover:bg-gray-100 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label={t('camera.captureButton')}
+        >
+            <div className="w-16 h-16 bg-white rounded-full border-2 border-black"></div>
+        </button>
       </div>
     </div>
   );

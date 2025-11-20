@@ -415,7 +415,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
         </div>
       </form>
 
-      {uiState.isCameraOpen && <CameraCapture onCapture={actions.handleImageFromCamera} onClose={() => uiSetters.setIsCameraOpen(false)} />}
+      {uiState.isCameraOpen && <CameraCapture onCapture={actions.handleImageFromCamera} onClose={() => uiSetters.setIsCameraOpen(false)} mode={uiState.scanMode} />}
       {uiState.isBarcodeScannerOpen && <BarcodeScanner onScan={actions.handleBarcodeScanned} onClose={() => uiSetters.setIsBarcodeScannerOpen(false)} />}
       {uiState.isSpeechModalOpen && <SpeechInputModal onDictate={actions.handleDictationResult} onClose={() => uiSetters.setIsSpeechModalOpen(false)} />}
       {uiState.isCropperOpen && uiState.uncroppedImage && <ImageCropper imageUrl={uiState.uncroppedImage} suggestedCrop={uiState.suggestedCrop} onCrop={actions.handleCropComplete} onCancel={actions.handleCropCancel} />}

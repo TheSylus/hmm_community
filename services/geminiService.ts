@@ -14,6 +14,39 @@ export function getAiClient() {
     return ai;
 }
 
+// Helper to resize images before sending to AI to save bandwidth and ensure faster processing.
+// While Gemini Image tokens are often fixed, smaller payloads reduce latency and parsing overhead.
+const resizeImage = (base64Str: string, maxWidth: number = 800, quality: number = 0.8): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.src = base64Str;
+        img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxWidth) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            } else {
+                resolve(base64Str); // Fallback if canvas fails
+            }
+        };
+        img.onerror = () => {
+            resolve(base64Str); // Fallback if image fails to load
+        };
+    });
+};
+
+
 // FIX: Replaced brittle JSON parsing with a more robust implementation.
 // This version can extract a JSON object from within a markdown code block,
 // making it more resilient to variations in the AI's response format,
@@ -55,7 +88,11 @@ export interface BoundingBox {
 }
 
 export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; tags: string[]; nutriScore?: NutriScore; boundingBox?: BoundingBox }> => {
-  const match = base64Image.match(/^data:(image\/[a-z]+);base64,(.*)$/);
+  // Optimization: Resize image to max 800px width. High resolution is rarely needed for general object detection
+  // and this significantly reduces the payload size.
+  const resizedImage = await resizeImage(base64Image, 800);
+
+  const match = resizedImage.match(/^data:(image\/[a-z]+);base64,(.*)$/);
   if (!match) {
     throw new Error("Invalid base64 image string.");
   }
@@ -134,7 +171,10 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
 
 
 export const analyzeIngredientsImage = async (base64Image: string): Promise<{ ingredients: string[]; allergens: string[]; isLactoseFree: boolean; isVegan: boolean; isGlutenFree: boolean; }> => {
-    const match = base64Image.match(/^data:(image\/[a-z]+);base64,(.*)$/);
+    // Optimization: Resize image to max 1024px. We need slightly more resolution for text reading than object detection.
+    const resizedImage = await resizeImage(base64Image, 1024);
+    
+    const match = resizedImage.match(/^data:(image\/[a-z]+);base64,(.*)$/);
     if (!match) {
       throw new Error("Invalid base64 image string.");
     }
@@ -244,26 +284,51 @@ export const findNearbyRestaurants = async (latitude: number, longitude: number)
   }
 };
 
-// A compacted version of FoodItem for sending to the AI
-type CompactFoodItem = Pick<
-  FoodItem,
-  'id' | 'name' | 'rating' | 'itemType' | 'notes' | 'tags' | 'nutriScore' | 'restaurantName' | 'cuisineType'
->;
-
 export const performConversationalSearch = async (query: string, items: FoodItem[]): Promise<string[]> => {
   if (!query || items.length === 0) {
     return [];
   }
 
-  // Create a more compact version of the items to send to the API, excluding large fields like images
-  const compactItems: CompactFoodItem[] = items.map(({ image, ingredients, allergens, isLactoseFree, isVegan, isGlutenFree, price, user_id, created_at, ...rest }) => rest);
+  // TOKEN OPTIMIZATION:
+  // Instead of sending the full object structure with potentially empty fields,
+  // we reconstruct a minimal object containing only the data present.
+  // This significantly reduces the input token count for large lists.
+  const optimizedItems = items.map(item => {
+      const compact: any = {
+          id: item.id,
+          name: item.name,
+          type: item.itemType
+      };
+      
+      // Only add fields if they exist and are not empty
+      if (item.rating) compact.rating = item.rating;
+      if (item.notes && item.notes.trim()) compact.notes = item.notes;
+      if (item.tags && item.tags.length > 0) compact.tags = item.tags;
+      
+      // Add specific fields only for dishes
+      if (item.itemType === 'dish') {
+          if (item.restaurantName) compact.restaurant = item.restaurantName;
+          if (item.cuisineType) compact.cuisine = item.cuisineType;
+      }
+      
+      // Add specific fields only for products
+      if (item.itemType === 'product') {
+           if (item.nutriScore) compact.nutriScore = item.nutriScore;
+           // Only send dietary info if it's explicitly true (relevant)
+           if (item.isLactoseFree) compact.lactoseFree = true;
+           if (item.isVegan) compact.vegan = true;
+           if (item.isGlutenFree) compact.glutenFree = true;
+      }
+      
+      return compact;
+  });
 
   try {
     const gemini = getAiClient();
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash",
       config: {
-        systemInstruction: "You are a smart search assistant for a food tracking app. Analyze the user's query and the provided JSON array of food items. Return a JSON array containing only the `id` strings of the items that match the query. The user might search by name, taste, memories, rating, or any other attribute in the data. If no items match, return an empty array.",
+        systemInstruction: "You are a smart search assistant. Analyze the user's query and the provided food items. Return a JSON array containing only the `id` strings of the items that match the query. Match by name, semantic meaning of tags/notes/cuisine. If no items match, return an empty array.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -278,7 +343,7 @@ export const performConversationalSearch = async (query: string, items: FoodItem
         },
       },
       contents: {
-        parts: [{ text: `User Query: "${query}"\n\nFood Items: ${JSON.stringify(compactItems)}` }]
+        parts: [{ text: `User Query: "${query}"\n\nItems: ${JSON.stringify(optimizedItems)}` }]
       },
     });
 

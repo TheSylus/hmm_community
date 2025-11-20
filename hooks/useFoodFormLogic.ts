@@ -404,6 +404,10 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
             isGlutenFree: mergedData.isGlutenFree,
         });
 
+        // Even though we pre-cropped in the camera, we still allow fine-tuning if AI suggests something
+        // or just to let user verify. Since CameraCapture now sends the cropped image, 
+        // uncroppedImage is actually already cropped to the frame.
+        // But analyzeFoodImage might return a bounding box RELATIVE to that cropped image.
         setUncroppedImage(imageDataUrl);
         setSuggestedCrop(aiResult.boundingBox);
         setIsCropperOpen(true);
@@ -564,7 +568,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
       isCameraOpen, isBarcodeScannerOpen, isSpeechModalOpen, isNameSearchLoading,
       isCropperOpen, uncroppedImage, suggestedCrop, isLoading, analysisProgress,
       highlightedFields, isIngredientsLoading, error, isFindingRestaurants,
-      nearbyRestaurants, locationError, isAiAvailable
+      nearbyRestaurants, locationError, isAiAvailable, scanMode // Export scanMode
     },
     uiSetters: {
       setIsCameraOpen, setIsBarcodeScannerOpen, setIsSpeechModalOpen, setIsCropperOpen, setError
