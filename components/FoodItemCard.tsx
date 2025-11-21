@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { FoodItem, NutriScore } from '../types';
-import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, UsersIcon, LockClosedIcon } from './Icons';
+import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, GlobeAltIcon, LockClosedIcon } from './Icons';
 import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
@@ -85,7 +85,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                     </div>
                     <div className="bg-black/60 backdrop-blur-sm p-1 rounded-full text-white shadow-sm">
                         {displayItem.isFamilyFavorite ? (
-                            <UsersIcon className="w-3.5 h-3.5 text-green-400" />
+                            <GlobeAltIcon className="w-3.5 h-3.5 text-green-400" />
                         ) : (
                             <LockClosedIcon className="w-3.5 h-3.5 text-gray-300" />
                         )}
