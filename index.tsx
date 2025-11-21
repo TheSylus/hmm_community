@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -16,11 +17,11 @@ root.render(
   <React.StrictMode>
     <ThemeProvider>
       <I18nProvider>
-        <AppSettingsProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <AppSettingsProvider>
             <App />
-          </AuthProvider>
-        </AppSettingsProvider>
+          </AppSettingsProvider>
+        </AuthProvider>
       </I18nProvider>
     </ThemeProvider>
   </React.StrictMode>

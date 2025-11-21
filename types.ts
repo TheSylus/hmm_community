@@ -1,3 +1,4 @@
+
 export type NutriScore = 'A' | 'B' | 'C' | 'D' | 'E';
 
 export type FoodItemType = 'product' | 'dish';
@@ -37,6 +38,7 @@ export interface Household {
   name: string;
   owner_id: string;
   created_at: string;
+  saved_shops?: string[]; // Stores the preferred shops for this household
 }
 
 // Represents a distinct shopping list, belonging to a household.
