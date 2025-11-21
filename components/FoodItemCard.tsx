@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FoodItem, NutriScore } from '../types';
 import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, GlobeAltIcon, LockClosedIcon } from './Icons';
@@ -59,128 +60,138 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
 
   return (
     <div 
-        className={`bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-lg flex flex-col p-4 transition-all duration-300 hover:shadow-xl dark:hover:shadow-2xl hover:-translate-y-1 relative ${isClickable ? 'cursor-pointer' : ''}`}
+        className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden transition-all duration-300 hover:shadow-md relative ${isClickable ? 'cursor-pointer' : ''}`}
         onClick={() => isClickable && onViewDetails(item)}
     >
-        <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
-            <div className="group relative">
-                {displayItem.itemType === 'dish' ? (
-                    <BuildingStorefrontIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+        <div className="flex flex-row h-full">
+            {/* Left Side: Image & Status Overlays */}
+            <div className="relative w-28 sm:w-32 shrink-0 bg-gray-100 dark:bg-gray-700">
+                {displayItem.image ? (
+                    <img src={displayItem.image} alt={displayItem.name} className="w-full h-full object-cover absolute inset-0" />
                 ) : (
-                    <ShoppingBagIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                )}
-                <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    {t(displayItem.itemType === 'dish' ? 'card.dishTooltip' : 'card.productTooltip')}
-                </span>
-            </div>
-             <div className="group relative">
-                {displayItem.isFamilyFavorite ? (
-                    <GlobeAltIcon className="w-5 h-5 text-green-500" />
-                ) : (
-                    <LockClosedIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                )}
-                <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    {t(displayItem.isFamilyFavorite ? 'card.familyFavoriteTooltip' : 'card.privateTooltip')}
-                </span>
-            </div>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-            {/* Image Thumbnail */}
-            {displayItem.image && (
-                <div className="w-full h-32 sm:w-24 sm:h-24 flex-shrink-0 rounded-md overflow-hidden group">
-                    <img src={displayItem.image} alt={displayItem.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                </div>
-            )}
-
-            {/* Core Details Section */}
-            <div className={`flex-1 flex flex-col justify-start overflow-hidden w-full ${!displayItem.image ? 'pl-16' : ''}`}>
-                <div className="flex justify-between items-start gap-2">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white truncate" title={displayItem.name}>{displayItem.name}</h3>
-                    
-                    {!isPreview && (
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                            {displayItem.itemType === 'product' && (
-                                <button
-                                onClick={(e) => { e.stopPropagation(); onAddToShoppingList(item); }}
-                                className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors"
-                                aria-label={t('shoppingList.addAria', { name: displayItem.name })}
-                                >
-                                <ShoppingBagIcon className="w-5 h-5" />
-                            </button>
-                            )}
-                            <button
-                            onClick={(e) => { e.stopPropagation(); onEdit(item.id); }}
-                            className="text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors"
-                            aria-label={t('card.editAria', { name: displayItem.name })}
-                            >
-                            <PencilIcon className="w-5 h-5" />
-                            </button>
-                            <button
-                            onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                            className="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors"
-                            aria-label={t('card.deleteAria', { name: displayItem.name })}
-                            >
-                            <TrashIcon className="w-5 h-5" />
-                            </button>
-                        </div>
-                    )}
-                </div>
-                
-                {displayItem.itemType === 'dish' && displayItem.restaurantName && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate italic" title={displayItem.restaurantName}>
-                      {t('card.dishAt', { restaurant: displayItem.restaurantName })}
-                  </p>
-                )}
-
-                {displayItem.itemType === 'product' && displayItem.purchaseLocation && displayItem.purchaseLocation.length > 0 && (
-                  <div className="flex items-center gap-1 mt-1 overflow-hidden">
-                    {displayItem.purchaseLocation.map((loc, idx) => (
-                         <StoreLogo key={idx} name={loc} size="sm" showName={displayItem.purchaseLocation!.length < 3} className="mr-1" />
-                    ))}
-                  </div>
+                    <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-600">
+                        {displayItem.itemType === 'dish' ? <BuildingStorefrontIcon className="w-8 h-8"/> : <ShoppingBagIcon className="w-8 h-8"/>}
+                    </div>
                 )}
                 
-                <div className="flex items-center my-1.5">
-                    {[1, 2, 3, 4, 5].map(star => (
-                        <StarIcon key={star} className={`w-5 h-5 ${displayItem.rating >= star ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} filled={displayItem.rating >= star} />
-                    ))}
-                    
-                    {displayItem.itemType === 'product' && displayItem.nutriScore && (
-                        <div className={`ml-3 text-xs w-6 h-6 rounded-full text-white font-bold flex items-center justify-center flex-shrink-0 ${nutriScoreColors[displayItem.nutriScore]}`}>
+                {/* Overlay Icons (Status) - Moved onto image to save space */}
+                <div className="absolute top-1 left-1 flex flex-col gap-1">
+                    <div className="bg-black/60 backdrop-blur-sm p-1 rounded-full text-white shadow-sm">
+                        {displayItem.itemType === 'dish' ? (
+                            <BuildingStorefrontIcon className="w-3.5 h-3.5" />
+                        ) : (
+                            <ShoppingBagIcon className="w-3.5 h-3.5" />
+                        )}
+                    </div>
+                    <div className="bg-black/60 backdrop-blur-sm p-1 rounded-full text-white shadow-sm">
+                        {displayItem.isFamilyFavorite ? (
+                            <GlobeAltIcon className="w-3.5 h-3.5 text-green-400" />
+                        ) : (
+                            <LockClosedIcon className="w-3.5 h-3.5 text-gray-300" />
+                        )}
+                    </div>
+                </div>
+                
+                {/* NutriScore Overlay (Bottom Right of Image) */}
+                {displayItem.itemType === 'product' && displayItem.nutriScore && (
+                    <div className={`absolute bottom-1 right-1 text-[10px] w-5 h-5 rounded-full text-white font-bold flex items-center justify-center shadow-sm ${nutriScoreColors[displayItem.nutriScore]}`}>
                         {displayItem.nutriScore}
+                    </div>
+                )}
+            </div>
+
+            {/* Right Side: Content */}
+            <div className="flex-1 flex flex-col justify-between p-3 min-w-0">
+                <div>
+                    <div className="flex justify-between items-start gap-2">
+                        <h3 className="text-base font-bold text-gray-900 dark:text-white truncate leading-tight" title={displayItem.name}>
+                            {displayItem.name}
+                        </h3>
+                        
+                        {!isPreview && (
+                            <div className="flex items-center -mr-1 -mt-1 shrink-0">
+                                {displayItem.itemType === 'product' && (
+                                    <button
+                                    onClick={(e) => { e.stopPropagation(); onAddToShoppingList(item); }}
+                                    className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                                    aria-label={t('shoppingList.addAria', { name: displayItem.name })}
+                                    >
+                                    <ShoppingBagIcon className="w-4 h-4" />
+                                </button>
+                                )}
+                                <button
+                                onClick={(e) => { e.stopPropagation(); onEdit(item.id); }}
+                                className="text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                                aria-label={t('card.editAria', { name: displayItem.name })}
+                                >
+                                <PencilIcon className="w-4 h-4" />
+                                </button>
+                                <button
+                                onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                                className="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                                aria-label={t('card.deleteAria', { name: displayItem.name })}
+                                >
+                                <TrashIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-1 mt-1">
+                        <div className="flex">
+                            {[1, 2, 3, 4, 5].map(star => (
+                                <StarIcon key={star} className={`w-3.5 h-3.5 ${displayItem.rating >= star ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} filled={displayItem.rating >= star} />
+                            ))}
                         </div>
-                    )}
+                    </div>
+
+                    {/* Location / Restaurant Line */}
+                    <div className="mt-1.5 min-h-[1.25rem]">
+                        {displayItem.itemType === 'dish' && displayItem.restaurantName && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate italic flex items-center gap-1">
+                                <BuildingStorefrontIcon className="w-3 h-3"/> {displayItem.restaurantName}
+                            </p>
+                        )}
+
+                        {displayItem.itemType === 'product' && displayItem.purchaseLocation && displayItem.purchaseLocation.length > 0 && (
+                            <div className="flex items-center gap-1 overflow-hidden">
+                                {displayItem.purchaseLocation.slice(0, 3).map((loc, idx) => (
+                                    <StoreLogo key={idx} name={loc} size="sm" showName={false} className="w-5 h-5" />
+                                ))}
+                                {displayItem.purchaseLocation.length > 3 && (
+                                    <span className="text-[10px] text-gray-400">+{displayItem.purchaseLocation.length - 3}</span>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
                 
-                <div className="mt-1.5 space-y-2">
-                    {hasDietaryOrAllergens && (
-                         <div className="flex items-center gap-2 flex-wrap">
-                            {displayItem.isLactoseFree && <DietaryIcon type="lactoseFree" className="w-6 h-6" />}
-                            {displayItem.isVegan && <DietaryIcon type="vegan" className="w-6 h-6" />}
-                            {displayItem.isGlutenFree && <DietaryIcon type="glutenFree" className="w-6 h-6" />}
-                            {displayItem.allergens && displayItem.allergens.length > 0 && <AllergenDisplay allergens={displayItem.allergens} />}
-                        </div>
-                    )}
-
-                    {hasTags && (
-                        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                {/* Bottom Row: Tags & Dietary */}
+                <div className="mt-2 flex items-center justify-between gap-2 overflow-hidden h-6">
+                    {hasTags ? (
+                        <div className="flex gap-1 overflow-x-auto scrollbar-hide py-0.5 mask-linear-fade">
                             {displayItem.tags!.map(tag => (
-                            <span key={tag} className="flex-shrink-0 bg-indigo-100 text-indigo-800 dark:bg-indigo-600 dark:text-indigo-100 text-xs font-semibold px-2 py-1 rounded-full">
+                            <span key={tag} className="flex-shrink-0 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 text-[10px] font-medium px-1.5 py-0.5 rounded">
                                 {tag}
                             </span>
                             ))}
                         </div>
+                    ) : <div />}
+
+                    {hasDietaryOrAllergens && (
+                         <div className="flex items-center gap-1 flex-shrink-0 pl-1 bg-white dark:bg-gray-800 shadow-[-4px_0_4px_rgba(255,255,255,0.8)] dark:shadow-[-4px_0_4px_rgba(31,41,55,0.8)]">
+                            {displayItem.isLactoseFree && <DietaryIcon type="lactoseFree" className="w-4 h-4" />}
+                            {displayItem.isVegan && <DietaryIcon type="vegan" className="w-4 h-4" />}
+                            {displayItem.isGlutenFree && <DietaryIcon type="glutenFree" className="w-4 h-4" />}
+                            {/* Show just a generic allergen warning icon if allergens exist but no room for specific icons */}
+                            {displayItem.allergens && displayItem.allergens.length > 0 && !displayItem.isVegan && !displayItem.isGlutenFree && (
+                                <span className="text-[10px] font-bold text-orange-500 border border-orange-200 rounded px-1">!</span>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>
         </div>
-        
-        {/* Notes Section */}
-        {displayItem.notes && !isPreview && (
-            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700/50">
-                <p className="text-gray-600 dark:text-gray-400 text-sm leading-tight line-clamp-2">{displayItem.notes}</p>
-            </div>
-        )}
 
       {/* Custom scrollbar styling & line clamp */}
       <style>{`
@@ -191,11 +202,9 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
           -ms-overflow-style: none;
           scrollbar-width: none;
         }
-        .line-clamp-2 {
-            overflow: hidden;
-            display: -webkit-box;
-            -webkit-box-orient: vertical;
-            -webkit-line-clamp: 2;
+        .mask-linear-fade {
+            mask-image: linear-gradient(to right, black 90%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
         }
       `}</style>
     </div>
