@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList, UserProfile, Household } from './types';
 import { FoodItemForm } from './components/FoodItemForm';
@@ -18,7 +19,7 @@ import { useHousehold } from './hooks/useHousehold';
 import { useShoppingList } from './hooks/useShoppingList';
 import * as geminiService from './services/geminiService';
 import { useTranslation } from './i18n/index';
-import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, GlobeAltIcon } from './components/Icons';
+import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, UserGroupIcon } from './components/Icons';
 
 // Helper function to decode from URL-safe Base64 and decompress the data
 const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
@@ -553,7 +554,7 @@ const App: React.FC = () => {
                         <span className="text-xs font-semibold">{t('nav.myItems')}</span>
                     </button>
                     <button onClick={() => setActiveView('family')} className={`flex flex-col items-center justify-center gap-1 transition-colors ${activeView === 'family' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400'}`} disabled={!household}>
-                        <GlobeAltIcon className="w-6 h-6" />
+                        <UserGroupIcon className="w-6 h-6" />
                         <span className="text-xs font-semibold">{t('nav.family')}</span>
                     </button>
                 </div>

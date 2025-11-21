@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { FoodItem, NutriScore } from '../types';
-import { StarIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, BuildingStorefrontIcon, DocumentTextIcon, GlobeAltIcon, LockClosedIcon } from './Icons';
+import { StarIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, BuildingStorefrontIcon, DocumentTextIcon, UserGroupIcon, LockClosedIcon } from './Icons';
 import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
@@ -114,7 +115,7 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mt-2">
               <span className="font-semibold">{t('detail.status')}:</span>
               <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs ${displayItem.isFamilyFavorite ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-300'}`}>
-                  {displayItem.isFamilyFavorite ? <GlobeAltIcon className="w-3.5 h-3.5" /> : <LockClosedIcon className="w-3.5 h-3.5" />}
+                  {displayItem.isFamilyFavorite ? <UserGroupIcon className="w-3.5 h-3.5" /> : <LockClosedIcon className="w-3.5 h-3.5" />}
                   <span>{t(displayItem.isFamilyFavorite ? 'detail.statusFamilyFavorite' : 'detail.statusPrivate')}</span>
               </div>
           </div>
