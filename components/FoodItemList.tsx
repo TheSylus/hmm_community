@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FoodItem } from '../types';
 import { FoodItemCard } from './FoodItemCard';
@@ -9,9 +10,10 @@ interface FoodItemListProps {
   onEdit: (id: string) => void;
   onViewDetails: (item: FoodItem) => void;
   onAddToShoppingList: (item: FoodItem) => void;
+  shoppingListFoodIds?: Set<string>;
 }
 
-export const FoodItemList: React.FC<FoodItemListProps> = ({ items, onDelete, onEdit, onViewDetails, onAddToShoppingList }) => {
+export const FoodItemList: React.FC<FoodItemListProps> = ({ items, onDelete, onEdit, onViewDetails, onAddToShoppingList, shoppingListFoodIds }) => {
   const { t } = useTranslation();
 
   if (items.length === 0) {
@@ -33,6 +35,7 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, onDelete, onE
           onEdit={onEdit}
           onViewDetails={onViewDetails}
           onAddToShoppingList={onAddToShoppingList}
+          isInShoppingList={shoppingListFoodIds?.has(item.id)}
         />
       ))}
     </div>

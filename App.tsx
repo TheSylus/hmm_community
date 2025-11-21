@@ -140,6 +140,11 @@ const App: React.FC = () => {
 
   const isAnyFilterActive = useMemo(() => searchTerm.trim() !== '' || ratingFilter !== 'all' || typeFilter !== 'all' || aiSearchQuery !== '', [searchTerm, ratingFilter, typeFilter, aiSearchQuery]);
   
+  // Compute set of food IDs currently in the shopping list to pass down to components
+  const shoppingListFoodIds = useMemo(() => {
+      return new Set(shoppingListItems.map(item => item.food_item_id));
+  }, [shoppingListItems]);
+
   // Handle Join Household via URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -433,6 +438,7 @@ const App: React.FC = () => {
             onDelete={handleDeleteFormItem}
             onViewDetails={handleViewDetails}
             onAddToShoppingList={handleAddToShoppingListWrapper}
+            shoppingListFoodIds={shoppingListFoodIds}
           />
         );
       case 'family':
@@ -444,7 +450,7 @@ const App: React.FC = () => {
             </div>
           );
         }
-        return <FoodItemList items={filteredAndSortedItems} onDelete={handleDeleteFormItem} onEdit={handleStartEdit} onViewDetails={handleViewDetails} onAddToShoppingList={handleAddToShoppingListWrapper} />;
+        return <FoodItemList items={filteredAndSortedItems} onDelete={handleDeleteFormItem} onEdit={handleStartEdit} onViewDetails={handleViewDetails} onAddToShoppingList={handleAddToShoppingListWrapper} shoppingListFoodIds={shoppingListFoodIds} />;
       case 'list':
       default:
         return (
@@ -468,6 +474,7 @@ const App: React.FC = () => {
               onEdit={handleStartEdit}
               onViewDetails={handleViewDetails}
               onAddToShoppingList={handleAddToShoppingListWrapper}
+              shoppingListFoodIds={shoppingListFoodIds}
             />
           </>
         );

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { FoodItem, NutriScore } from '../types';
-import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, UserGroupIcon, LockClosedIcon } from './Icons';
+import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, UserGroupIcon, LockClosedIcon, ShoppingCartIcon } from './Icons';
 import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
@@ -14,6 +14,7 @@ interface FoodItemCardProps {
   onViewDetails: (item: FoodItem) => void;
   onAddToShoppingList: (item: FoodItem) => void;
   isPreview?: boolean;
+  isInShoppingList?: boolean;
 }
 
 const nutriScoreColors: Record<NutriScore, string> = {
@@ -46,7 +47,7 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
     );
 }
 
-export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, isPreview = false }) => {
+export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, isPreview = false, isInShoppingList = false }) => {
   const { t } = useTranslation();
   const displayItem = useTranslatedItem(item);
 
@@ -77,10 +78,14 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                 {/* Overlay Icons (Status) - Moved onto image to save space */}
                 <div className="absolute top-1 left-1 flex flex-col gap-1">
                     <div className="bg-black/60 backdrop-blur-sm p-1 rounded-full text-white shadow-sm">
-                        {displayItem.itemType === 'dish' ? (
-                            <BuildingStorefrontIcon className="w-3.5 h-3.5" />
+                        {isInShoppingList ? (
+                             <ShoppingCartIcon className="w-3.5 h-3.5 text-indigo-400" />
                         ) : (
-                            <ShoppingBagIcon className="w-3.5 h-3.5" />
+                            displayItem.itemType === 'dish' ? (
+                                <BuildingStorefrontIcon className="w-3.5 h-3.5" />
+                            ) : (
+                                <ShoppingBagIcon className="w-3.5 h-3.5" />
+                            )
                         )}
                     </div>
                     <div className="bg-black/60 backdrop-blur-sm p-1 rounded-full text-white shadow-sm">

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FoodItem } from '../types';
 import { FoodItemCard } from './FoodItemCard';
@@ -12,9 +13,10 @@ interface DashboardProps {
   onEdit: (id: string) => void;
   onViewDetails: (item: FoodItem) => void;
   onAddToShoppingList: (item: FoodItem) => void;
+  shoppingListFoodIds?: Set<string>;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ items, onViewAll, onAddNew, ...cardProps }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ items, onViewAll, onAddNew, shoppingListFoodIds, ...cardProps }) => {
   const { t } = useTranslation();
 
   const recentlyAdded = [...items].slice(0, 3);
@@ -64,7 +66,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ items, onViewAll, onAddNew
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {recentlyAdded.map(item => (
-              <FoodItemCard key={item.id} item={item} {...cardProps} />
+              <FoodItemCard key={item.id} item={item} isInShoppingList={shoppingListFoodIds?.has(item.id)} {...cardProps} />
             ))}
           </div>
         </section>
@@ -78,7 +80,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ items, onViewAll, onAddNew
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {topRated.map(item => (
-              <FoodItemCard key={item.id} item={item} {...cardProps} />
+              <FoodItemCard key={item.id} item={item} isInShoppingList={shoppingListFoodIds?.has(item.id)} {...cardProps} />
             ))}
           </div>
         </section>
