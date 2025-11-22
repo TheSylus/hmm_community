@@ -145,17 +145,44 @@ const App: React.FC = () => {
       return new Set(shoppingListItems.map(item => item.food_item_id));
   }, [shoppingListItems]);
 
-  // Handle Join Household via URL
+  // --- Pending Invite Logic ---
+  // Capture URL param immediately on mount, even if not logged in
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const householdInvite = params.get('join_household');
-    if (householdInvite && userProfile && !userProfile.household_id) {
-       joinHousehold(householdInvite)
-        .then((name) => setToastMessage(t('shoppingList.joinSuccess', { householdName: name || '' })))
-        .catch(console.error);
-       window.history.replaceState({}, document.title, window.location.pathname);
+    if (householdInvite) {
+        localStorage.setItem('pending_household_invite', householdInvite);
+        // Clean URL to look nice
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  // Process pending invite when User Profile is ready
+  useEffect(() => {
+    const processPendingInvite = async () => {
+        // Check localStorage for invite preserved across login redirect
+        const storedInvite = localStorage.getItem('pending_household_invite');
+        
+        if (storedInvite && userProfile) {
+            if (!userProfile.household_id) {
+                try {
+                    const name = await joinHousehold(storedInvite);
+                    setToastMessage(t('shoppingList.joinSuccess', { householdName: name || '' }));
+                } catch (e) {
+                    console.error("Failed to join household from pending invite:", e);
+                    setToastMessage("Failed to join household. invalid link or error.");
+                }
+            }
+            // Clear it so we don't try again
+            localStorage.removeItem('pending_household_invite');
+        }
+    };
+
+    if (userProfile) {
+        processPendingInvite();
     }
   }, [userProfile, joinHousehold, t]);
+
 
   // Listen for online/offline status changes
   useEffect(() => {
@@ -603,7 +630,7 @@ const App: React.FC = () => {
           onHouseholdCreate={handleHouseholdCreateWrapper}
           onHouseholdLeave={leaveHousehold}
           onHouseholdDelete={deleteHousehold}
-          error={householdError} // Passed error here
+          error={householdError} 
       />}
       {isShoppingListOpen && 
         <ShoppingListModal 
