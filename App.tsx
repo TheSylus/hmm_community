@@ -599,6 +599,7 @@ const App: React.FC = () => {
       {isSettingsOpen && <SettingsModal 
           onClose={() => setIsSettingsOpen(false)} 
           household={household}
+          householdMembers={householdMembers}
           onHouseholdCreate={handleHouseholdCreateWrapper}
           onHouseholdLeave={leaveHousehold}
           onHouseholdDelete={deleteHousehold}

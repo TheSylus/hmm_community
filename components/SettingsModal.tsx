@@ -1,23 +1,26 @@
+
 import React, { useState } from 'react';
 import { useTranslation } from '../i18n/index';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppSettings } from '../contexts/AppSettingsContext';
 import { useAuth } from '../contexts/AuthContext';
-import { XMarkIcon, SpinnerIcon, PlusCircleIcon, TrashIcon } from './Icons';
+import { XMarkIcon, SpinnerIcon, PlusCircleIcon, TrashIcon, UserCircleIcon, UserGroupIcon } from './Icons';
 import { Household, UserProfile } from '../types';
 import { StoreLogo } from './StoreLogo';
 
 interface SettingsModalProps {
   onClose: () => void;
   household: Household | null;
+  householdMembers: UserProfile[];
   onHouseholdCreate: (name: string) => Promise<void>;
   onHouseholdLeave: () => Promise<void>;
   onHouseholdDelete: () => Promise<void>;
   error?: string | null;
 }
 
-const HouseholdManager: React.FC<Omit<SettingsModalProps, 'onClose'>> = ({ household, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete, error }) => {
+const HouseholdManager: React.FC<Omit<SettingsModalProps, 'onClose'>> = ({ household, householdMembers, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete, error }) => {
     const { t } = useTranslation();
+    const { user } = useAuth();
     const [newHouseholdName, setNewHouseholdName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [shareStatus, setShareStatus] = useState<'idle' | 'copying' | 'copied'>('idle');
@@ -45,17 +48,52 @@ const HouseholdManager: React.FC<Omit<SettingsModalProps, 'onClose'>> = ({ house
         }
     };
     
+    const getInitials = (name: string) => {
+        if (!name) return '?';
+        const parts = name.split('@')[0].replace(/[^a-zA-Z\s]/g, ' ').split(' ');
+        if (parts.length > 1 && parts[0] && parts[parts.length -1]) {
+            return (parts[0][0] + (parts[parts.length - 1][0] || '')).toUpperCase();
+        }
+        return name.substring(0, 2).toUpperCase();
+    };
+
     if (household) {
         return (
             <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('settings.household.title')}: <span className="text-indigo-600 dark:text-indigo-400">{household.name}</span></h3>
-                <div className="bg-gray-100 dark:bg-gray-900/50 p-4 rounded-lg space-y-3">
-                    <button onClick={handleShareInvite} disabled={shareStatus !== 'idle'} className="w-full text-sm bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-70">
-                        {shareStatus === 'copied' ? t('settings.household.manage.linkCopied') : t('settings.household.manage.invite')}
-                    </button>
-                    <button onClick={onHouseholdLeave} className="w-full text-sm bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3 rounded-md transition-colors">
-                        {t('settings.household.manage.leave')}
-                    </button>
+                <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('settings.household.title')}: <span className="text-indigo-600 dark:text-indigo-400">{household.name}</span></h3>
+                </div>
+                
+                <div className="bg-gray-100 dark:bg-gray-900/50 p-4 rounded-lg space-y-4">
+                    <div>
+                        <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-1.5">
+                            <UserGroupIcon className="w-4 h-4" />
+                            {t('settings.household.manage.activeMembers')}
+                        </h4>
+                        <div className="flex flex-col gap-2">
+                            {householdMembers.length > 0 ? householdMembers.map(member => (
+                                <div key={member.id} className="flex items-center gap-3 p-2 bg-white dark:bg-gray-800 rounded-md shadow-sm">
+                                    <div className="w-8 h-8 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center text-xs font-bold text-indigo-700 dark:text-indigo-200 ring-2 ring-white dark:ring-gray-800 shrink-0">
+                                        {getInitials(member.display_name)}
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                                        {member.id === user?.id ? `${member.display_name} (${t('shoppingList.collaboration.you')})` : member.display_name}
+                                    </span>
+                                </div>
+                            )) : (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 italic">Loading members...</p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                        <button onClick={handleShareInvite} disabled={shareStatus !== 'idle'} className="w-full text-sm bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-md transition-colors disabled:opacity-70 flex items-center justify-center gap-2">
+                            {shareStatus === 'copied' ? t('settings.household.manage.linkCopied') : t('settings.household.manage.invite')}
+                        </button>
+                        <button onClick={onHouseholdLeave} className="w-full text-sm bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-3 rounded-md transition-colors">
+                            {t('settings.household.manage.leave')}
+                        </button>
+                    </div>
                 </div>
             </div>
         );
@@ -140,7 +178,7 @@ const StoreManager: React.FC = () => {
     );
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, household, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete, error }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, household, householdMembers, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete, error }) => {
   const { t, language, setLanguage } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { isAiEnabled, setIsAiEnabled, isBarcodeScannerEnabled, setIsBarcodeScannerEnabled, isOffSearchEnabled, setIsOffSearchEnabled } = useAppSettings();
@@ -174,6 +212,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, household
         <div className="flex-1 p-4 md:p-6 space-y-6 overflow-y-auto">
             <HouseholdManager 
                 household={household} 
+                householdMembers={householdMembers}
                 onHouseholdCreate={onHouseholdCreate} 
                 onHouseholdLeave={onHouseholdLeave} 
                 onHouseholdDelete={onHouseholdDelete} 
