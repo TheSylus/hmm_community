@@ -73,6 +73,15 @@ const parseJsonFromString = (text: string) => {
                 console.error("Failed to parse extracted array:", parseError);
             }
         }
+        
+        const objectMatch = text.match(/(\{[\s\S]*\})/);
+        if (objectMatch && objectMatch[1]) {
+             try {
+                return JSON.parse(objectMatch[1]);
+            } catch (parseError) {
+                console.error("Failed to parse extracted object:", parseError);
+            }
+        }
     }
     // If all parsing fails, which can happen with grounding, we can't process it as JSON.
     // The calling function must handle this case. Here we throw to indicate failure.
@@ -150,7 +159,8 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
       },
     });
     
-    const result = JSON.parse(response.text);
+    // Use the robust parser instead of direct JSON.parse
+    const result = parseJsonFromString(response.text);
     
     // Validate Nutri-Score before returning
     const validScores: NutriScore[] = ['A', 'B', 'C', 'D', 'E'];
@@ -231,7 +241,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
         },
       });
       
-      const result = JSON.parse(response.text);
+      const result = parseJsonFromString(response.text);
 
       return {
         ingredients: result.ingredients || [],
@@ -347,7 +357,7 @@ export const performConversationalSearch = async (query: string, items: FoodItem
       },
     });
 
-    const result = JSON.parse(response.text);
+    const result = parseJsonFromString(response.text);
     
     return result.matchingIds || [];
 

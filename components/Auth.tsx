@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { useTranslation } from '../i18n';
-import { SpinnerIcon } from './Icons';
+import { SpinnerIcon, UserGroupIcon } from './Icons';
 
 export const Auth: React.FC = () => {
     const { t } = useTranslation();
@@ -11,6 +11,15 @@ export const Auth: React.FC = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
+    const [hasInvite, setHasInvite] = useState(false);
+
+    useEffect(() => {
+        // Check for pending invite
+        const pendingInvite = localStorage.getItem('pending_household_invite');
+        if (pendingInvite) {
+            setHasInvite(true);
+        }
+    }, []);
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -35,7 +44,17 @@ export const Auth: React.FC = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 px-4">
-            <div className="w-full max-w-md bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl">
+            <div className="w-full max-w-md bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl relative overflow-hidden">
+                
+                {hasInvite && (
+                    <div className="bg-indigo-50 dark:bg-indigo-900/30 border-b border-indigo-100 dark:border-indigo-800 -mx-8 -mt-8 mb-6 p-4 flex items-center justify-center gap-3 text-indigo-700 dark:text-indigo-200 animate-pulse">
+                        <UserGroupIcon className="w-6 h-6" />
+                        <p className="text-sm font-semibold">
+                            {isSignUp ? "Registriere dich, um beizutreten!" : "Melde dich an, um beizutreten!"}
+                        </p>
+                    </div>
+                )}
+
                 <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-green-500 dark:from-indigo-400 dark:to-green-400 mb-6 text-center">
                     {t('header.title')}
                 </h1>
