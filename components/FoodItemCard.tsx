@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { FoodItem, NutriScore } from '../types';
-import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, UserGroupIcon, LockClosedIcon, ShoppingCartIcon } from './Icons';
+import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, UserGroupIcon, LockClosedIcon, ShoppingCartIcon, BeakerIcon } from './Icons';
 import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
@@ -60,6 +60,25 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   const isClickable = !!onViewDetails;
   const isFamilyShared = displayItem.isFamilyFavorite;
 
+  // Visual indicator for item type
+  const getPlaceholderIcon = () => {
+      switch(displayItem.itemType) {
+          case 'dish': return <BuildingStorefrontIcon className="w-8 h-8"/>;
+          case 'drugstore': return <BeakerIcon className="w-8 h-8"/>;
+          default: return <ShoppingBagIcon className="w-8 h-8"/>;
+      }
+  };
+
+  const getStatusIcon = () => {
+      if (isInShoppingList) return <ShoppingCartIcon className="w-3.5 h-3.5 text-indigo-400" />;
+      
+      switch(displayItem.itemType) {
+          case 'dish': return <BuildingStorefrontIcon className="w-3.5 h-3.5" />;
+          case 'drugstore': return <BeakerIcon className="w-3.5 h-3.5" />;
+          default: return <ShoppingBagIcon className="w-3.5 h-3.5" />;
+      }
+  };
+
   return (
     <div 
         className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden transition-all duration-300 hover:shadow-md relative ${isClickable ? 'cursor-pointer' : ''} ${isFamilyShared ? 'border-amber-400 dark:border-amber-500/50 ring-1 ring-amber-300 dark:ring-amber-600/30' : 'border-gray-100 dark:border-gray-700/50'}`}
@@ -72,22 +91,14 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                     <img src={displayItem.image} alt={displayItem.name} className="w-full h-full object-cover absolute inset-0" />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-600">
-                        {displayItem.itemType === 'dish' ? <BuildingStorefrontIcon className="w-8 h-8"/> : <ShoppingBagIcon className="w-8 h-8"/>}
+                        {getPlaceholderIcon()}
                     </div>
                 )}
                 
                 {/* Overlay Icons (Status) - Moved onto image to save space */}
                 <div className="absolute top-1 left-1 flex flex-col gap-1">
                     <div className="bg-black/60 backdrop-blur-sm p-1 rounded-full text-white shadow-sm">
-                        {isInShoppingList ? (
-                             <ShoppingCartIcon className="w-3.5 h-3.5 text-indigo-400" />
-                        ) : (
-                            displayItem.itemType === 'dish' ? (
-                                <BuildingStorefrontIcon className="w-3.5 h-3.5" />
-                            ) : (
-                                <ShoppingBagIcon className="w-3.5 h-3.5" />
-                            )
-                        )}
+                        {getStatusIcon()}
                     </div>
                     {/* Family Status Indicator */}
                     <div className={`backdrop-blur-sm p-1 rounded-full shadow-sm ${isFamilyShared ? 'bg-amber-500 text-white' : 'bg-black/60 text-gray-300'}`}>
@@ -117,7 +128,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                         
                         {!isPreview && (
                             <div className="flex items-center -mr-1 -mt-1 shrink-0">
-                                {displayItem.itemType === 'product' && (
+                                {displayItem.itemType !== 'dish' && (
                                     <button
                                     onClick={(e) => { e.stopPropagation(); onAddToShoppingList(item); }}
                                     className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
@@ -160,7 +171,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                             </p>
                         )}
 
-                        {displayItem.itemType === 'product' && displayItem.purchaseLocation && displayItem.purchaseLocation.length > 0 && (
+                        {(displayItem.itemType === 'product' || displayItem.itemType === 'drugstore') && displayItem.purchaseLocation && displayItem.purchaseLocation.length > 0 && (
                             <div className="flex items-center gap-1 overflow-hidden">
                                 {displayItem.purchaseLocation.slice(0, 3).map((loc, idx) => (
                                     <StoreLogo key={idx} name={loc} size="sm" showName={false} className="w-5 h-5" />

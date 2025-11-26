@@ -1,6 +1,5 @@
-
 import { supabase } from './supabaseClient';
-import { FoodItem, NutriScore } from '../types';
+import { FoodItem, NutriScore, FoodItemType } from '../types';
 
 // Define the exact shape of the database table to ensure type safety
 interface FoodItemDbPayload {
@@ -10,7 +9,7 @@ interface FoodItemDbPayload {
   notes?: string;
   image_url?: string;
   tags?: string[];
-  item_type: 'product' | 'dish';
+  item_type: FoodItemType;
   is_family_favorite: boolean;
   nutri_score?: NutriScore | null;
   ingredients?: string[];

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useTranslation } from '../i18n/index';
 import { XMarkIcon } from './Icons';
@@ -103,6 +104,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                 <option value="all">{t('header.filter.type.all')}</option>
                 <option value="product">{t('header.filter.type.products')}</option>
                 <option value="dish">{t('header.filter.type.dishes')}</option>
+                <option value="drugstore">{t('header.filter.type.drugstore')}</option>
             </select>
           </div>
           

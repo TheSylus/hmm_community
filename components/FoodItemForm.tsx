@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FoodItem, FoodItemType, NutriScore } from '../types';
 import { CameraCapture } from './CameraCapture';
@@ -89,8 +90,8 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
 
             {/* ACTION BUTTONS & PREVIEW */}
             <div className="space-y-4">
-                <div className={`grid grid-cols-2 ${isBarcodeScannerEnabled && itemType === 'product' ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-2`}>
-                    {isBarcodeScannerEnabled && itemType === 'product' && (
+                <div className={`grid grid-cols-2 ${isBarcodeScannerEnabled && itemType !== 'dish' ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-2`}>
+                    {isBarcodeScannerEnabled && itemType !== 'dish' && (
                         <button type="button" onClick={() => uiSetters.setIsBarcodeScannerOpen(true)} className="flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold py-2 px-3 rounded-md transition disabled:bg-sky-400 dark:disabled:bg-gray-600 text-sm" disabled={uiState.isLoading || uiState.analysisProgress.active}>
                             <BarcodeIcon className="w-5 h-5" />
                             <span>{t('form.button.scanBarcode')}</span>
@@ -98,7 +99,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                     )}
                     <button type="button" onClick={actions.handleScanMainImage} className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-3 rounded-md transition disabled:bg-indigo-400 dark:disabled:bg-gray-600 text-sm" disabled={uiState.isLoading || uiState.analysisProgress.active}>
                         <CameraIcon className="w-5 h-5" />
-                        <span>{itemType === 'product' ? t('form.button.scanNew') : t('form.button.takePhoto')}</span>
+                        <span>{itemType !== 'dish' ? t('form.button.scanNew') : t('form.button.takePhoto')}</span>
                     </button>
                     <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white font-semibold py-2 px-3 rounded-md transition disabled:bg-gray-400 dark:disabled:bg-gray-500 text-sm" disabled={uiState.isLoading || uiState.analysisProgress.active}>
                         <PlusCircleIcon className="w-5 h-5" />
@@ -146,7 +147,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                 <div className="relative">
                     <input
                         type="text"
-                        placeholder={itemType === 'product' ? t('form.placeholder.name') : t('form.placeholder.dishName')}
+                        placeholder={itemType === 'dish' ? t('form.placeholder.dishName') : t('form.placeholder.name')}
                         value={formState.name}
                         onChange={e => formSetters.setName(e.target.value)}
                         required
@@ -254,7 +255,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                     placeholder={t('form.placeholder.notes')}
                     value={formState.notes}
                     onChange={e => formSetters.setNotes(e.target.value)}
-                    rows={itemType === 'product' ? 3 : 5}
+                    rows={itemType !== 'dish' ? 3 : 5}
                     className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3"
                 />
                 <input
@@ -265,7 +266,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                     className={`w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3 transition-shadow ${uiState.highlightedFields.includes('tags') ? 'highlight-ai' : ''}`}
                 />
                 
-                {itemType === 'product' && (
+                {itemType !== 'dish' && (
                     <div>
                         <input
                             type="text"
@@ -296,7 +297,6 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                 )}
 
                 {itemType === 'product' && (
-                  <>
                     <div className={`p-2 rounded-md transition-shadow ${uiState.highlightedFields.includes('nutriScore') ? 'highlight-ai' : ''}`}>
                         <div className="flex items-center gap-4">
                             <label className="text-gray-700 dark:text-gray-300 font-medium shrink-0">{t('form.label.nutriScore')}</label>
@@ -316,7 +316,10 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                             </div>
                         </div>
                     </div>
-                    {/* Ingredients and Dietary Section */}
+                )}
+
+                {/* Ingredients and Dietary Section (Shared for Product and Drugstore) */}
+                {itemType !== 'dish' && (
                     <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700/50">
                         <div className="flex justify-between items-center">
                             <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">{t('form.ingredients.title')}</h3>
@@ -342,6 +345,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                                 <div className="mb-2">
                                     <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">{t('form.dietary.title')}:</h4>
                                     <div className="grid grid-cols-3 gap-2">
+                                        {/* Lactose and Gluten Free are less relevant for Drugstore usually, but vegan is. Kept for now for data consistency */}
                                         <button type="button" onClick={() => actions.handleDietaryChange('isLactoseFree')} aria-pressed={formState.dietary.isLactoseFree} className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg border-2 transition-colors ${formState.dietary.isLactoseFree ? 'bg-blue-100 dark:bg-blue-900/50 border-blue-500 dark:border-blue-400 text-blue-700 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700/50 border-transparent text-blue-600 dark:text-blue-400 hover:border-gray-300 dark:hover:border-gray-600'}`}>
                                             <LactoseFreeIcon className="w-7 h-7" />
                                             <span className="text-xs font-semibold">{t('form.dietary.lactoseFree')}</span>
@@ -353,72 +357,4 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                                         <button type="button" onClick={() => actions.handleDietaryChange('isGlutenFree')} aria-pressed={formState.dietary.isGlutenFree} className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg border-2 transition-colors ${formState.dietary.isGlutenFree ? 'bg-amber-100 dark:bg-amber-900/50 border-amber-500 dark:border-amber-400 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-700/50 border-transparent hover:border-gray-300 dark:hover:border-gray-600'}`}>
                                             <GlutenFreeIcon className="w-7 h-7" />
                                             <span className="text-xs font-semibold">{t('form.dietary.glutenFree')}</span>
-                                        </button>
-                                    </div>
-                                </div>
-                                {formState.allergens.length > 0 && (
-                                    <div>
-                                        <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1 mt-3">{t('form.allergens.title')}:</h4>
-                                        <AllergenDisplay allergens={formState.allergens} />
-                                    </div>
-                                )}
-                                {formState.ingredients.length > 0 && (
-                                    <div>
-                                        <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1 mt-3">{t('form.ingredients.ingredientsList')}:</h4>
-                                        <p className="text-xs text-gray-500 dark:text-gray-500 italic leading-snug">{formState.ingredients.join(', ')}</p>
-                                    </div>
-                                )}
-                                {formState.ingredients.length === 0 && (
-                                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">{t('form.ingredients.placeholder')}</p>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                  </>
-                )}
-            </div>
-        </div>
-        
-        {uiState.error && <p className="text-red-500 dark:text-red-400 bg-red-100 dark:bg-red-900/50 p-3 rounded-md text-sm mt-4">{uiState.error}</p>}
-        
-        <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-            {householdId && (
-              <label htmlFor="family-favorite-toggle" className="flex items-center justify-between bg-gray-100 dark:bg-gray-700/50 p-3 rounded-lg cursor-pointer transition hover:bg-gray-200 dark:hover:bg-gray-700">
-                  <div className="max-w-[75%] pr-2">
-                      <span className="font-semibold text-gray-800 dark:text-gray-200">{t('form.familyFavorite.title')}</span>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">{t('form.familyFavorite.description')}</p>
-                  </div>
-                  <div className="relative">
-                      <input id="family-favorite-toggle" type="checkbox" className="sr-only peer" checked={formState.isFamilyFavorite} onChange={() => formSetters.setIsFamilyFavorite(!formState.isFamilyFavorite)} />
-                      <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-500 peer-checked:bg-green-600"></div>
-                  </div>
-              </label>
-            )}
-
-            <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                type="button"
-                onClick={onCancel}
-                className="w-full sm:w-auto bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-md transition-colors"
-                >
-                {t('form.button.cancel')}
-                </button>
-                <button
-                type="submit"
-                className="w-full sm:flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-md transition-colors text-lg disabled:bg-green-400 dark:disabled:bg-gray-600"
-                disabled={uiState.isLoading || uiState.analysisProgress.active || uiState.isIngredientsLoading || !formState.name || formState.rating === 0}
-                >
-                <PlusCircleIcon className="w-6 h-6" />
-                {isEditing ? t('form.button.update') : t('form.button.save')}
-                </button>
-            </div>
-        </div>
-      </form>
-
-      {uiState.isCameraOpen && <CameraCapture onCapture={actions.handleImageFromCamera} onClose={() => uiSetters.setIsCameraOpen(false)} mode={uiState.scanMode} />}
-      {uiState.isBarcodeScannerOpen && <BarcodeScanner onScan={actions.handleBarcodeScanned} onClose={() => uiSetters.setIsBarcodeScannerOpen(false)} />}
-      {uiState.isSpeechModalOpen && <SpeechInputModal onDictate={actions.handleDictationResult} onClose={() => uiSetters.setIsSpeechModalOpen(false)} />}
-      {uiState.isCropperOpen && uiState.uncroppedImage && <ImageCropper imageUrl={uiState.uncroppedImage} suggestedCrop={uiState.suggestedCrop} onCrop={actions.handleCropComplete} onCancel={actions.handleCropCancel} />}
-    </>
-  );
-};
+                                        

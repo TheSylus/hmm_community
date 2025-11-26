@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { FoodItem, NutriScore } from "../types";
 
@@ -96,7 +97,7 @@ export interface BoundingBox {
     height: number;
 }
 
-export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; tags: string[]; nutriScore?: NutriScore; boundingBox?: BoundingBox }> => {
+export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; tags: string[]; nutriScore?: NutriScore; boundingBox?: BoundingBox; itemType?: 'product' | 'drugstore' }> => {
   // Optimization: Resize image to max 800px width. High resolution is rarely needed for general object detection
   // and this significantly reduces the payload size.
   const resizedImage = await resizeImage(base64Image, 800);
@@ -119,7 +120,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
     };
 
     const textPart = {
-      text: "Analyze this image of a food product. Identify the product's full name, provide up to 5 relevant tags, and find the Nutri-Score (A-E). Also, identify the primary food product in the image and return its bounding box. The bounding box should be an object with 'x', 'y', 'width', and 'height' properties, where each value is normalized between 0.0 and 1.0 (e.g., x=0.25 means 25% from the left edge). If any field is not found, return null for it. Return a single JSON object.",
+      text: "Analyze this image of a consumer product. It is likely a Food Product or a Drugstore/Cosmetic/Household Product. Identify the product's full name and determine if it is 'product' (food) or 'drugstore' (cosmetics/hygiene/cleaning). Provide up to 5 relevant tags (e.g., 'Shampoo', 'Snack', 'Organic'). If it is a food product, find the Nutri-Score (A-E). Identify the primary product in the image and return its bounding box (normalized 0.0-1.0). Return a single JSON object.",
     };
 
     const response = await gemini.models.generateContent({
@@ -134,6 +135,11 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
               type: Type.STRING,
               description: "The full name of the product as seen on the label.",
             },
+            itemType: {
+              type: Type.STRING,
+              enum: ['product', 'drugstore'],
+              description: "Classify as 'product' for food/drink or 'drugstore' for cosmetics/cleaning/hygiene.",
+            },
             tags: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
@@ -141,7 +147,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
             },
             nutriScore: {
               type: Type.STRING,
-              description: "The Nutri-Score rating (A, B, C, D, or E) if visible. Null if not found.",
+              description: "The Nutri-Score rating (A, B, C, D, or E) if visible and it is a food product. Null otherwise.",
             },
             boundingBox: {
               type: Type.OBJECT,
@@ -154,7 +160,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
               }
             }
           },
-          required: ["name", "tags"],
+          required: ["name", "tags", "itemType"],
         },
       },
     });
@@ -202,7 +208,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
       };
   
       const textPart = {
-        text: "Analyze this image of a food product's ingredients list. Extract the full list of ingredients. Also, extract a list of common allergens mentioned in the ingredients. Based on the ingredients, determine if the product is lactose-free, vegan, and/or gluten-free. Return a single JSON object with five keys: 'ingredients' (an array of strings), 'allergens' (an array of strings), 'isLactoseFree' (boolean), 'isVegan' (boolean), and 'isGlutenFree' (boolean). If a key cannot be determined, default the boolean to false and arrays to empty.",
+        text: "Analyze this image of a product's ingredient list (Food or Cosmetic). Extract the full list of ingredients (or INCI for cosmetics). Identify common allergens if applicable. Determine if the product is lactose-free, vegan, and/or gluten-free based on the ingredients. Return a single JSON object.",
       };
   
       const response = await gemini.models.generateContent({
@@ -216,7 +222,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
               ingredients: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
-                description: "An array of strings, where each string is a single ingredient from the list.",
+                description: "An array of strings, where each string is a single ingredient or INCI name.",
               },
                allergens: {
                 type: Type.ARRAY,

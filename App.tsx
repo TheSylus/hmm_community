@@ -19,7 +19,7 @@ import { useHousehold } from './hooks/useHousehold';
 import { useShoppingList } from './hooks/useShoppingList';
 import * as geminiService from './services/geminiService';
 import { useTranslation } from './i18n/index';
-import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, UserGroupIcon } from './components/Icons';
+import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, UserGroupIcon, BeakerIcon } from './components/Icons';
 
 // Helper function to decode from URL-safe Base64 and decompress the data
 const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
@@ -35,7 +35,7 @@ const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
 
 export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
 export type RatingFilter = 'liked' | 'disliked' | 'all';
-export type TypeFilter = 'all' | 'product' | 'dish';
+export type TypeFilter = 'all' | 'product' | 'dish' | 'drugstore';
 export type AppView = 'dashboard' | 'list' | 'family';
 
 
@@ -673,7 +673,7 @@ const App: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setIsItemTypeModalVisible(false)} role="dialog" aria-modal="true">
             <div className="relative bg-white dark:bg-gray-800 p-6 rounded-lg shadow-2xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-6">{t('modal.itemType.title')}</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <button onClick={() => handleSelectType('product')} className="flex flex-col items-center gap-3 p-6 bg-gray-100 dark:bg-gray-700/50 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 hover:ring-2 hover:ring-indigo-500 transition-all">
                         <ShoppingBagIcon className="w-12 h-12 text-indigo-500 dark:text-indigo-400" />
                         <span className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('modal.itemType.product')}</span>
@@ -681,6 +681,10 @@ const App: React.FC = () => {
                      <button onClick={() => handleSelectType('dish')} className="flex flex-col items-center gap-3 p-6 bg-gray-100 dark:bg-gray-700/50 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 hover:ring-2 hover:ring-green-500 transition-all">
                         <BuildingStorefrontIcon className="w-12 h-12 text-green-500 dark:text-green-400" />
                         <span className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('modal.itemType.dish')}</span>
+                    </button>
+                    <button onClick={() => handleSelectType('drugstore')} className="flex flex-col items-center gap-3 p-6 bg-gray-100 dark:bg-gray-700/50 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 hover:ring-2 hover:ring-purple-500 transition-all">
+                        <BeakerIcon className="w-12 h-12 text-purple-500 dark:text-purple-400" />
+                        <span className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('modal.itemType.drugstore')}</span>
                     </button>
                 </div>
             </div>

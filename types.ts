@@ -1,7 +1,7 @@
 
 export type NutriScore = 'A' | 'B' | 'C' | 'D' | 'E';
 
-export type FoodItemType = 'product' | 'dish';
+export type FoodItemType = 'product' | 'dish' | 'drugstore';
 
 export interface FoodItem {
   id: string;
