@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { FoodItem, NutriScore } from '../types';
 import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, UserGroupIcon, LockClosedIcon, ShoppingCartIcon } from './Icons';
@@ -61,7 +62,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
 
   return (
     <div 
-        className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden transition-all duration-300 hover:shadow-md relative ${isClickable ? 'cursor-pointer' : ''} ${isFamilyShared ? 'border-indigo-200 dark:border-indigo-900 ring-1 ring-indigo-100 dark:ring-indigo-900/30' : 'border-gray-100 dark:border-gray-700/50'}`}
+        className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden transition-all duration-300 hover:shadow-md relative ${isClickable ? 'cursor-pointer' : ''} ${isFamilyShared ? 'border-amber-400 dark:border-amber-500/50 ring-1 ring-amber-300 dark:ring-amber-600/30' : 'border-gray-100 dark:border-gray-700/50'}`}
         onClick={() => isClickable && onViewDetails(item)}
     >
         <div className="flex flex-row h-full">
@@ -89,7 +90,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                         )}
                     </div>
                     {/* Family Status Indicator */}
-                    <div className={`backdrop-blur-sm p-1 rounded-full shadow-sm ${isFamilyShared ? 'bg-indigo-600 text-white' : 'bg-black/60 text-gray-300'}`}>
+                    <div className={`backdrop-blur-sm p-1 rounded-full shadow-sm ${isFamilyShared ? 'bg-amber-500 text-white' : 'bg-black/60 text-gray-300'}`}>
                         {isFamilyShared ? (
                             <UserGroupIcon className="w-3.5 h-3.5" />
                         ) : (
@@ -110,7 +111,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
             <div className="flex-1 flex flex-col justify-between p-3 min-w-0">
                 <div>
                     <div className="flex justify-between items-start gap-2">
-                        <h3 className="text-base font-bold text-gray-900 dark:text-white truncate leading-tight" title={displayItem.name}>
+                        <h3 className={`text-base font-bold truncate leading-tight ${isFamilyShared ? 'text-amber-700 dark:text-amber-400' : 'text-gray-900 dark:text-white'}`} title={displayItem.name}>
                             {displayItem.name}
                         </h3>
                         

@@ -166,15 +166,21 @@ const App: React.FC = () => {
         if (storedInvite && userProfile) {
             if (!userProfile.household_id) {
                 try {
-                    const name = await joinHousehold(storedInvite);
-                    setToastMessage(t('shoppingList.joinSuccess', { householdName: name || '' }));
+                    await joinHousehold(storedInvite);
+                    // Clear it so we don't try again
+                    localStorage.removeItem('pending_household_invite');
+                    // HARD RELOAD: Critical for updating RLS policies and Hooks dependencies effectively
+                    // giving the user a fresh state with the new household permissions.
+                    window.location.reload();
                 } catch (e) {
                     console.error("Failed to join household from pending invite:", e);
-                    setToastMessage("Failed to join household. invalid link or error.");
+                    setToastMessage("Failed to join household. Link invalid or expired.");
+                    localStorage.removeItem('pending_household_invite');
                 }
+            } else {
+                // User already has a household, ignore or warn? For now just clear.
+                localStorage.removeItem('pending_household_invite');
             }
-            // Clear it so we don't try again
-            localStorage.removeItem('pending_household_invite');
         }
     };
 

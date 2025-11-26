@@ -60,8 +60,11 @@ const HouseholdManager: React.FC<Omit<SettingsModalProps, 'onClose'>> = ({ house
     if (household) {
         return (
             <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('settings.household.title')}: <span className="text-indigo-600 dark:text-indigo-400">{household.name}</span></h3>
+                <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('settings.household.title')}: <span className="text-indigo-600 dark:text-indigo-400">{household.name}</span></h3>
+                    </div>
+                    <p className="text-[10px] text-gray-400 font-mono select-all">ID: {household.id}</p>
                 </div>
                 
                 <div className="bg-gray-100 dark:bg-gray-900/50 p-4 rounded-lg space-y-4">
