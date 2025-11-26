@@ -1,16 +1,15 @@
 
 import React from 'react';
 import { FoodItem, FoodItemType, NutriScore } from '../types';
-import { CameraCapture } from './CameraCapture';
-import { BarcodeScanner } from './BarcodeScanner';
-import { SpeechInputModal } from './SpeechInputModal';
-import { ImageCropper } from './ImageCropper';
 import { StarIcon, SparklesIcon, CameraIcon, PlusCircleIcon, XMarkIcon, DocumentTextIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, BarcodeIcon, MicrophoneIcon, SpinnerIcon, MapPinIcon } from './Icons';
-import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useAppSettings } from '../contexts/AppSettingsContext';
 import { useFoodFormLogic } from '../hooks/useFoodFormLogic';
 import { StoreLogo } from './StoreLogo';
+import { CameraCapture } from './CameraCapture';
+import { BarcodeScanner } from './BarcodeScanner';
+import { SpeechInputModal } from './SpeechInputModal';
+import { ImageCropper } from './ImageCropper';
 
 interface FoodItemFormProps {
   onSaveItem: (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => void;
@@ -170,7 +169,6 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                             value={formState.restaurantName}
                             onChange={e => {
                                 formSetters.setRestaurantName(e.target.value);
-                                // We intentionally don't clear restaurants here to let user pick one if they typed partial match
                             }}
                             className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3 pr-12"
                         />
@@ -342,10 +340,9 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                             </div>
                         ) : (
                             <div>
-                                <div className="mb-2">
+                                <div className="mb-4">
                                     <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">{t('form.dietary.title')}:</h4>
                                     <div className="grid grid-cols-3 gap-2">
-                                        {/* Lactose and Gluten Free are less relevant for Drugstore usually, but vegan is. Kept for now for data consistency */}
                                         <button type="button" onClick={() => actions.handleDietaryChange('isLactoseFree')} aria-pressed={formState.dietary.isLactoseFree} className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg border-2 transition-colors ${formState.dietary.isLactoseFree ? 'bg-blue-100 dark:bg-blue-900/50 border-blue-500 dark:border-blue-400 text-blue-700 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700/50 border-transparent text-blue-600 dark:text-blue-400 hover:border-gray-300 dark:hover:border-gray-600'}`}>
                                             <LactoseFreeIcon className="w-7 h-7" />
                                             <span className="text-xs font-semibold">{t('form.dietary.lactoseFree')}</span>
@@ -357,4 +354,108 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                                         <button type="button" onClick={() => actions.handleDietaryChange('isGlutenFree')} aria-pressed={formState.dietary.isGlutenFree} className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg border-2 transition-colors ${formState.dietary.isGlutenFree ? 'bg-amber-100 dark:bg-amber-900/50 border-amber-500 dark:border-amber-400 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-700/50 border-transparent hover:border-gray-300 dark:hover:border-gray-600'}`}>
                                             <GlutenFreeIcon className="w-7 h-7" />
                                             <span className="text-xs font-semibold">{t('form.dietary.glutenFree')}</span>
-                                        
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Ingredients Text Input */}
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">{t('form.ingredients.ingredientsList')}</label>
+                                    <textarea
+                                        value={formState.ingredients?.join(', ')}
+                                        onChange={(e) => formSetters.setIngredients(e.target.value.split(',').map(i => i.trim()).filter(Boolean))}
+                                        placeholder={t('form.ingredients.placeholder')}
+                                        rows={3}
+                                        className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3 text-sm"
+                                    />
+                                </div>
+
+                                {/* Allergens Text Input */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">{t('form.allergens.title')}</label>
+                                    <input
+                                        type="text"
+                                        value={formState.allergens?.join(', ')}
+                                        onChange={(e) => formSetters.setAllergens(e.target.value.split(',').map(i => i.trim()).filter(Boolean))}
+                                        placeholder="e.g. Peanuts, Soy"
+                                        className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3 text-sm"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Family Favorite Toggle */}
+                {householdId && (
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-md border border-gray-200 dark:border-gray-700">
+                        <input
+                            type="checkbox"
+                            id="familyFavorite"
+                            checked={formState.isFamilyFavorite}
+                            onChange={(e) => formSetters.setIsFamilyFavorite(e.target.checked)}
+                            className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        />
+                        <div>
+                            <label htmlFor="familyFavorite" className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('form.familyFavorite.title')}</label>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{t('form.familyFavorite.description')}</p>
+                        </div>
+                    </div>
+                )}
+                
+                {uiState.error && (
+                    <div className="text-red-500 text-sm text-center bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-200 dark:border-red-800">
+                        {uiState.error}
+                    </div>
+                )}
+            </div>
+        </div>
+
+        <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <button
+                type="button"
+                onClick={onCancel}
+                className="px-6 py-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white rounded-md font-semibold transition-colors"
+            >
+                {t('form.button.cancel')}
+            </button>
+            <button
+                type="submit"
+                className="px-8 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-semibold transition-colors shadow-md"
+            >
+                {isEditing ? t('form.button.update') : t('form.button.save')}
+            </button>
+        </div>
+
+        {/* Modals */}
+        {uiState.isCameraOpen && (
+            <CameraCapture 
+                onCapture={actions.handleImageFromCamera} 
+                onClose={() => uiSetters.setIsCameraOpen(false)} 
+                mode={uiState.scanMode}
+            />
+        )}
+        {uiState.isBarcodeScannerOpen && (
+            <BarcodeScanner 
+                onScan={actions.handleBarcodeScanned} 
+                onClose={() => uiSetters.setIsBarcodeScannerOpen(false)} 
+            />
+        )}
+        {uiState.isSpeechModalOpen && (
+            <SpeechInputModal 
+                onDictate={actions.handleDictationResult} 
+                onClose={() => uiSetters.setIsSpeechModalOpen(false)} 
+            />
+        )}
+        {uiState.isCropperOpen && uiState.uncroppedImage && (
+            <ImageCropper
+                imageUrl={uiState.uncroppedImage}
+                suggestedCrop={uiState.suggestedCrop}
+                onCrop={actions.handleCropComplete}
+                onCancel={actions.handleCropCancel}
+            />
+        )}
+      </form>
+    </>
+  );
+};

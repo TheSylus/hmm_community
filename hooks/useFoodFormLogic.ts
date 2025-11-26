@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { FoodItem, FoodItemType, NutriScore } from '../types';
 import { analyzeFoodImage, analyzeIngredientsImage, hasValidApiKey, findNearbyRestaurants, BoundingBox } from '../services/geminiService';
@@ -562,7 +563,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
     },
     formSetters: {
       setName, setRating, setNotes, setImage, setTags, setIsFamilyFavorite,
-      setNutriScore, setPurchaseLocation, setRestaurantName, setCuisineType, setPrice
+      setNutriScore, setPurchaseLocation, setIngredients, setAllergens, setRestaurantName, setCuisineType, setPrice
     },
     uiState: {
       isCameraOpen, isBarcodeScannerOpen, isSpeechModalOpen, isNameSearchLoading,

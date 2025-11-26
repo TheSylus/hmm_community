@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient';
 import { FoodItem, NutriScore, FoodItemType } from '../types';
 
