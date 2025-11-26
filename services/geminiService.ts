@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { FoodItem, NutriScore } from "../types";
+import { FoodItem, NutriScore, GroceryCategory } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -97,7 +97,7 @@ export interface BoundingBox {
     height: number;
 }
 
-export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; tags: string[]; nutriScore?: NutriScore; boundingBox?: BoundingBox; itemType?: 'product' | 'drugstore' }> => {
+export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; tags: string[]; nutriScore?: NutriScore; boundingBox?: BoundingBox; itemType?: 'product' | 'drugstore'; category?: GroceryCategory }> => {
   // Optimization: Resize image to max 800px width. High resolution is rarely needed for general object detection
   // and this significantly reduces the payload size.
   const resizedImage = await resizeImage(base64Image, 800);
@@ -120,7 +120,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
     };
 
     const textPart = {
-      text: "Analyze this image of a consumer product. It is likely a Food Product or a Drugstore/Cosmetic/Household Product. Identify the product's full name and determine if it is 'product' (food) or 'drugstore' (cosmetics/hygiene/cleaning). Provide up to 5 relevant tags (e.g., 'Shampoo', 'Snack', 'Organic'). If it is a food product, find the Nutri-Score (A-E). Identify the primary product in the image and return its bounding box (normalized 0.0-1.0). Return a single JSON object.",
+      text: "Analyze this image of a consumer product. It is likely a Food Product or a Drugstore/Cosmetic/Household Product. Identify the product's full name and determine if it is 'product' (food) or 'drugstore' (cosmetics/hygiene/cleaning). Categorize it into one of the following supermarket categories: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, pet_food, other. Provide up to 5 relevant tags. If it is a food product, find the Nutri-Score (A-E). Identify the primary product in the image and return its bounding box (normalized 0.0-1.0). Return a single JSON object.",
     };
 
     const response = await gemini.models.generateContent({
@@ -139,6 +139,11 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
               type: Type.STRING,
               enum: ['product', 'drugstore'],
               description: "Classify as 'product' for food/drink or 'drugstore' for cosmetics/cleaning/hygiene.",
+            },
+            category: {
+                type: Type.STRING,
+                enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'pet_food', 'other'],
+                description: "The supermarket category/aisle for this item.",
             },
             tags: {
               type: Type.ARRAY,
@@ -160,7 +165,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
               }
             }
           },
-          required: ["name", "tags", "itemType"],
+          required: ["name", "tags", "itemType", "category"],
         },
       },
     });
@@ -313,7 +318,8 @@ export const performConversationalSearch = async (query: string, items: FoodItem
       const compact: any = {
           id: item.id,
           name: item.name,
-          type: item.itemType
+          type: item.itemType,
+          category: item.category // Include category in search context
       };
       
       // Only add fields if they exist and are not empty
@@ -344,7 +350,7 @@ export const performConversationalSearch = async (query: string, items: FoodItem
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash",
       config: {
-        systemInstruction: "You are a smart search assistant. Analyze the user's query and the provided food items. Return a JSON array containing only the `id` strings of the items that match the query. Match by name, semantic meaning of tags/notes/cuisine. If no items match, return an empty array.",
+        systemInstruction: "You are a smart search assistant. Analyze the user's query and the provided food items. Return a JSON array containing only the `id` strings of the items that match the query. Match by name, semantic meaning of tags/notes/cuisine/category. If no items match, return an empty array.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,

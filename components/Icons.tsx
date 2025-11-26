@@ -84,7 +84,7 @@ export const AlertTriangleIcon: React.FC<{ className?: string }> = ({ className 
 
 export const BarcodeIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.5v15m3-15v15m3-15v15m3-15v15m3-15v15m3-15v15M3.75 4.5h16.5" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.5v15m3-15v15m3-15v15m3-15v15m3-15v15M3.75 4.5h16.5" />
     </svg>
 );
 
@@ -307,5 +307,109 @@ export const AllergenShellfishIcon: React.FC<{ className?: string }> = ({ classN
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 12c0-4.97 4.03-9 9-9s9 4.03 9 9c0 1.92-.6 3.68-1.62 5.12" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 12m-2.25 0a2.25 2.25 0 104.5 0 2.25 2.25 0 10-4.5 0" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18" />
+    </svg>
+);
+
+// Category Icons
+export const CategoryProduceIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M12 2a9 9 0 0 0-9 9v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9a9 9 0 0 0-9-9Z" />
+        <path d="M12 2v8" />
+        <path d="M12 10a5 5 0 0 1 5-5" />
+        <path d="M12 10a5 5 0 0 0-5-5" />
+    </svg>
+);
+
+export const CategoryBakeryIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M18 8a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+        <path d="M2 14h16" />
+        <path d="M6 8h.01" />
+        <path d="M10 8h.01" />
+        <path d="M14 8h.01" />
+    </svg>
+);
+
+export const CategoryMeatIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h2v-2h2v2h2v-2.4c2.6.3 4-1.7 6-3 2.8-1.8 1.8-7.6 0-9.6Z" />
+      <path d="M15 7a4 4 0 0 1-4 4" />
+    </svg>
+);
+
+export const CategoryDairyIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M8 2h8l1 10H7L8 2Z" />
+        <path d="M12 17v-5" />
+        <path d="M6 20a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6Z" />
+    </svg>
+);
+
+export const CategoryPantryIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M4 8h16" />
+        <path d="M4 16h16" />
+        <rect width="20" height="18" x="2" y="3" rx="2" />
+        <path d="M8 8v8" />
+        <path d="M16 8v8" />
+    </svg>
+);
+
+export const CategoryFrozenIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M2 12h20" />
+        <path d="M12 2v20" />
+        <path d="m4.93 4.93 14.14 14.14" />
+        <path d="m19.07 4.93-14.14 14.14" />
+    </svg>
+);
+
+export const CategorySnacksIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="12" cy="12" r="10" />
+        <path d="M8 12h8" />
+        <path d="M12 8v8" />
+        <path d="M12 12 8 8" />
+    </svg>
+);
+
+export const CategoryBeveragesIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M17 8h1a4 4 0 1 1 0 8h-1" />
+        <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" />
+        <line x1="6" x2="6" y1="2" y2="8" />
+        <line x1="10" x2="10" y1="2" y2="8" />
+        <line x1="14" x2="14" y1="2" y2="8" />
+    </svg>
+);
+
+export const CategoryHouseholdIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="m3 11 18-5v12L3 14v-3z" />
+        <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+    </svg>
+);
+
+export const CategoryPersonalCareIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M10 2h4a2 2 0 0 1 2 2v1H8V4a2 2 0 0 1 2-2Z" />
+        <path d="M18 22V7a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v15" />
+        <line x1="12" x2="12" y1="11" y2="17" />
+        <line x1="9" x2="15" y1="14" y2="14" />
+    </svg>
+);
+
+export const CategoryPetFoodIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M10.72 6.875c-.625.375-1.225 1.1-1.225 1.875 0 1.675 2.5 3 2.5 3s2.5-1.325 2.5-3c0-.775-.6-1.5-1.225-1.875" />
+        <path d="M5 10.75c-1.5 1.5-2.5 3.25-2.5 5.25 0 3.025 2.425 5.5 5.425 5.5 2.45 0 4.325-1.55 5.575-3.8 1.25 2.25 3.125 3.8 5.575 3.8 3 0 5.425-2.475 5.425-5.5 0-2-1-3.75-2.5-5.25" />
+    </svg>
+);
+
+export const CategoryOtherIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="19" cy="12" r="1" />
+        <circle cx="5" cy="12" r="1" />
     </svg>
 );

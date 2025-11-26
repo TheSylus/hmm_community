@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { FoodItem, FoodItemType, NutriScore } from '../types';
-import { StarIcon, SparklesIcon, CameraIcon, PlusCircleIcon, XMarkIcon, DocumentTextIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, BarcodeIcon, MicrophoneIcon, SpinnerIcon, MapPinIcon } from './Icons';
+import { FoodItem, FoodItemType, NutriScore, GroceryCategory } from '../types';
+import { StarIcon, SparklesIcon, CameraIcon, PlusCircleIcon, XMarkIcon, DocumentTextIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, BarcodeIcon, MicrophoneIcon, SpinnerIcon, MapPinIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon } from './Icons';
 import { useTranslation } from '../i18n/index';
 import { useAppSettings } from '../contexts/AppSettingsContext';
 import { useFoodFormLogic } from '../hooks/useFoodFormLogic';
@@ -26,6 +26,41 @@ const nutriScoreColors: Record<NutriScore, string> = {
   C: 'bg-yellow-500',
   D: 'bg-orange-500',
   E: 'bg-red-600',
+};
+
+const groceryCategories: GroceryCategory[] = [
+    'produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 
+    'snacks', 'beverages', 'household', 'personal_care', 'pet_food', 'other'
+];
+
+const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>> = {
+    'produce': CategoryProduceIcon,
+    'bakery': CategoryBakeryIcon,
+    'meat_fish': CategoryMeatIcon,
+    'dairy_eggs': CategoryDairyIcon,
+    'pantry': CategoryPantryIcon,
+    'frozen': CategoryFrozenIcon,
+    'snacks': CategorySnacksIcon,
+    'beverages': CategoryBeveragesIcon,
+    'household': CategoryHouseholdIcon,
+    'personal_care': CategoryPersonalCareIcon,
+    'pet_food': CategoryPetFoodIcon,
+    'other': CategoryOtherIcon,
+};
+
+const CategoryColorMap: Record<GroceryCategory, string> = {
+    'produce': 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
+    'bakery': 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+    'meat_fish': 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
+    'dairy_eggs': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300',
+    'pantry': 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
+    'frozen': 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300',
+    'snacks': 'bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300',
+    'beverages': 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
+    'household': 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+    'personal_care': 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
+    'pet_food': 'bg-stone-200 text-stone-700 dark:bg-stone-700 dark:text-stone-300',
+    'other': 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
 };
 
 export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel, initialData, itemType, householdId }) => {
@@ -256,6 +291,31 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                     rows={itemType !== 'dish' ? 3 : 5}
                     className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3"
                 />
+                
+                {itemType !== 'dish' && (
+                    <div className={`space-y-2 transition-shadow rounded-md p-1 ${uiState.highlightedFields.includes('category') ? 'highlight-ai' : ''}`}>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.category.title')}</label>
+                        <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                            {groceryCategories.map(cat => {
+                                const Icon = CategoryIconMap[cat];
+                                const isSelected = formState.category === cat;
+                                return (
+                                    <button
+                                        key={cat}
+                                        type="button"
+                                        onClick={() => formSetters.setCategory(cat)}
+                                        className={`flex flex-col items-center justify-center p-2 rounded-lg transition-all ${isSelected ? 'ring-2 ring-indigo-500 shadow-md scale-105' : 'hover:bg-gray-100 dark:hover:bg-gray-700/50 opacity-70 hover:opacity-100'} ${isSelected ? CategoryColorMap[cat] : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}
+                                        title={t(`category.${cat}`)}
+                                    >
+                                        <Icon className="w-6 h-6 mb-1" />
+                                        <span className="text-[10px] font-medium truncate w-full text-center">{t(`category.${cat}`)}</span>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )}
+
                 <input
                     type="text"
                     placeholder={t('form.placeholder.tags')}

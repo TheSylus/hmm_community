@@ -1,6 +1,6 @@
 
 import { supabase } from './supabaseClient';
-import { FoodItem, NutriScore, FoodItemType } from '../types';
+import { FoodItem, NutriScore, FoodItemType, GroceryCategory } from '../types';
 
 // Define the exact shape of the database table to ensure type safety
 interface FoodItemDbPayload {
@@ -11,6 +11,7 @@ interface FoodItemDbPayload {
   image_url?: string;
   tags?: string[];
   item_type: FoodItemType;
+  category?: GroceryCategory; // New DB field
   is_family_favorite: boolean;
   nutri_score?: NutriScore | null;
   ingredients?: string[];
@@ -68,6 +69,7 @@ export const mapDbToFoodItem = (dbItem: any): FoodItem => {
     image: dbItem.image_url, // DB: image_url -> Frontend: image
     tags: dbItem.tags,
     itemType: dbItem.item_type, // DB: item_type -> Frontend: itemType
+    category: dbItem.category || 'other', // DB: category
     isFamilyFavorite: dbItem.is_family_favorite, // DB: is_family_favorite
 
     // Product specific
@@ -99,6 +101,7 @@ export const mapFoodItemToDbPayload = (item: Omit<FoodItem, 'id' | 'user_id' | '
     image_url: item.image_url || item.image,
     tags: item.tags,
     item_type: item.itemType,
+    category: item.category, // Maps directly
     is_family_favorite: item.isFamilyFavorite || false,
 
     // Product specific mappings - CRITICAL: Mapping camelCase to snake_case

@@ -3,6 +3,20 @@ export type NutriScore = 'A' | 'B' | 'C' | 'D' | 'E';
 
 export type FoodItemType = 'product' | 'dish' | 'drugstore';
 
+export type GroceryCategory = 
+  | 'produce' 
+  | 'bakery' 
+  | 'meat_fish' 
+  | 'dairy_eggs' 
+  | 'pantry' 
+  | 'frozen' 
+  | 'snacks' 
+  | 'beverages' 
+  | 'household' 
+  | 'personal_care' 
+  | 'pet_food' 
+  | 'other';
+
 export interface FoodItem {
   id: string;
   user_id: string;
@@ -16,6 +30,7 @@ export interface FoodItem {
   notes?: string;
   image?: string; // URL to the image in cloud storage
   tags?: string[];
+  category?: GroceryCategory; // New field for supermarket sorting
 
   // Product-specific fields
   nutriScore?: NutriScore;

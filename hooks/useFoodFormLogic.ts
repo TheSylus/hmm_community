@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { FoodItem, FoodItemType, NutriScore } from '../types';
+import { FoodItem, FoodItemType, NutriScore, GroceryCategory } from '../types';
 import { analyzeFoodImage, analyzeIngredientsImage, hasValidApiKey, findNearbyRestaurants, BoundingBox } from '../services/geminiService';
 import { fetchProductFromOpenFoodFacts, searchProductByNameFromOpenFoodFacts } from '../services/openFoodFactsService';
 import { translateTexts } from '../services/translationService';
@@ -32,6 +32,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
   const [image, setImage] = useState<string | null>(null);
   const [tags, setTags] = useState('');
   const [isFamilyFavorite, setIsFamilyFavorite] = useState(false);
+  const [category, setCategory] = useState<GroceryCategory>('other');
   
   // Product-specific
   const [nutriScore, setNutriScore] = useState<NutriScore | ''>('');
@@ -85,10 +86,12 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
     setRestaurantName('');
     setCuisineType('');
     setPrice('');
+    // Default category based on item type
+    setCategory(itemType === 'drugstore' ? 'personal_care' : 'other');
     setError(null);
     setIsLoading(false);
     if(fileInputRef.current) fileInputRef.current.value = '';
-  }, []);
+  }, [itemType]);
 
   useEffect(() => {
     if (initialData) {
@@ -98,8 +101,9 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
       setImage(initialData.image || null);
       setTags(initialData.tags?.join(', ') || '');
       setIsFamilyFavorite(initialData.isFamilyFavorite || false);
+      setCategory(initialData.category || (initialData.itemType === 'drugstore' ? 'personal_care' : 'other'));
       
-      if(initialData.itemType === 'product') {
+      if(initialData.itemType === 'product' || initialData.itemType === 'drugstore') {
         setNutriScore(initialData.nutriScore || '');
         setPurchaseLocation(initialData.purchaseLocation?.join(', ') || '');
         setIngredients(initialData.ingredients || []);
@@ -169,7 +173,6 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
   }, [t]);
 
   // Auto-find restaurants for new dishes
-  // MOVED: This useEffect must be AFTER handleFindNearby is defined
   useEffect(() => {
     const isEditing = !!initialData;
     if (itemType === 'dish' && !isEditing && isAiAvailable) {
@@ -298,6 +301,11 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
         isVegan: productData.isVegan || false,
         isGlutenFree: productData.isGlutenFree || false,
       });
+      
+      // Heuristic for category based on type
+      if (productData.itemType === 'drugstore') {
+          setCategory('personal_care');
+      }
 
     } catch(e) {
        console.error(e);
@@ -372,6 +380,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
         if (mergedData.name) newHighlightedFields.push('name');
         if (mergedData.tags.length > 0) newHighlightedFields.push('tags');
         if (mergedData.nutriScore) newHighlightedFields.push('nutriScore');
+        if (aiResult.category) newHighlightedFields.push('category');
 
         if (language !== 'en' && textsNeedTranslation(mergedData)) {
             const textsToTranslate = [
@@ -399,16 +408,13 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
         setNutriScore(mergedData.nutriScore);
         setIngredients(mergedData.ingredients);
         setAllergens(mergedData.allergens);
+        if (aiResult.category) setCategory(aiResult.category);
         setDietary({
             isLactoseFree: mergedData.isLactoseFree,
             isVegan: mergedData.isVegan,
             isGlutenFree: mergedData.isGlutenFree,
         });
 
-        // Even though we pre-cropped in the camera, we still allow fine-tuning if AI suggests something
-        // or just to let user verify. Since CameraCapture now sends the cropped image, 
-        // uncroppedImage is actually already cropped to the frame.
-        // But analyzeFoodImage might return a bounding box RELATIVE to that cropped image.
         setUncroppedImage(imageDataUrl);
         setSuggestedCrop(aiResult.boundingBox);
         setIsCropperOpen(true);
@@ -519,10 +525,11 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
       image: image || undefined,
       tags: tags ? tags.split(',').map(tag => tag.trim()).filter(Boolean) : undefined,
       itemType,
+      category,
       isFamilyFavorite,
     };
 
-    if (itemType === 'product') {
+    if (itemType === 'product' || itemType === 'drugstore') {
         onSaveItem({
           ...commonData,
           nutriScore: nutriScore || undefined,
@@ -542,7 +549,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
           price: price !== '' ? Number(price) : undefined,
         });
     }
-  }, [name, rating, t, notes, image, tags, itemType, onSaveItem, nutriScore, purchaseLocation, ingredients, allergens, dietary, restaurantName, cuisineType, price, isFamilyFavorite]);
+  }, [name, rating, t, notes, image, tags, itemType, category, onSaveItem, nutriScore, purchaseLocation, ingredients, allergens, dietary, restaurantName, cuisineType, price, isFamilyFavorite]);
 
   const handleSelectRestaurant = useCallback((restaurantIndex: number) => {
       const selected = nearbyRestaurants[restaurantIndex];
@@ -557,12 +564,12 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
 
   return {
     formState: {
-      name, rating, notes, image, tags, isFamilyFavorite,
+      name, rating, notes, image, tags, isFamilyFavorite, category,
       nutriScore, purchaseLocation, ingredients, allergens, dietary,
       restaurantName, cuisineType, price
     },
     formSetters: {
-      setName, setRating, setNotes, setImage, setTags, setIsFamilyFavorite,
+      setName, setRating, setNotes, setImage, setTags, setIsFamilyFavorite, setCategory,
       setNutriScore, setPurchaseLocation, setIngredients, setAllergens, setRestaurantName, setCuisineType, setPrice
     },
     uiState: {
