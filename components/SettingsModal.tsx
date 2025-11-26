@@ -4,7 +4,7 @@ import { useTranslation } from '../i18n/index';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppSettings } from '../contexts/AppSettingsContext';
 import { useAuth } from '../contexts/AuthContext';
-import { XMarkIcon, SpinnerIcon, PlusCircleIcon, TrashIcon, UserCircleIcon, UserGroupIcon, DocumentTextIcon } from './Icons';
+import { XMarkIcon, SpinnerIcon, PlusCircleIcon, UserGroupIcon } from './Icons';
 import { Household, UserProfile } from '../types';
 import { StoreLogo } from './StoreLogo';
 
@@ -16,84 +16,6 @@ interface SettingsModalProps {
   onHouseholdLeave: () => Promise<void>;
   onHouseholdDelete: () => Promise<void>;
   error?: string | null;
-}
-
-// FIX: Removed owner_id check for shopping_lists as the column does not exist.
-// Lists are strictly tied to household_id.
-const FIX_SQL = `
--- 1. Helper function for secure household lookup
-CREATE OR REPLACE FUNCTION get_my_household_id() RETURNS uuid AS $$
-  SELECT household_id FROM public.profiles WHERE id = auth.uid();
-$$ LANGUAGE sql SECURITY DEFINER;
-
--- 2. Profiles: Allow seeing self AND household members
-DROP POLICY IF EXISTS "See household members" ON public.profiles;
-DROP POLICY IF EXISTS "See household profiles" ON public.profiles;
-CREATE POLICY "See household profiles" ON public.profiles
-FOR SELECT USING (
-  auth.uid() = id OR (household_id IS NOT NULL AND household_id = get_my_household_id())
-);
-
--- 3. Products: Allow seeing own items OR Family Favorites in same household
-DROP POLICY IF EXISTS "See family items" ON public.food_items;
-CREATE POLICY "See family items" ON public.food_items
-FOR SELECT USING (
-  user_id = auth.uid() OR (
-    is_family_favorite = true AND user_id IN (
-        SELECT id FROM public.profiles WHERE household_id = get_my_household_id()
-    )
-  )
-);
-
--- 4. Shopping Lists: Must belong to my household
-DROP POLICY IF EXISTS "Household shopping lists" ON public.shopping_lists;
-CREATE POLICY "Household shopping lists" ON public.shopping_lists
-FOR ALL USING (
-  household_id = get_my_household_id()
-);
-
--- 5. List Items: Must belong to a list in my household
-DROP POLICY IF EXISTS "Household list items" ON public.shopping_list_items;
-CREATE POLICY "Household list items" ON public.shopping_list_items
-FOR ALL USING (
-  list_id IN (
-    SELECT id FROM public.shopping_lists WHERE household_id = get_my_household_id()
-  )
-);
-`;
-
-const DatabaseTroubleshooter: React.FC = () => {
-    const { t } = useTranslation();
-    const [isOpen, setIsOpen] = useState(false);
-
-    return (
-        <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
-            <h3 className="text-sm font-bold text-amber-800 dark:text-amber-200 flex items-center gap-2">
-                <DocumentTextIcon className="w-4 h-4" />
-                {t('settings.troubleshoot.title')}
-            </h3>
-            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 mb-3">
-                {t('settings.troubleshoot.description')}
-            </p>
-            <button 
-                onClick={() => setIsOpen(!isOpen)}
-                className="text-xs font-semibold bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-3 py-1.5 rounded transition-colors hover:bg-amber-300 dark:hover:bg-amber-700"
-            >
-                {t('settings.troubleshoot.button')}
-            </button>
-            {isOpen && (
-                <div className="mt-3">
-                    <textarea 
-                        readOnly 
-                        className="w-full h-32 text-[10px] font-mono bg-white dark:bg-gray-900 p-2 rounded border border-amber-200 dark:border-amber-800 select-all"
-                        value={FIX_SQL}
-                        onClick={(e) => e.currentTarget.select()}
-                    />
-                    <p className="text-[10px] text-gray-500 mt-1 italic">Copy and run in Supabase SQL Editor</p>
-                </div>
-            )}
-        </div>
-    );
 }
 
 const HouseholdManager: React.FC<Omit<SettingsModalProps, 'onClose'>> = ({ household, householdMembers, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete, error }) => {
@@ -176,9 +98,6 @@ const HouseholdManager: React.FC<Omit<SettingsModalProps, 'onClose'>> = ({ house
                         </button>
                     </div>
                 </div>
-                
-                {/* Added Troubleshooter here for easy access by household members */}
-                <DatabaseTroubleshooter />
             </div>
         );
     }
