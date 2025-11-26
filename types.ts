@@ -1,20 +1,7 @@
 
 export type NutriScore = 'A' | 'B' | 'C' | 'D' | 'E';
 
-export type FoodItemType = 'product' | 'dish' | 'drugstore';
-
-export type ProductCategory = 
-  | 'produce' 
-  | 'dairy' 
-  | 'meat' 
-  | 'bakery' 
-  | 'pantry' 
-  | 'frozen' 
-  | 'snacks' 
-  | 'beverages' 
-  | 'drugstore' 
-  | 'pet' 
-  | 'other';
+export type FoodItemType = 'product' | 'dish';
 
 export interface FoodItem {
   id: string;
@@ -24,7 +11,6 @@ export interface FoodItem {
   rating: number; // 0 for unrated, 1-5 for star rating
   itemType: FoodItemType;
   isFamilyFavorite?: boolean; // Replaces isPublic for household sharing
-  category?: ProductCategory; // New field for grouping
 
   // Common fields
   notes?: string;
