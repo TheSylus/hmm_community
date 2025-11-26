@@ -1,5 +1,6 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { FoodItem, FoodItemType, NutriScore } from '../types';
+import { FoodItem, FoodItemType, NutriScore, ProductCategory } from '../types';
 import { analyzeFoodImage, analyzeIngredientsImage, hasValidApiKey, findNearbyRestaurants, BoundingBox } from '../services/geminiService';
 import { fetchProductFromOpenFoodFacts, searchProductByNameFromOpenFoodFacts } from '../services/openFoodFactsService';
 import { translateTexts } from '../services/translationService';
@@ -30,6 +31,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
   const [notes, setNotes] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [tags, setTags] = useState('');
+  const [category, setCategory] = useState<ProductCategory | undefined>(undefined);
   const [isFamilyFavorite, setIsFamilyFavorite] = useState(false);
   
   // Product-specific
@@ -74,9 +76,10 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
     setRating(0);
     setNotes('');
     setImage(null);
+    setTags('');
+    setCategory(undefined);
     setNutriScore('');
     setPurchaseLocation('');
-    setTags('');
     setIsFamilyFavorite(false);
     setIngredients([]);
     setAllergens([]);
@@ -96,9 +99,10 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
       setNotes(initialData.notes || '');
       setImage(initialData.image || null);
       setTags(initialData.tags?.join(', ') || '');
+      setCategory(initialData.category);
       setIsFamilyFavorite(initialData.isFamilyFavorite || false);
       
-      if(initialData.itemType === 'product') {
+      if(initialData.itemType === 'product' || initialData.itemType === 'drugstore') {
         setNutriScore(initialData.nutriScore || '');
         setPurchaseLocation(initialData.purchaseLocation?.join(', ') || '');
         setIngredients(initialData.ingredients || []);
@@ -168,7 +172,6 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
   }, [t]);
 
   // Auto-find restaurants for new dishes
-  // MOVED: This useEffect must be AFTER handleFindNearby is defined
   useEffect(() => {
     const isEditing = !!initialData;
     if (itemType === 'dish' && !isEditing && isAiAvailable) {
@@ -245,7 +248,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
     setIsSpeechModalOpen(false);
     if (transcript) {
       setName(transcript);
-      if (itemType === 'product') {
+      if (itemType === 'product' || itemType === 'drugstore') {
         processSpokenProductName(transcript);
       }
     }
@@ -360,6 +363,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
             name: aiResult.name || '',
             tags: Array.from(combinedTags),
             nutriScore: (aiResult.nutriScore || offResult.nutriScore || '') as NutriScore | '',
+            category: aiResult.category,
             ingredients: offResult.ingredients || [],
             allergens: offResult.allergens || [],
             isLactoseFree: offResult.isLactoseFree || false,
@@ -371,6 +375,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
         if (mergedData.name) newHighlightedFields.push('name');
         if (mergedData.tags.length > 0) newHighlightedFields.push('tags');
         if (mergedData.nutriScore) newHighlightedFields.push('nutriScore');
+        if (mergedData.category) newHighlightedFields.push('category');
 
         if (language !== 'en' && textsNeedTranslation(mergedData)) {
             const textsToTranslate = [
@@ -396,6 +401,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
         setName(mergedData.name);
         setTags(mergedData.tags.join(', '));
         setNutriScore(mergedData.nutriScore);
+        setCategory(mergedData.category);
         setIngredients(mergedData.ingredients);
         setAllergens(mergedData.allergens);
         setDietary({
@@ -404,10 +410,6 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
             isGlutenFree: mergedData.isGlutenFree,
         });
 
-        // Even though we pre-cropped in the camera, we still allow fine-tuning if AI suggests something
-        // or just to let user verify. Since CameraCapture now sends the cropped image, 
-        // uncroppedImage is actually already cropped to the frame.
-        // But analyzeFoodImage might return a bounding box RELATIVE to that cropped image.
         setUncroppedImage(imageDataUrl);
         setSuggestedCrop(aiResult.boundingBox);
         setIsCropperOpen(true);
@@ -517,14 +519,15 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
       notes: notes || undefined,
       image: image || undefined,
       tags: tags ? tags.split(',').map(tag => tag.trim()).filter(Boolean) : undefined,
+      category,
       itemType,
       isFamilyFavorite,
     };
 
-    if (itemType === 'product') {
+    if (itemType === 'product' || itemType === 'drugstore') {
         onSaveItem({
           ...commonData,
-          nutriScore: nutriScore || undefined,
+          nutriScore: itemType === 'product' ? (nutriScore || undefined) : undefined,
           // Parse purchaseLocation string into array
           purchaseLocation: purchaseLocation ? purchaseLocation.split(',').map(loc => loc.trim()).filter(Boolean) : undefined,
           ingredients: ingredients.length > 0 ? ingredients : undefined,
@@ -541,7 +544,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
           price: price !== '' ? Number(price) : undefined,
         });
     }
-  }, [name, rating, t, notes, image, tags, itemType, onSaveItem, nutriScore, purchaseLocation, ingredients, allergens, dietary, restaurantName, cuisineType, price, isFamilyFavorite]);
+  }, [name, rating, t, notes, image, tags, category, itemType, onSaveItem, nutriScore, purchaseLocation, ingredients, allergens, dietary, restaurantName, cuisineType, price, isFamilyFavorite]);
 
   const handleSelectRestaurant = useCallback((restaurantIndex: number) => {
       const selected = nearbyRestaurants[restaurantIndex];
@@ -556,12 +559,12 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
 
   return {
     formState: {
-      name, rating, notes, image, tags, isFamilyFavorite,
+      name, rating, notes, image, tags, category, isFamilyFavorite,
       nutriScore, purchaseLocation, ingredients, allergens, dietary,
       restaurantName, cuisineType, price
     },
     formSetters: {
-      setName, setRating, setNotes, setImage, setTags, setIsFamilyFavorite,
+      setName, setRating, setNotes, setImage, setTags, setCategory, setIsFamilyFavorite,
       setNutriScore, setPurchaseLocation, setRestaurantName, setCuisineType, setPrice
     },
     uiState: {

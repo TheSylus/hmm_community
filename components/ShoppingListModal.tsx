@@ -4,7 +4,7 @@ import { useTranslation } from '../i18n/index';
 import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, ShareIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon, UserGroupIcon, ArrowsUpDownIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
-import { ShoppingList, UserProfile, Household } from '../types';
+import { ShoppingList, UserProfile, Household, ProductCategory } from '../types';
 import { User } from '@supabase/supabase-js';
 import { StoreLogo } from './StoreLogo';
 
@@ -24,6 +24,21 @@ interface ShoppingListModalProps {
   onDeleteList: (listId: string) => void;
   onUpdateQuantity: (shoppingListItemId: string, newQuantity: number) => void;
 }
+
+// Defined order for shopping aisle logic
+const CATEGORY_SORT_ORDER: ProductCategory[] = [
+    'produce',
+    'bakery',
+    'meat',
+    'dairy',
+    'pantry',
+    'frozen',
+    'beverages',
+    'snacks',
+    'drugstore',
+    'pet',
+    'other'
+];
 
 const ActivityLog: React.FC<{
   userId: string | null;
@@ -95,6 +110,9 @@ const ShoppingListItem: React.FC<{
                         {displayItem.name}
                         <span className="ml-2 font-normal text-gray-500 dark:text-gray-400">({displayItem.quantity}x)</span>
                     </label>
+                    {isShoppingMode && displayItem.category && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 ml-0.5">{t(`category.${displayItem.category}`)}</p>
+                    )}
                 </div>
             </div>
             <div className="flex items-center gap-1 pl-2">
@@ -221,6 +239,14 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
       
       const groups: Record<string, { active: HydratedShoppingListItem[], completed: HydratedShoppingListItem[] }> = {};
 
+      // Sort helper for items within a group
+      const sortByCategory = (a: HydratedShoppingListItem, b: HydratedShoppingListItem) => {
+          const idxA = a.category ? CATEGORY_SORT_ORDER.indexOf(a.category) : 999;
+          const idxB = b.category ? CATEGORY_SORT_ORDER.indexOf(b.category) : 999;
+          if (idxA !== idxB) return idxA - idxB;
+          return a.name.localeCompare(b.name);
+      };
+
       listData.forEach(item => {
           // If item has multiple locations, it goes into multiple groups
           const locations = (item.purchaseLocation && item.purchaseLocation.length > 0) 
@@ -238,6 +264,12 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                   groups[location].active.push(item);
               }
           });
+      });
+
+      // Sort items inside groups
+      Object.values(groups).forEach(group => {
+          group.active.sort(sortByCategory);
+          group.completed.sort(sortByCategory);
       });
 
       const sortedNames = Object.keys(groups).sort((a, b) => {
