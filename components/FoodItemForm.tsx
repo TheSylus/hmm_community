@@ -341,7 +341,9 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                         ) : (
                             <div>
                                 <div className="mb-4">
-                                    <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">{t('form.dietary.title')}:</h4>
+                                    <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                                        {t(itemType === 'drugstore' ? 'form.attributes.title' : 'form.dietary.title')}:
+                                    </h4>
                                     <div className="grid grid-cols-3 gap-2">
                                         <button type="button" onClick={() => actions.handleDietaryChange('isLactoseFree')} aria-pressed={formState.dietary.isLactoseFree} className={`flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg border-2 transition-colors ${formState.dietary.isLactoseFree ? 'bg-blue-100 dark:bg-blue-900/50 border-blue-500 dark:border-blue-400 text-blue-700 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700/50 border-transparent text-blue-600 dark:text-blue-400 hover:border-gray-300 dark:hover:border-gray-600'}`}>
                                             <LactoseFreeIcon className="w-7 h-7" />

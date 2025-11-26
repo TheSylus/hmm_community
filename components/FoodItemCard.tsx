@@ -59,6 +59,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   const hasTags = displayItem.tags && displayItem.tags.length > 0;
   const isClickable = !!onViewDetails;
   const isFamilyShared = displayItem.isFamilyFavorite;
+  const isDrugstore = displayItem.itemType === 'drugstore';
 
   // Visual indicator for item type
   const getPlaceholderIcon = () => {
@@ -79,9 +80,22 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
       }
   };
 
+  // Dynamic Border/Ring Color Logic
+  let borderClass = 'border-gray-100 dark:border-gray-700/50';
+  let ringClass = '';
+
+  if (isFamilyShared) {
+      borderClass = 'border-amber-400 dark:border-amber-500/50';
+      ringClass = 'ring-1 ring-amber-300 dark:ring-amber-600/30';
+  } else if (isDrugstore) {
+      borderClass = 'border-purple-300 dark:border-purple-500/50';
+      // Subtle purple glow for drugstore
+      ringClass = 'ring-1 ring-purple-100 dark:ring-purple-900/30';
+  }
+
   return (
     <div 
-        className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden transition-all duration-300 hover:shadow-md relative ${isClickable ? 'cursor-pointer' : ''} ${isFamilyShared ? 'border-amber-400 dark:border-amber-500/50 ring-1 ring-amber-300 dark:ring-amber-600/30' : 'border-gray-100 dark:border-gray-700/50'}`}
+        className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden transition-all duration-300 hover:shadow-md relative ${isClickable ? 'cursor-pointer' : ''} ${borderClass} ${ringClass}`}
         onClick={() => isClickable && onViewDetails(item)}
     >
         <div className="flex flex-row h-full">
@@ -122,7 +136,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
             <div className="flex-1 flex flex-col justify-between p-3 min-w-0">
                 <div>
                     <div className="flex justify-between items-start gap-2">
-                        <h3 className={`text-base font-bold truncate leading-tight ${isFamilyShared ? 'text-amber-700 dark:text-amber-400' : 'text-gray-900 dark:text-white'}`} title={displayItem.name}>
+                        <h3 className={`text-base font-bold truncate leading-tight ${isFamilyShared ? 'text-amber-700 dark:text-amber-400' : (isDrugstore ? 'text-purple-800 dark:text-purple-300' : 'text-gray-900 dark:text-white')}`} title={displayItem.name}>
                             {displayItem.name}
                         </h3>
                         

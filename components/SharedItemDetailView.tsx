@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { FoodItem, NutriScore } from '../types';
-import { StarIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon } from './Icons';
+import { StarIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, BeakerIcon } from './Icons';
 import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
@@ -26,9 +27,10 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
     return null; // Or a loading state
   }
   
-  const hasDietary = displayItem.itemType === 'product' && (displayItem.isLactoseFree || displayItem.isVegan || displayItem.isGlutenFree);
-  const hasAllergens = displayItem.itemType === 'product' && displayItem.allergens && displayItem.allergens.length > 0;
-  const hasIngredients = displayItem.itemType === 'product' && displayItem.ingredients && displayItem.ingredients.length > 0;
+  const isConsumableOrDrugstore = displayItem.itemType === 'product' || displayItem.itemType === 'drugstore';
+  const hasAttributes = isConsumableOrDrugstore && (displayItem.isLactoseFree || displayItem.isVegan || displayItem.isGlutenFree);
+  const hasAllergens = isConsumableOrDrugstore && displayItem.allergens && displayItem.allergens.length > 0;
+  const hasIngredients = isConsumableOrDrugstore && displayItem.ingredients && displayItem.ingredients.length > 0;
   const hasTags = displayItem.tags && displayItem.tags.length > 0;
   
   const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', className?: string }> = ({ type, className }) => {
@@ -65,7 +67,14 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
           </div>
         )}
         <div className="flex-1">
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white">{displayItem.name}</h3>
+          <div className="flex items-start justify-between">
+             <h3 className="text-xl font-bold text-gray-900 dark:text-white">{displayItem.name}</h3>
+             {displayItem.itemType === 'drugstore' && (
+                 <div className="bg-purple-100 dark:bg-purple-900/50 p-1 rounded-full text-purple-600 dark:text-purple-300" title={t('modal.itemType.drugstore')}>
+                     <BeakerIcon className="w-5 h-5" />
+                 </div>
+             )}
+          </div>
           
           {displayItem.itemType === 'dish' && displayItem.restaurantName && (
               <p className="text-sm text-gray-500 dark:text-gray-400 truncate italic" title={displayItem.restaurantName}>
@@ -106,11 +115,13 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
         </div>
       )}
 
-      {displayItem.itemType === 'product' && (hasDietary || hasAllergens) && (
+      {isConsumableOrDrugstore && (hasAttributes || hasAllergens) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-gray-200 dark:border-gray-700/50">
-          {hasDietary && (
+          {hasAttributes && (
             <div>
-              <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('detail.dietaryTitle')}</h4>
+              <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  {t(displayItem.itemType === 'drugstore' ? 'form.attributes.title' : 'detail.dietaryTitle')}
+              </h4>
               <div className="flex items-center gap-2">
                 {displayItem.isLactoseFree && <DietaryIcon type="lactoseFree" className="w-6 h-6" />}
                 {displayItem.isVegan && <DietaryIcon type="vegan" className="w-6 h-6" />}
