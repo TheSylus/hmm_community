@@ -4,7 +4,7 @@ import { useTranslation } from '../i18n/index';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppSettings } from '../contexts/AppSettingsContext';
 import { useAuth } from '../contexts/AuthContext';
-import { XMarkIcon, SpinnerIcon, PlusCircleIcon, UserGroupIcon } from './Icons';
+import { XMarkIcon, SpinnerIcon, PlusCircleIcon, UserGroupIcon, DocumentTextIcon } from './Icons';
 import { Household, UserProfile } from '../types';
 import { StoreLogo } from './StoreLogo';
 
@@ -181,6 +181,36 @@ const StoreManager: React.FC = () => {
     );
 }
 
+const DatabaseManager: React.FC = () => {
+    const { t } = useTranslation();
+    const [showSql, setShowSql] = useState(false);
+    
+    const sqlCode = `ALTER TABLE food_items ADD COLUMN IF NOT EXISTS category text DEFAULT 'other';`;
+
+    return (
+        <div>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">{t('settings.troubleshoot.title')}</h3>
+            <div className="bg-gray-100 dark:bg-gray-900/50 p-4 rounded-lg space-y-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('settings.troubleshoot.description_category')}</p>
+                
+                {!showSql ? (
+                    <button onClick={() => setShowSql(true)} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline font-medium flex items-center gap-1">
+                        <DocumentTextIcon className="w-4 h-4" />
+                        {t('settings.troubleshoot.button')}
+                    </button>
+                ) : (
+                    <div className="mt-2">
+                        <code className="block p-3 bg-gray-800 text-gray-200 rounded-md font-mono text-xs select-all overflow-x-auto">
+                            {sqlCode}
+                        </code>
+                        <p className="text-xs text-gray-500 mt-1">{t('settings.troubleshoot.sqlInstructions')}</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, household, householdMembers, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete, error }) => {
   const { t, language, setLanguage } = useTranslation();
   const { theme, setTheme } = useTheme();
@@ -225,6 +255,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, household
             
             <StoreManager />
             
+            <hr className="border-gray-200 dark:border-gray-700" />
+
+            {/* Database Maintenance (For Category Update) */}
+            <DatabaseManager />
+
             <hr className="border-gray-200 dark:border-gray-700" />
 
             {/* Language Selection */}

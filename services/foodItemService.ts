@@ -143,6 +143,20 @@ export const fetchFamilyFavorites = async () => {
     return (data || []).map(mapDbToFoodItem);
 };
 
+// Helper to handle "missing column" errors gracefully
+const handleMissingColumnRetry = async (operation: () => Promise<any>, originalError: any) => {
+    // Check for specific PostgREST or Supabase error regarding missing column
+    if (originalError?.message?.includes('Could not find the') && originalError?.message?.includes('category')) {
+        console.warn("Database schema outdated: 'category' column missing. Retrying without it.");
+        return true;
+    }
+    if (originalError?.code === '42703') { // Postgres undefined_column code
+         console.warn("Database schema outdated: Column missing. Retrying without 'category'.");
+         return true;
+    }
+    return false;
+}
+
 export const createFoodItem = async (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>, userId: string, imageUrl?: string) => {
   // Ensure strict payload construction
   const payload = mapFoodItemToDbPayload({ ...item, user_id: userId, image_url: imageUrl });
@@ -153,7 +167,21 @@ export const createFoodItem = async (item: Omit<FoodItem, 'id' | 'user_id' | 'cr
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+      // Graceful degradation: If DB is missing 'category' column, remove it and retry
+      if (await handleMissingColumnRetry(async () => {}, error)) {
+          const { category, ...legacyPayload } = payload;
+          const { data: retryData, error: retryError } = await supabase
+            .from('food_items')
+            .insert(legacyPayload)
+            .select()
+            .single();
+          
+          if (retryError) throw retryError;
+          return mapDbToFoodItem(retryData);
+      }
+      throw error;
+  }
   return mapDbToFoodItem(data);
 };
 
@@ -167,7 +195,22 @@ export const updateFoodItem = async (id: string, item: Omit<FoodItem, 'id' | 'us
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+      // Graceful degradation
+      if (await handleMissingColumnRetry(async () => {}, error)) {
+          const { category, ...legacyPayload } = payload;
+          const { data: retryData, error: retryError } = await supabase
+            .from('food_items')
+            .update(legacyPayload)
+            .eq('id', id)
+            .select()
+            .single();
+          
+          if (retryError) throw retryError;
+          return mapDbToFoodItem(retryData);
+      }
+      throw error;
+  }
   return mapDbToFoodItem(data);
 };
 
