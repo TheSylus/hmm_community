@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon, UserGroupIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon } from './Icons';
+import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon, UserGroupIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon, MapPinIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
 import { ShoppingList, UserProfile, Household, GroceryCategory } from '../types';
@@ -119,7 +119,7 @@ const ShoppingListItem: React.FC<{
   if (!displayItem) return null;
 
   const checkboxSize = isShoppingMode ? 'h-7 w-7' : 'h-5 w-5';
-  const textContainerMargin = isShoppingMode ? 'ml-4' : 'ml-3';
+  const textContainerMargin = isShoppingMode ? 'ml-3' : 'ml-3';
   const itemTextSize = isShoppingMode ? 'text-lg' : 'text-md';
   
   // Determine Category Icon
@@ -130,30 +130,69 @@ const ShoppingListItem: React.FC<{
   // Ensure unique ID for the input in case the item is rendered in multiple groups
   const inputId = `item-${displayItem.shoppingListItemId}-${groupPrefix || 'default'}`;
 
+  const handleQuantityClick = (e: React.MouseEvent, change: number) => {
+      e.stopPropagation();
+      onUpdateQuantity(displayItem.shoppingListItemId, displayItem.quantity + change);
+  };
+
   return (
-    <li className="bg-gray-50 dark:bg-gray-700/50 rounded-md transition-shadow duration-200 shadow-sm data-[expanded=true]:shadow-lg relative overflow-hidden" data-expanded={isExpanded}>
-        <div className="flex items-center justify-between p-3">
+    <li className="bg-gray-50 dark:bg-gray-700/50 rounded-lg transition-all duration-200 shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-gray-600 overflow-hidden">
+        <div className="flex items-center justify-between p-2 sm:p-3">
             <div className="flex items-center overflow-hidden flex-1">
                 <input
                     id={inputId}
                     type="checkbox"
                     checked={displayItem.checked}
                     onChange={() => onToggleChecked(displayItem.shoppingListItemId, !displayItem.checked)}
-                    className={`${checkboxSize} rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0`}
+                    className={`${checkboxSize} rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0 transition-transform active:scale-90`}
                 />
-                <div className={`${textContainerMargin} flex-1 overflow-hidden cursor-pointer flex items-center gap-2`} onClick={() => onExpand(displayItem.id)}>
-                    {/* Category Icon Badge */}
-                    <div className={`flex-shrink-0 p-1 rounded-md ${catColor}`} title={t(`category.${category}`)}>
-                        <CatIcon className="w-4 h-4" />
+                
+                {/* Thumbnail in Shopping Mode */}
+                {isShoppingMode && displayItem.image && (
+                    <div className="ml-3 w-10 h-10 flex-shrink-0 rounded-md overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600">
+                        <img src={displayItem.image} alt="" className="w-full h-full object-cover" />
                     </div>
+                )}
+
+                <div className={`${textContainerMargin} flex-1 overflow-hidden cursor-pointer flex items-center gap-2`} onClick={() => onExpand(displayItem.id)}>
+                    {/* Category Icon Badge - Hide in shopping mode if image is present to save space, or keep generic if no image */}
+                    {(!isShoppingMode || !displayItem.image) && (
+                        <div className={`flex-shrink-0 p-1 rounded-md ${catColor}`} title={t(`category.${category}`)}>
+                            <CatIcon className="w-4 h-4" />
+                        </div>
+                    )}
                     
-                    <label htmlFor={inputId} className={`${itemTextSize} font-medium text-gray-800 dark:text-gray-200 truncate transition-colors cursor-pointer ${displayItem.checked ? 'line-through text-gray-500 dark:text-gray-400' : ''}`}>
+                    <label htmlFor={inputId} className={`${itemTextSize} font-medium text-gray-800 dark:text-gray-200 truncate transition-colors cursor-pointer select-none ${displayItem.checked ? 'line-through text-gray-400 dark:text-gray-500' : ''}`}>
                         {displayItem.name}
-                        <span className="ml-2 font-normal text-gray-500 dark:text-gray-400 text-sm">({displayItem.quantity}x)</span>
                     </label>
                 </div>
             </div>
-            <div className="flex items-center gap-1 pl-2">
+
+            <div className="flex items-center gap-2 pl-2">
+                {/* Intuitive Quantity Control */}
+                {!isShoppingMode ? (
+                    <div className="flex items-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full h-8 shadow-sm">
+                        <button 
+                            onClick={(e) => handleQuantityClick(e, -1)} 
+                            className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-l-full transition-colors"
+                        >
+                            -
+                        </button>
+                        <span className="w-6 text-center text-sm font-semibold text-gray-800 dark:text-gray-200">{displayItem.quantity}</span>
+                        <button 
+                            onClick={(e) => handleQuantityClick(e, 1)} 
+                            className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-r-full transition-colors"
+                        >
+                            +
+                        </button>
+                    </div>
+                ) : (
+                    <div className="bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded-md">
+                        <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{displayItem.quantity}x</span>
+                    </div>
+                )}
+
+                {/* Actions */}
                 {!isShoppingMode && (
                     <button
                         onClick={() => onRemove(displayItem.shoppingListItemId)}
@@ -163,44 +202,52 @@ const ShoppingListItem: React.FC<{
                         <TrashIcon className="w-5 h-5" />
                     </button>
                 )}
-                <button
-                    onClick={() => onExpand(displayItem.id)}
-                    className="p-1.5 rounded-full text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                    aria-label={t('shoppingList.toggleDetailsAria')}
-                >
-                    <ChevronDownIcon className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                </button>
+                {!isShoppingMode && (
+                    <button
+                        onClick={() => onExpand(displayItem.id)}
+                        className="p-1.5 rounded-full text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        aria-label={t('shoppingList.toggleDetailsAria')}
+                    >
+                        <ChevronDownIcon className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+                )}
             </div>
         </div>
-        {isExpanded && (
-            <div className="px-3 pb-3 pt-2 border-t border-gray-200 dark:border-gray-600 animate-fade-in-down space-y-2">
-                <div className="flex justify-between items-center pl-8">
+        {isExpanded && !isShoppingMode && (
+            <div className="px-3 pb-3 pt-1 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 animate-fade-in-down space-y-3">
+                <div className="flex justify-between items-center text-xs text-gray-500 pl-1">
                     <ActivityLog action="added" userId={displayItem.added_by_user_id} members={members} currentUser={currentUser} />
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-400">{t('shoppingList.quantity')}:</label>
-                        <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-md">
-                            <button onClick={() => onUpdateQuantity(displayItem.shoppingListItemId, displayItem.quantity - 1)} className="px-2 py-1 text-lg font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-l-md">-</button>
-                            <span className="px-3 text-md font-semibold text-gray-800 dark:text-gray-200">{displayItem.quantity}</span>
-                            <button onClick={() => onUpdateQuantity(displayItem.shoppingListItemId, displayItem.quantity + 1)} className="px-2 py-1 text-lg font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-r-md">+</button>
-                        </div>
-                    </div>
-                </div>
-                {displayItem.checked && (
-                    <div className="pl-8">
+                    {displayItem.checked && (
                         <ActivityLog action="checked" userId={displayItem.checked_by_user_id} members={members} currentUser={currentUser} />
+                    )}
+                </div>
+                
+                {displayItem.image && (
+                    <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                        <img src={displayItem.image} alt={displayItem.name} className="w-full h-40 object-contain bg-white dark:bg-gray-900" />
                     </div>
                 )}
-                {displayItem.image ? (
-                    <img src={displayItem.image} alt={displayItem.name} className="w-full rounded-md object-contain max-h-48 bg-white dark:bg-gray-800" />
-                ) : (
-                    <div className="w-full h-24 bg-gray-200 dark:bg-gray-600 rounded-md flex items-center justify-center text-gray-400">
-                        <CameraIcon className="w-8 h-8"/>
-                    </div>
-                )}
-                {displayItem.notes && (
-                    <div>
-                        <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t('detail.notesTitle')}</h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{displayItem.notes}</p>
+                
+                {(displayItem.notes || (displayItem.tags && displayItem.tags.length > 0)) && (
+                    <div className="bg-white dark:bg-gray-900 p-3 rounded-md border border-gray-100 dark:border-gray-700/50">
+                        {displayItem.notes && (
+                            <div className="mb-2">
+                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{t('detail.notesTitle')}</h4>
+                                <p className="text-sm text-gray-700 dark:text-gray-300">{displayItem.notes}</p>
+                            </div>
+                        )}
+                        {displayItem.tags && displayItem.tags.length > 0 && (
+                            <div>
+                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{t('detail.tagsTitle')}</h4>
+                                <div className="flex flex-wrap gap-1">
+                                    {displayItem.tags.map(tag => (
+                                        <span key={tag} className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-800">
+                                            {tag}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -271,31 +318,43 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
       return name.substring(0, 2).toUpperCase();
   };
 
-  const { groupedItems, sortedGroupNames, checkedItemsCount } = useMemo(() => {
+  // Grouping Logic: Shop -> Category -> Items
+  const { groupedByShop, sortedShopNames, checkedItemsCount } = useMemo(() => {
       const checkedCount = listData.filter(i => i.checked).length;
 
-      const grouped: Record<string, HydratedShoppingListItem[]> = {};
-      
+      // Type: ShopName -> CategoryName -> Items[]
+      const grouped: Record<string, Record<string, HydratedShoppingListItem[]>> = {};
+      const unknownShopKey = t('shoppingList.uncategorized'); // Or "Other Stores"
+
       listData.forEach(item => {
-          const category = item.category || 'other';
-          if (!grouped[category]) {
-              grouped[category] = [];
+          // 1. Determine Shop
+          let shopName = unknownShopKey;
+          if (item.purchaseLocation && item.purchaseLocation.length > 0) {
+              shopName = item.purchaseLocation[0]; // Primary shop is the first one
           }
-          grouped[category].push(item);
+
+          if (!grouped[shopName]) {
+              grouped[shopName] = {};
+          }
+
+          // 2. Determine Category within Shop
+          const category = item.category || 'other';
+          if (!grouped[shopName][category]) {
+              grouped[shopName][category] = [];
+          }
+
+          grouped[shopName][category].push(item);
       });
 
-      // Sort categories based on defined order
-      const sortedNames = Object.keys(grouped).sort((a, b) => {
-          const indexA = CATEGORY_ORDER.indexOf(a as GroceryCategory);
-          const indexB = CATEGORY_ORDER.indexOf(b as GroceryCategory);
-          // Put known categories first in order, others at the end
-          const valA = indexA === -1 ? 999 : indexA;
-          const valB = indexB === -1 ? 999 : indexB;
-          return valA - valB;
+      // Sort Shops alphabetically, but keep "Uncategorized" at the bottom
+      const sortedShops = Object.keys(grouped).sort((a, b) => {
+          if (a === unknownShopKey) return 1;
+          if (b === unknownShopKey) return -1;
+          return a.localeCompare(b);
       });
 
-      return { groupedItems: grouped, sortedGroupNames: sortedNames, checkedItemsCount: checkedCount };
-  }, [listData]);
+      return { groupedByShop: grouped, sortedShopNames: sortedShops, checkedItemsCount: checkedCount };
+  }, [listData, t]);
 
   return (
     <div
@@ -319,7 +378,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                             value={newListName}
                             onChange={(e) => setNewListName(e.target.value)}
                             placeholder={t('shoppingList.newListPlaceholder')}
-                            className="flex-1 bg-gray-100 dark:bg-gray-700 border-none rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-indigo-500"
+                            className="flex-1 bg-gray-100 dark:bg-gray-700 border-none rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white"
                             autoFocus
                         />
                         <button type="submit" className="text-xs bg-indigo-600 text-white px-2 rounded hover:bg-indigo-700">{t('shoppingList.createButton')}</button>
@@ -375,7 +434,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
             <div className="flex items-center gap-2">
                 <button
                     onClick={() => setIsShoppingMode(!isShoppingMode)}
-                    className={`p-2 rounded-full transition-colors ${isShoppingMode ? 'bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                    className={`p-2 rounded-full transition-all duration-300 ${isShoppingMode ? 'bg-green-600 text-white shadow-lg ring-2 ring-green-300 dark:ring-green-800' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
                     title={t('shoppingList.mode.startShopping')}
                 >
                     <ShoppingBagIcon className="w-5 h-5" />
@@ -397,7 +456,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-white dark:bg-gray-800">
             {currentView === 'list' ? (
                 <>
                     {listData.length === 0 ? (
@@ -406,29 +465,80 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                             <p>{t('shoppingList.empty')}</p>
                         </div>
                     ) : (
-                        <div className="space-y-6">
-                            {sortedGroupNames.map(category => (
-                                <div key={category}>
-                                    <h4 className={`text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2 ${CategoryColorMap[category as GroceryCategory].split(' ')[1]}`}>
-                                        {t(`category.${category}`)}
-                                    </h4>
-                                    <ul className="space-y-2">
-                                        {groupedItems[category].map(item => (
-                                            <ShoppingListItem
-                                                key={item.shoppingListItemId}
-                                                item={item}
-                                                onRemove={onRemove}
-                                                onToggleChecked={onToggleChecked}
-                                                onUpdateQuantity={onUpdateQuantity}
-                                                isExpanded={expandedItemId === item.id}
-                                                onExpand={handleExpand}
-                                                members={householdMembers}
-                                                currentUser={currentUser}
-                                                isShoppingMode={isShoppingMode}
-                                                groupPrefix={category}
-                                            />
+                        <div className="space-y-8 pb-10">
+                            {sortedShopNames.map(shopName => (
+                                <div key={shopName} className="space-y-2">
+                                    {/* Shop Header */}
+                                    <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm py-2 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                                        {shopName !== t('shoppingList.uncategorized') ? (
+                                            <StoreLogo name={shopName} size="md" className="shrink-0" />
+                                        ) : (
+                                            <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                                <MapPinIcon className="w-5 h-5 text-gray-500" />
+                                            </div>
+                                        )}
+                                        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                                            {shopName}
+                                        </h3>
+                                    </div>
+
+                                    <div className="space-y-4 pl-2">
+                                        {/* Categories within Shop */}
+                                        {CATEGORY_ORDER.map(cat => {
+                                            const categoryItems = groupedByShop[shopName][cat];
+                                            if (!categoryItems || categoryItems.length === 0) return null;
+
+                                            return (
+                                                <div key={`${shopName}-${cat}`} className="space-y-1">
+                                                    <h4 className={`text-[10px] font-bold uppercase tracking-widest pl-1 mb-1.5 opacity-80 flex items-center gap-2 ${CategoryColorMap[cat].split(' ')[1]}`}>
+                                                        {t(`category.${cat}`)}
+                                                    </h4>
+                                                    <ul className="space-y-2">
+                                                        {categoryItems.map(item => (
+                                                            <ShoppingListItem
+                                                                key={item.shoppingListItemId}
+                                                                item={item}
+                                                                onRemove={onRemove}
+                                                                onToggleChecked={onToggleChecked}
+                                                                onUpdateQuantity={onUpdateQuantity}
+                                                                isExpanded={expandedItemId === item.id}
+                                                                onExpand={handleExpand}
+                                                                members={householdMembers}
+                                                                currentUser={currentUser}
+                                                                isShoppingMode={isShoppingMode}
+                                                                groupPrefix={`${shopName}-${cat}`}
+                                                            />
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            );
+                                        })}
+                                        {/* Handle 'other' or undefined categories explicitly if not in CATEGORY_ORDER */}
+                                        {Object.keys(groupedByShop[shopName]).filter(c => !CATEGORY_ORDER.includes(c as GroceryCategory)).map(cat => (
+                                             <div key={`${shopName}-${cat}`} className="space-y-1">
+                                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 pl-1 mb-1.5">
+                                                    {t(`category.${cat}`)}
+                                                </h4>
+                                                <ul className="space-y-2">
+                                                    {groupedByShop[shopName][cat].map(item => (
+                                                        <ShoppingListItem
+                                                            key={item.shoppingListItemId}
+                                                            item={item}
+                                                            onRemove={onRemove}
+                                                            onToggleChecked={onToggleChecked}
+                                                            onUpdateQuantity={onUpdateQuantity}
+                                                            isExpanded={expandedItemId === item.id}
+                                                            onExpand={handleExpand}
+                                                            members={householdMembers}
+                                                            currentUser={currentUser}
+                                                            isShoppingMode={isShoppingMode}
+                                                            groupPrefix={`${shopName}-${cat}`}
+                                                        />
+                                                    ))}
+                                                </ul>
+                                            </div>
                                         ))}
-                                    </ul>
+                                    </div>
                                 </div>
                             ))}
                         </div>
