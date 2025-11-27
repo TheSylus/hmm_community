@@ -4,10 +4,6 @@ import { FoodItem } from '../types';
 const FOOD_API_URL = 'https://world.openfoodfacts.org/api/v2';
 const BEAUTY_API_URL = 'https://world.openbeautyfacts.org/api/v2';
 
-export interface OpenFoodFactsResult extends Partial<FoodItem> {
-    ingredientsImage?: string;
-}
-
 // Helper to fetch an image and convert it to Base64
 const imageUrlToBase64 = async (url: string): Promise<string> => {
     try {
@@ -38,71 +34,7 @@ const fetchFromApi = async (baseUrl: string, barcode: string): Promise<any> => {
     return data.product;
 };
 
-const cleanIngredient = (text: string): string => {
-    return text
-        .replace(/_/g, '')
-        .replace(/\*/g, '')
-        .replace(/^[-\s]+/, '') // Remove leading dashes
-        .trim();
-};
-
-const isGarbageText = (text: string): boolean => {
-    if (!text) return true;
-    const t = text.trim();
-    // Common OCR garbage headers starting with OBD or similar patterns
-    if (/^OBD/i.test(t)) return true;
-    // Mostly numbers (e.g. "999 999 123" or "266963207")
-    if (/^[\d\s]+$/.test(t)) return true;
-    // Contains "mb" at the end often with numbers (from user example)
-    if (/^\d+.*mb$/i.test(t)) return true;
-    // Single "word" that is too long and alphanumeric (likely a misread barcode or ID), unless it contains spaces
-    if (t.indexOf(' ') === -1 && t.length > 15 && /\d/.test(t)) return true;
-    // Very short garbage
-    if (t.length < 2) return true;
-    
-    return false;
-};
-
-const parseIngredients = (product: any): string[] => {
-    let ingredients: string[] = [];
-
-    // 1. Priority: Structured ingredients array. 
-    // This is pre-parsed by OpenFoodFacts and usually free of OCR errors, BUT sometimes OCR errors sneak in here too.
-    if (product.ingredients && Array.isArray(product.ingredients) && product.ingredients.length > 0) {
-        ingredients = product.ingredients.map((ing: any) => {
-            let text = '';
-            if (ing.text) {
-                text = cleanIngredient(ing.text);
-            } else if (ing.id) {
-                // Fallback to ID if text is missing (e.g. "en:sugar" -> "sugar")
-                text = ing.id.substring(ing.id.indexOf(':') + 1).replace(/-/g, ' ');
-            }
-            return text;
-        }).filter((i: string) => !isGarbageText(i));
-    }
-
-    // 2. Fallback: Localized text (if structured array was empty or filtered out as garbage)
-    if (ingredients.length === 0) {
-        // Try languages in order of preference
-        const rawText = product.ingredients_text_de || product.ingredients_text_en || product.ingredients_text;
-
-        if (rawText) {
-            // Remove common prefixes like "Ingredients:" or "Zutaten:" case insensitive to get to the real content
-            // Also handles "Zutaten: OBD..." scenario
-            let cleanText = rawText.replace(/^(ingredients|zutaten|inhaltsstoffe)(\s*:\s*)?/i, '').trim();
-            
-            // Check the *entire* remaining block. If it looks like one giant error code, reject it.
-            if (!isGarbageText(cleanText)) {
-                // Split by common separators if it's a list
-                ingredients = cleanText.split(/,\s*|\s-\s/).map(cleanIngredient).filter((i: string) => !isGarbageText(i));
-            }
-        }
-    }
-
-    return ingredients;
-};
-
-export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<OpenFoodFactsResult> => {
+export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Partial<FoodItem>> => {
     try {
         // Try Food Facts first
         let product;
@@ -119,7 +51,7 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Op
             }
         }
 
-        const foodItem: OpenFoodFactsResult = {};
+        const foodItem: Partial<FoodItem> = {};
         foodItem.itemType = isFood ? 'product' : 'drugstore';
 
         if (product.product_name) {
@@ -137,16 +69,9 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Op
             }
         }
         
-        // Parse Ingredients
-        foodItem.ingredients = parseIngredients(product);
-
-        // Fetch Ingredients Image for AI Fallback if text parsing failed
-        if (product.image_ingredients_url) {
-            try {
-                foodItem.ingredientsImage = await imageUrlToBase64(product.image_ingredients_url);
-            } catch (e) {
-                console.warn("Failed to load ingredients image for fallback", e);
-            }
+        if (product.ingredients_text) {
+             // Cleaning up INCI lists or food ingredients
+             foodItem.ingredients = product.ingredients_text.split(/,\s*|\s-\s/).map((i: string) => i.trim().replace(/_|\*/g, '')).filter(Boolean);
         }
 
         if (product.allergens_tags && Array.isArray(product.allergens_tags)) {
@@ -187,10 +112,9 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Op
     }
 };
 
-export const searchProductByNameFromOpenFoodFacts = async (productName: string): Promise<OpenFoodFactsResult> => {
+export const searchProductByNameFromOpenFoodFacts = async (productName: string): Promise<Partial<FoodItem>> => {
     // Search usually defaults to Food Facts for broad searches, as Beauty search is less reliable via simple text
-    // Added localized ingredient text fields and image_ingredients_url to request
-    const searchUrl = `${FOOD_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,nutriscore_grade,ingredients_text,ingredients_text_de,ingredients_text_en,ingredients,allergens_tags,categories_tags,labels_tags,stores,image_ingredients_url&page_size=1&sort_by=popularity_key`;
+    const searchUrl = `${FOOD_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,nutriscore_grade,ingredients_text,allergens_tags,categories_tags,labels_tags,stores&page_size=1&sort_by=popularity_key`;
     
     try {
         const response = await fetch(searchUrl);
@@ -200,35 +124,28 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string):
         
         // If no food found, try beauty
         if (data.count === 0 || !data.products || data.products.length === 0) {
-             const beautySearchUrl = `${BEAUTY_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,ingredients_text,ingredients_text_de,ingredients_text_en,ingredients,categories_tags,labels_tags,stores,image_ingredients_url&page_size=1`;
+             const beautySearchUrl = `${BEAUTY_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,ingredients_text,categories_tags,labels_tags,stores&page_size=1`;
              const beautyResponse = await fetch(beautySearchUrl);
              if(beautyResponse.ok) {
                  const beautyData = await beautyResponse.json();
                  if (beautyData.count > 0 && beautyData.products.length > 0) {
                      const product = beautyData.products[0];
-                     
-                     const beautyItem: OpenFoodFactsResult = {
+                     // Map Beauty Product similar to main fetch
+                     return {
                          name: product.product_name,
                          itemType: 'drugstore',
-                         ingredients: parseIngredients(product),
+                         ingredients: product.ingredients_text ? product.ingredients_text.split(/,\s*/).map((s:string) => s.trim()) : [],
                          tags: product.categories_tags ? product.categories_tags.map((tag: string) => tag.substring(tag.indexOf(':') + 1).replace(/-/g, ' ')) : [],
                          purchaseLocation: product.stores ? product.stores.split(',') : [],
                          isVegan: product.labels_tags ? product.labels_tags.join(' ').toLowerCase().includes('vegan') : false
                      };
-
-                     if (product.image_ingredients_url) {
-                        try {
-                            beautyItem.ingredientsImage = await imageUrlToBase64(product.image_ingredients_url);
-                        } catch (e) { console.warn("Failed to load beauty ingredients image", e); }
-                     }
-                     return beautyItem;
                  }
              }
              throw new Error(`Product "${productName}" not found.`);
         }
 
         const product = data.products[0];
-        const foodItem: OpenFoodFactsResult = { itemType: 'product' };
+        const foodItem: Partial<FoodItem> = { itemType: 'product' };
 
         if (product.nutriscore_grade) {
             const score = product.nutriscore_grade.toUpperCase();
@@ -237,12 +154,8 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string):
             }
         }
         
-        foodItem.ingredients = parseIngredients(product);
-
-        if (product.image_ingredients_url) {
-            try {
-                foodItem.ingredientsImage = await imageUrlToBase64(product.image_ingredients_url);
-            } catch (e) { console.warn("Failed to load ingredients image", e); }
+        if (product.ingredients_text) {
+             foodItem.ingredients = product.ingredients_text.split(/,\s*|\s-\s/).map((i: string) => i.trim().replace(/_|\*/g, '')).filter(Boolean);
         }
 
         if (product.allergens_tags && Array.isArray(product.allergens_tags)) {

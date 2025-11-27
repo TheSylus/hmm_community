@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { FoodItem, FoodItemType, NutriScore, GroceryCategory } from '../types';
 import { analyzeFoodImage, analyzeIngredientsImage, hasValidApiKey, findNearbyRestaurants, BoundingBox } from '../services/geminiService';
-import { fetchProductFromOpenFoodFacts, searchProductByNameFromOpenFoodFacts, OpenFoodFactsResult } from '../services/openFoodFactsService';
+import { fetchProductFromOpenFoodFacts, searchProductByNameFromOpenFoodFacts } from '../services/openFoodFactsService';
 import { translateTexts } from '../services/translationService';
 import { useTranslation } from '../i18n/index';
 import { useAppSettings } from '../contexts/AppSettingsContext';
@@ -191,44 +191,6 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
     setIsCameraOpen(true);
   }, []);
 
-  // Helper to run AI extraction on an image if ingredients are missing
-  const performAiIngredientsFallback = useCallback(async (ingredientsImage: string | undefined, currentIngredients: string[]) => {
-      if (isAiAvailable && ingredientsImage && (!currentIngredients || currentIngredients.length === 0)) {
-          setAnalysisProgress({ active: true, message: t('form.ingredients.loading') });
-          try {
-              const aiResults = await analyzeIngredientsImage(ingredientsImage);
-              
-              let finalIngredients = aiResults.ingredients || [];
-              let finalAllergens = aiResults.allergens || [];
-
-              if (language !== 'en' && (finalIngredients.length > 0 || finalAllergens.length > 0)) {
-                  try {
-                      const textsToTranslate = [...finalIngredients, ...finalAllergens];
-                      const translated = await translateTexts(textsToTranslate, language);
-                      if (translated.length === textsToTranslate.length) {
-                          finalIngredients = translated.slice(0, finalIngredients.length);
-                          finalAllergens = translated.slice(finalIngredients.length);
-                      }
-                  } catch(e) {
-                      console.error("Failed to translate ingredients AI results fallback", e);
-                  }
-              }
-
-              setIngredients(finalIngredients);
-              setAllergens(prev => [...new Set([...prev, ...finalAllergens])]);
-              setDietary(prev => ({
-                  isLactoseFree: prev.isLactoseFree || aiResults.isLactoseFree,
-                  isVegan: prev.isVegan || aiResults.isVegan,
-                  isGlutenFree: prev.isGlutenFree || aiResults.isGlutenFree
-              }));
-          } catch (err) {
-              console.warn("AI Ingredients fallback failed", err);
-          } finally {
-              setAnalysisProgress({ active: false, message: '' });
-          }
-      }
-  }, [isAiAvailable, language, t]);
-
   const processSpokenProductName = useCallback(async (productName: string) => {
     if (!productName || !isOffSearchEnabled || itemType === 'dish') return;
     
@@ -276,18 +238,12 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
           isGlutenFree: current.isGlutenFree || mergedData.isGlutenFree,
       }));
       setHighlightedFields(newHighlightedFields);
-
-      // Trigger AI Fallback if ingredients are still missing but image is available
-      if (offResult.ingredientsImage) {
-          await performAiIngredientsFallback(offResult.ingredientsImage, mergedData.ingredients);
-      }
-
     } catch (e) {
       console.error("Error searching by product name:", e);
     } finally {
       setIsNameSearchLoading(false);
     }
-  }, [isOffSearchEnabled, itemType, language, performAiIngredientsFallback]);
+  }, [isOffSearchEnabled, itemType, language]);
 
   const handleDictationResult = useCallback((transcript: string) => {
     setIsSpeechModalOpen(false);
@@ -351,11 +307,6 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
           setCategory('personal_care');
       }
 
-      // Check for AI Fallback
-      if (productData.ingredientsImage) {
-          await performAiIngredientsFallback(productData.ingredientsImage, finalIngredients);
-      }
-
     } catch(e) {
        console.error(e);
        const errorMessage = e instanceof Error ? e.message : t('form.error.barcodeError');
@@ -363,7 +314,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
     } finally {
         setIsLoading(false);
     }
-  }, [isOffSearchEnabled, t, language, isAiAvailable, performAiIngredientsFallback]);
+  }, [isOffSearchEnabled, t, language, isAiAvailable]);
 
   const textsNeedTranslation = useCallback((data: {name:string, tags:string[], ingredients:string[], allergens:string[]}) => {
     return data.name || data.tags.length > 0 || data.ingredients.length > 0 || data.allergens.length > 0;
@@ -399,7 +350,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
 
         const aiResult = await analyzeFoodImage(imageDataUrl);
         
-        let offResult: OpenFoodFactsResult = {};
+        let offResult: Partial<FoodItem> = {};
         if (aiResult.name && isOffSearchEnabled) {
             try {
                 setAnalysisProgress(prev => ({ ...prev, message: t('form.aiProgress.searchingDatabase') }));
@@ -469,14 +420,6 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
         setIsCropperOpen(true);
         setHighlightedFields(newHighlightedFields);
 
-        // Check for AI Fallback for Ingredients
-        if (offResult.ingredientsImage) {
-            // Slight delay to allow crop modal to appear first, then run logic
-            setTimeout(() => {
-                performAiIngredientsFallback(offResult.ingredientsImage, mergedData.ingredients);
-            }, 500);
-        }
-
       } catch (e) {
         if(progressInterval) clearInterval(progressInterval);
         console.error(e);
@@ -486,8 +429,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
         setSuggestedCrop(null);
         setIsCropperOpen(true);
       } finally {
-         // Keep message active if fallback is running, otherwise clear
-         setTimeout(() => setAnalysisProgress(prev => prev.message === t('form.ingredients.loading') ? prev : { active: false, message: '' }), 500);
+         setTimeout(() => setAnalysisProgress({ active: false, message: '' }), 500);
       }
     } else { // scanMode === 'ingredients'
       setIngredientsLoading(true);
@@ -525,7 +467,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
         setIngredientsLoading(false);
       }
     }
-  }, [itemType, isAiAvailable, scanMode, t, isOffSearchEnabled, language, textsNeedTranslation, performAiIngredientsFallback]);
+  }, [itemType, isAiAvailable, scanMode, t, isOffSearchEnabled, language, textsNeedTranslation]);
 
   const handleCropComplete = useCallback((croppedImageUrl: string) => {
     setImage(croppedImageUrl);
