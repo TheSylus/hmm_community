@@ -42,34 +42,55 @@ const cleanIngredient = (text: string): string => {
         .trim();
 };
 
+const isGarbageText = (text: string): boolean => {
+    if (!text) return true;
+    const t = text.trim();
+    // Common OCR garbage headers starting with OBD or similar patterns
+    if (/^OBD/i.test(t)) return true;
+    // Mostly numbers (e.g. "999 999 123" or "266963207")
+    if (/^[\d\s]+$/.test(t)) return true;
+    // Contains "mb" at the end often with numbers (from user example)
+    if (/^\d+.*mb$/i.test(t)) return true;
+    // Single "word" that is too long and alphanumeric (likely a misread barcode or ID), unless it contains spaces
+    if (t.indexOf(' ') === -1 && t.length > 15 && /\d/.test(t)) return true;
+    // Very short garbage
+    if (t.length < 2) return true;
+    
+    return false;
+};
+
 const parseIngredients = (product: any): string[] => {
     let ingredients: string[] = [];
 
     // 1. Priority: Structured ingredients array. 
-    // This is pre-parsed by OpenFoodFacts and usually free of OCR garbage like "OBD1...".
+    // This is pre-parsed by OpenFoodFacts and usually free of OCR errors, BUT sometimes OCR errors sneak in here too.
     if (product.ingredients && Array.isArray(product.ingredients) && product.ingredients.length > 0) {
         ingredients = product.ingredients.map((ing: any) => {
-            if (ing.text) return cleanIngredient(ing.text);
-            // Fallback to ID if text is missing (e.g. "en:sugar" -> "sugar")
-            if (ing.id) {
-                return ing.id.substring(ing.id.indexOf(':') + 1).replace(/-/g, ' ');
+            let text = '';
+            if (ing.text) {
+                text = cleanIngredient(ing.text);
+            } else if (ing.id) {
+                // Fallback to ID if text is missing (e.g. "en:sugar" -> "sugar")
+                text = ing.id.substring(ing.id.indexOf(':') + 1).replace(/-/g, ' ');
             }
-            return '';
-        }).filter((i: string) => i && i.length > 1 && !/^\d+$/.test(i)); // Filter empty, single chars, or just numbers
+            return text;
+        }).filter((i: string) => !isGarbageText(i));
     }
 
-    // 2. Fallback: Localized text (if structured array was empty)
+    // 2. Fallback: Localized text (if structured array was empty or filtered out as garbage)
     if (ingredients.length === 0) {
+        // Try languages in order of preference
         const rawText = product.ingredients_text_de || product.ingredients_text_en || product.ingredients_text;
 
         if (rawText) {
-            // Heuristic check for bad data (e.g., "OBD1 999..." or mostly numbers)
-            const isGarbage = /OBD|^\d+(\s+\d+)*$/.test(rawText) || rawText.length < 3;
-
-            if (!isGarbage) {
-                // Remove common prefixes like "Ingredients:" or "Zutaten:" case insensitive
-                const cleanText = rawText.replace(/^(ingredients|zutaten|inhaltsstoffe)(\s*:\s*)?/i, '');
-                ingredients = cleanText.split(/,\s*|\s-\s/).map(cleanIngredient).filter(Boolean);
+            // Remove common prefixes like "Ingredients:" or "Zutaten:" case insensitive to get to the real content
+            // Also handles "Zutaten: OBD..." scenario
+            let cleanText = rawText.replace(/^(ingredients|zutaten|inhaltsstoffe)(\s*:\s*)?/i, '').trim();
+            
+            // Check the *entire* remaining block. If it looks like one giant error code, reject it.
+            if (!isGarbageText(cleanText)) {
+                // Split by common separators if it's a list
+                ingredients = cleanText.split(/,\s*|\s-\s/).map(cleanIngredient).filter((i: string) => !isGarbageText(i));
             }
         }
     }
