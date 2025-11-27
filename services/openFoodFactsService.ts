@@ -4,6 +4,10 @@ import { FoodItem } from '../types';
 const FOOD_API_URL = 'https://world.openfoodfacts.org/api/v2';
 const BEAUTY_API_URL = 'https://world.openbeautyfacts.org/api/v2';
 
+export interface OpenFoodFactsResult extends Partial<FoodItem> {
+    ingredientsImage?: string;
+}
+
 // Helper to fetch an image and convert it to Base64
 const imageUrlToBase64 = async (url: string): Promise<string> => {
     try {
@@ -98,7 +102,7 @@ const parseIngredients = (product: any): string[] => {
     return ingredients;
 };
 
-export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Partial<FoodItem>> => {
+export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<OpenFoodFactsResult> => {
     try {
         // Try Food Facts first
         let product;
@@ -115,7 +119,7 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Pa
             }
         }
 
-        const foodItem: Partial<FoodItem> = {};
+        const foodItem: OpenFoodFactsResult = {};
         foodItem.itemType = isFood ? 'product' : 'drugstore';
 
         if (product.product_name) {
@@ -135,6 +139,15 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Pa
         
         // Parse Ingredients
         foodItem.ingredients = parseIngredients(product);
+
+        // Fetch Ingredients Image for AI Fallback if text parsing failed
+        if (product.image_ingredients_url) {
+            try {
+                foodItem.ingredientsImage = await imageUrlToBase64(product.image_ingredients_url);
+            } catch (e) {
+                console.warn("Failed to load ingredients image for fallback", e);
+            }
+        }
 
         if (product.allergens_tags && Array.isArray(product.allergens_tags)) {
             foodItem.allergens = product.allergens_tags.map((tag: string) => tag.substring(tag.indexOf(':') + 1).replace(/-/g, ' '));
@@ -174,10 +187,10 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Pa
     }
 };
 
-export const searchProductByNameFromOpenFoodFacts = async (productName: string): Promise<Partial<FoodItem>> => {
+export const searchProductByNameFromOpenFoodFacts = async (productName: string): Promise<OpenFoodFactsResult> => {
     // Search usually defaults to Food Facts for broad searches, as Beauty search is less reliable via simple text
-    // Added localized ingredient text fields to request
-    const searchUrl = `${FOOD_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,nutriscore_grade,ingredients_text,ingredients_text_de,ingredients_text_en,ingredients,allergens_tags,categories_tags,labels_tags,stores&page_size=1&sort_by=popularity_key`;
+    // Added localized ingredient text fields and image_ingredients_url to request
+    const searchUrl = `${FOOD_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,nutriscore_grade,ingredients_text,ingredients_text_de,ingredients_text_en,ingredients,allergens_tags,categories_tags,labels_tags,stores,image_ingredients_url&page_size=1&sort_by=popularity_key`;
     
     try {
         const response = await fetch(searchUrl);
@@ -187,14 +200,14 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string):
         
         // If no food found, try beauty
         if (data.count === 0 || !data.products || data.products.length === 0) {
-             const beautySearchUrl = `${BEAUTY_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,ingredients_text,ingredients_text_de,ingredients_text_en,ingredients,categories_tags,labels_tags,stores&page_size=1`;
+             const beautySearchUrl = `${BEAUTY_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,ingredients_text,ingredients_text_de,ingredients_text_en,ingredients,categories_tags,labels_tags,stores,image_ingredients_url&page_size=1`;
              const beautyResponse = await fetch(beautySearchUrl);
              if(beautyResponse.ok) {
                  const beautyData = await beautyResponse.json();
                  if (beautyData.count > 0 && beautyData.products.length > 0) {
                      const product = beautyData.products[0];
-                     // Map Beauty Product similar to main fetch
-                     return {
+                     
+                     const beautyItem: OpenFoodFactsResult = {
                          name: product.product_name,
                          itemType: 'drugstore',
                          ingredients: parseIngredients(product),
@@ -202,13 +215,20 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string):
                          purchaseLocation: product.stores ? product.stores.split(',') : [],
                          isVegan: product.labels_tags ? product.labels_tags.join(' ').toLowerCase().includes('vegan') : false
                      };
+
+                     if (product.image_ingredients_url) {
+                        try {
+                            beautyItem.ingredientsImage = await imageUrlToBase64(product.image_ingredients_url);
+                        } catch (e) { console.warn("Failed to load beauty ingredients image", e); }
+                     }
+                     return beautyItem;
                  }
              }
              throw new Error(`Product "${productName}" not found.`);
         }
 
         const product = data.products[0];
-        const foodItem: Partial<FoodItem> = { itemType: 'product' };
+        const foodItem: OpenFoodFactsResult = { itemType: 'product' };
 
         if (product.nutriscore_grade) {
             const score = product.nutriscore_grade.toUpperCase();
@@ -218,6 +238,12 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string):
         }
         
         foodItem.ingredients = parseIngredients(product);
+
+        if (product.image_ingredients_url) {
+            try {
+                foodItem.ingredientsImage = await imageUrlToBase64(product.image_ingredients_url);
+            } catch (e) { console.warn("Failed to load ingredients image", e); }
+        }
 
         if (product.allergens_tags && Array.isArray(product.allergens_tags)) {
             foodItem.allergens = product.allergens_tags.map((tag: string) => tag.substring(tag.indexOf(':') + 1).replace(/-/g, ' '));
