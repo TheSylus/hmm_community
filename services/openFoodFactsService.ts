@@ -43,28 +43,38 @@ const cleanIngredient = (text: string): string => {
 };
 
 const parseIngredients = (product: any): string[] => {
-    // 1. Try localized text (German > English > Generic)
-    const rawText = product.ingredients_text_de || product.ingredients_text_en || product.ingredients_text;
+    let ingredients: string[] = [];
 
-    if (rawText) {
-        // Remove common prefixes like "Ingredients:" or "Zutaten:" case insensitive
-        const cleanText = rawText.replace(/^(ingredients|zutaten|inhaltsstoffe):\s*/i, '');
-        return cleanText.split(/,\s*|\s-\s/).map(cleanIngredient).filter(Boolean);
-    }
-
-    // 2. Fallback to structured ingredients array
-    if (product.ingredients && Array.isArray(product.ingredients)) {
-        return product.ingredients.map((ing: any) => {
+    // 1. Priority: Structured ingredients array. 
+    // This is pre-parsed by OpenFoodFacts and usually free of OCR garbage like "OBD1...".
+    if (product.ingredients && Array.isArray(product.ingredients) && product.ingredients.length > 0) {
+        ingredients = product.ingredients.map((ing: any) => {
             if (ing.text) return cleanIngredient(ing.text);
             // Fallback to ID if text is missing (e.g. "en:sugar" -> "sugar")
             if (ing.id) {
                 return ing.id.substring(ing.id.indexOf(':') + 1).replace(/-/g, ' ');
             }
             return '';
-        }).filter((i: string) => i && i.length > 1); // Filter empty or single chars
+        }).filter((i: string) => i && i.length > 1 && !/^\d+$/.test(i)); // Filter empty, single chars, or just numbers
     }
 
-    return [];
+    // 2. Fallback: Localized text (if structured array was empty)
+    if (ingredients.length === 0) {
+        const rawText = product.ingredients_text_de || product.ingredients_text_en || product.ingredients_text;
+
+        if (rawText) {
+            // Heuristic check for bad data (e.g., "OBD1 999..." or mostly numbers)
+            const isGarbage = /OBD|^\d+(\s+\d+)*$/.test(rawText) || rawText.length < 3;
+
+            if (!isGarbage) {
+                // Remove common prefixes like "Ingredients:" or "Zutaten:" case insensitive
+                const cleanText = rawText.replace(/^(ingredients|zutaten|inhaltsstoffe)(\s*:\s*)?/i, '');
+                ingredients = cleanText.split(/,\s*|\s-\s/).map(cleanIngredient).filter(Boolean);
+            }
+        }
+    }
+
+    return ingredients;
 };
 
 export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Partial<FoodItem>> => {
