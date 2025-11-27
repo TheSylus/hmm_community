@@ -34,6 +34,39 @@ const fetchFromApi = async (baseUrl: string, barcode: string): Promise<any> => {
     return data.product;
 };
 
+const cleanIngredient = (text: string): string => {
+    return text
+        .replace(/_/g, '')
+        .replace(/\*/g, '')
+        .replace(/^[-\s]+/, '') // Remove leading dashes
+        .trim();
+};
+
+const parseIngredients = (product: any): string[] => {
+    // 1. Try localized text (German > English > Generic)
+    const rawText = product.ingredients_text_de || product.ingredients_text_en || product.ingredients_text;
+
+    if (rawText) {
+        // Remove common prefixes like "Ingredients:" or "Zutaten:" case insensitive
+        const cleanText = rawText.replace(/^(ingredients|zutaten|inhaltsstoffe):\s*/i, '');
+        return cleanText.split(/,\s*|\s-\s/).map(cleanIngredient).filter(Boolean);
+    }
+
+    // 2. Fallback to structured ingredients array
+    if (product.ingredients && Array.isArray(product.ingredients)) {
+        return product.ingredients.map((ing: any) => {
+            if (ing.text) return cleanIngredient(ing.text);
+            // Fallback to ID if text is missing (e.g. "en:sugar" -> "sugar")
+            if (ing.id) {
+                return ing.id.substring(ing.id.indexOf(':') + 1).replace(/-/g, ' ');
+            }
+            return '';
+        }).filter((i: string) => i && i.length > 1); // Filter empty or single chars
+    }
+
+    return [];
+};
+
 export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Partial<FoodItem>> => {
     try {
         // Try Food Facts first
@@ -69,10 +102,8 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Pa
             }
         }
         
-        if (product.ingredients_text) {
-             // Cleaning up INCI lists or food ingredients
-             foodItem.ingredients = product.ingredients_text.split(/,\s*|\s-\s/).map((i: string) => i.trim().replace(/_|\*/g, '')).filter(Boolean);
-        }
+        // Parse Ingredients
+        foodItem.ingredients = parseIngredients(product);
 
         if (product.allergens_tags && Array.isArray(product.allergens_tags)) {
             foodItem.allergens = product.allergens_tags.map((tag: string) => tag.substring(tag.indexOf(':') + 1).replace(/-/g, ' '));
@@ -114,7 +145,8 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Pa
 
 export const searchProductByNameFromOpenFoodFacts = async (productName: string): Promise<Partial<FoodItem>> => {
     // Search usually defaults to Food Facts for broad searches, as Beauty search is less reliable via simple text
-    const searchUrl = `${FOOD_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,nutriscore_grade,ingredients_text,allergens_tags,categories_tags,labels_tags,stores&page_size=1&sort_by=popularity_key`;
+    // Added localized ingredient text fields to request
+    const searchUrl = `${FOOD_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,nutriscore_grade,ingredients_text,ingredients_text_de,ingredients_text_en,ingredients,allergens_tags,categories_tags,labels_tags,stores&page_size=1&sort_by=popularity_key`;
     
     try {
         const response = await fetch(searchUrl);
@@ -124,7 +156,7 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string):
         
         // If no food found, try beauty
         if (data.count === 0 || !data.products || data.products.length === 0) {
-             const beautySearchUrl = `${BEAUTY_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,ingredients_text,categories_tags,labels_tags,stores&page_size=1`;
+             const beautySearchUrl = `${BEAUTY_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,ingredients_text,ingredients_text_de,ingredients_text_en,ingredients,categories_tags,labels_tags,stores&page_size=1`;
              const beautyResponse = await fetch(beautySearchUrl);
              if(beautyResponse.ok) {
                  const beautyData = await beautyResponse.json();
@@ -134,7 +166,7 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string):
                      return {
                          name: product.product_name,
                          itemType: 'drugstore',
-                         ingredients: product.ingredients_text ? product.ingredients_text.split(/,\s*/).map((s:string) => s.trim()) : [],
+                         ingredients: parseIngredients(product),
                          tags: product.categories_tags ? product.categories_tags.map((tag: string) => tag.substring(tag.indexOf(':') + 1).replace(/-/g, ' ')) : [],
                          purchaseLocation: product.stores ? product.stores.split(',') : [],
                          isVegan: product.labels_tags ? product.labels_tags.join(' ').toLowerCase().includes('vegan') : false
@@ -154,9 +186,7 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string):
             }
         }
         
-        if (product.ingredients_text) {
-             foodItem.ingredients = product.ingredients_text.split(/,\s*|\s-\s/).map((i: string) => i.trim().replace(/_|\*/g, '')).filter(Boolean);
-        }
+        foodItem.ingredients = parseIngredients(product);
 
         if (product.allergens_tags && Array.isArray(product.allergens_tags)) {
             foodItem.allergens = product.allergens_tags.map((tag: string) => tag.substring(tag.indexOf(':') + 1).replace(/-/g, ' '));
