@@ -2,11 +2,13 @@
 import React from 'react';
 import { FoodItem } from '../types';
 import { FoodItemCard } from './FoodItemCard';
+import { SkeletonCard } from './SkeletonCard';
 import { useTranslation } from '../i18n/index';
 import { PlusCircleIcon, StarIcon } from './Icons';
 
 interface DashboardProps {
   items: FoodItem[];
+  isLoading?: boolean;
   onViewAll: () => void;
   onAddNew: () => void;
   onDelete: (id: string) => void;
@@ -16,7 +18,7 @@ interface DashboardProps {
   shoppingListFoodIds?: Set<string>;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ items, onViewAll, onAddNew, shoppingListFoodIds, ...cardProps }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ items, isLoading, onViewAll, onAddNew, shoppingListFoodIds, ...cardProps }) => {
   const { t } = useTranslation();
 
   const recentlyAdded = [...items].slice(0, 3);
@@ -24,6 +26,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ items, onViewAll, onAddNew
     .filter(item => item.rating >= 4)
     .sort((a, b) => b.rating - a.rating)
     .slice(0, 3);
+
+  if (isLoading) {
+      return (
+        <div className="space-y-12">
+            <div className="text-center">
+                <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-200 mb-4">{t('dashboard.welcome')}</h1>
+                <div className="h-16 w-48 mx-auto bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+            </div>
+            <section>
+                <div className="flex justify-between items-center mb-4">
+                    <div className="h-8 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <SkeletonCard />
+                    <SkeletonCard />
+                    <SkeletonCard />
+                </div>
+            </section>
+        </div>
+      );
+  }
 
   if (items.length === 0) {
     return (

@@ -2,10 +2,12 @@
 import React from 'react';
 import { FoodItem } from '../types';
 import { FoodItemCard } from './FoodItemCard';
+import { SkeletonCard } from './SkeletonCard';
 import { useTranslation } from '../i18n/index';
 
 interface FoodItemListProps {
   items: FoodItem[];
+  isLoading?: boolean;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onViewDetails: (item: FoodItem) => void;
@@ -13,8 +15,16 @@ interface FoodItemListProps {
   shoppingListFoodIds?: Set<string>;
 }
 
-export const FoodItemList: React.FC<FoodItemListProps> = ({ items, onDelete, onEdit, onViewDetails, onAddToShoppingList, shoppingListFoodIds }) => {
+export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, onDelete, onEdit, onViewDetails, onAddToShoppingList, shoppingListFoodIds }) => {
   const { t } = useTranslation();
+
+  if (isLoading) {
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+      );
+  }
 
   if (items.length === 0) {
     return (

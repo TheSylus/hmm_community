@@ -20,6 +20,8 @@ import { useShoppingList } from './hooks/useShoppingList';
 import * as geminiService from './services/geminiService';
 import { useTranslation } from './i18n/index';
 import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, UserGroupIcon, BeakerIcon } from './components/Icons';
+import { useModalHistory } from './hooks/useModalHistory';
+import { triggerHaptic } from './utils/haptics';
 
 // Helper function to decode from URL-safe Base64 and decompress the data
 const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
@@ -137,6 +139,16 @@ const App: React.FC = () => {
   
   // Offline State
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // --- Browser History Integration ---
+  useModalHistory(isFormVisible, () => setIsFormVisible(false));
+  useModalHistory(isShoppingListOpen, () => setIsShoppingListOpen(false));
+  useModalHistory(isSettingsOpen, () => setIsSettingsOpen(false));
+  useModalHistory(!!detailItem, () => setDetailItem(null));
+  useModalHistory(isFilterPanelVisible, () => setIsFilterPanelVisible(false));
+  useModalHistory(isItemTypeModalVisible, () => setIsItemTypeModalVisible(false));
+  useModalHistory(!!sharedItemToShow, () => setSharedItemToShow(null));
+
 
   const isAnyFilterActive = useMemo(() => searchTerm.trim() !== '' || ratingFilter !== 'all' || typeFilter !== 'all' || aiSearchQuery !== '', [searchTerm, ratingFilter, typeFilter, aiSearchQuery]);
   
@@ -281,6 +293,7 @@ const App: React.FC = () => {
 
       const success = await saveItem(itemData, editingItem?.id);
       if (success) {
+        triggerHaptic('success');
         handleCancelForm();
       }
   }, [editingItem, foodItems, saveItem, handleCancelForm]);
@@ -289,6 +302,7 @@ const App: React.FC = () => {
   const handleConfirmDuplicateAdd = useCallback(async () => {
     if (itemToAdd) {
         await saveItem(itemToAdd);
+        triggerHaptic('success');
     }
     setItemToAdd(null);
     setPotentialDuplicates([]);
@@ -296,7 +310,10 @@ const App: React.FC = () => {
   }, [itemToAdd, saveItem, handleCancelForm]);
   
   const handleDeleteFormItem = useCallback(async (id: string) => {
-      await deleteItem(id);
+      triggerHaptic('warning');
+      if (window.confirm("Are you sure you want to delete this item?")) {
+        await deleteItem(id);
+      }
   }, [deleteItem]);
 
 
@@ -332,6 +349,7 @@ const App: React.FC = () => {
   
   const handleAddToShoppingListWrapper = useCallback((item: FoodItem) => {
       addItemToList(item.id, 1);
+      triggerHaptic('success');
       setToastMessage(t('shoppingList.addedToast', { name: item.name }));
   }, [addItemToList, t]);
 
@@ -347,6 +365,7 @@ const App: React.FC = () => {
   const handleAddSharedItem = useCallback(async () => {
     if (sharedItemToShow) {
       await saveItem(sharedItemToShow);
+      triggerHaptic('success');
       setSharedItemToShow(null);
     }
   }, [sharedItemToShow, saveItem]);
@@ -441,7 +460,8 @@ const App: React.FC = () => {
   }
 
   const renderContent = () => {
-    if (isFoodLoading || (userProfile?.household_id && !household && isHouseholdLoading)) {
+    // Only show full page loader if initial data is missing
+    if (isFoodLoading && foodItems.length === 0) {
        return (
            <div className="flex flex-col items-center justify-center pt-20">
               <SpinnerIcon className="w-12 h-12 text-indigo-500" />
@@ -449,6 +469,7 @@ const App: React.FC = () => {
            </div>
        );
     }
+    
     if (isFormVisible) {
         return (
             <FoodItemForm 
@@ -465,6 +486,7 @@ const App: React.FC = () => {
         return (
           <Dashboard 
             items={foodItems}
+            isLoading={isFoodLoading}
             onViewAll={() => setActiveView('list')}
             onAddNew={handleAddNewClick}
             onEdit={handleStartEdit}
@@ -483,7 +505,7 @@ const App: React.FC = () => {
             </div>
           );
         }
-        return <FoodItemList items={filteredAndSortedItems} onDelete={handleDeleteFormItem} onEdit={handleStartEdit} onViewDetails={handleViewDetails} onAddToShoppingList={handleAddToShoppingListWrapper} shoppingListFoodIds={shoppingListFoodIds} />;
+        return <FoodItemList items={filteredAndSortedItems} isLoading={isFoodLoading} onDelete={handleDeleteFormItem} onEdit={handleStartEdit} onViewDetails={handleViewDetails} onAddToShoppingList={handleAddToShoppingListWrapper} shoppingListFoodIds={shoppingListFoodIds} />;
       case 'list':
       default:
         return (
@@ -503,6 +525,7 @@ const App: React.FC = () => {
             {aiSearchResults.error && <p className="text-red-500 dark:text-red-400 text-center my-4">{aiSearchResults.error}</p>}
             <FoodItemList 
               items={filteredAndSortedItems} 
+              isLoading={isFoodLoading}
               onDelete={handleDeleteFormItem} 
               onEdit={handleStartEdit}
               onViewDetails={handleViewDetails}

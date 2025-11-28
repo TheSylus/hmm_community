@@ -7,6 +7,7 @@ import { HydratedShoppingListItem } from '../App';
 import { ShoppingList, UserProfile, Household, GroceryCategory } from '../types';
 import { User } from '@supabase/supabase-js';
 import { StoreLogo } from './StoreLogo';
+import { triggerHaptic } from '../utils/haptics';
 
 interface ShoppingListModalProps {
   allLists: ShoppingList[];
@@ -132,7 +133,13 @@ const ShoppingListItem: React.FC<{
 
   const handleQuantityClick = (e: React.MouseEvent, change: number) => {
       e.stopPropagation();
+      triggerHaptic('light');
       onUpdateQuantity(displayItem.shoppingListItemId, displayItem.quantity + change);
+  };
+
+  const handleToggle = () => {
+      triggerHaptic('light');
+      onToggleChecked(displayItem.shoppingListItemId, !displayItem.checked);
   };
 
   return (
@@ -143,7 +150,7 @@ const ShoppingListItem: React.FC<{
                     id={inputId}
                     type="checkbox"
                     checked={displayItem.checked}
-                    onChange={() => onToggleChecked(displayItem.shoppingListItemId, !displayItem.checked)}
+                    onChange={handleToggle}
                     className={`${checkboxSize} rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0 transition-transform active:scale-90`}
                 />
                 
@@ -195,7 +202,10 @@ const ShoppingListItem: React.FC<{
                 {/* Actions */}
                 {!isShoppingMode && (
                     <button
-                        onClick={() => onRemove(displayItem.shoppingListItemId)}
+                        onClick={() => {
+                            triggerHaptic('warning');
+                            onRemove(displayItem.shoppingListItemId);
+                        }}
                         className="p-1.5 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                         aria-label={t('shoppingList.removeAria', { name: displayItem.name })}
                     >
@@ -288,6 +298,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
 
   const handleDelete = () => {
     if (!activeList) return;
+    triggerHaptic('warning');
     if (window.confirm(t('shoppingList.delete.confirm', { listName: activeList.name }))) {
         onDeleteList(activeList.id);
         setIsManageMenuOpen(false);
@@ -301,6 +312,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setShareStatus('copied');
+      triggerHaptic('success');
       setTimeout(() => setShareStatus('idle'), 2000); // Reset after 2 seconds
     } catch (err) {
       console.error('Failed to copy share link:', err);
