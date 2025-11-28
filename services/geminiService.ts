@@ -381,3 +381,44 @@ export const performConversationalSearch = async (query: string, items: FoodItem
     throw new Error("Could not perform AI search.");
   }
 };
+
+export const parseShoppingList = async (input: string): Promise<{ name: string; quantity: number; category: GroceryCategory }[]> => {
+    try {
+        const gemini = getAiClient();
+        const response = await gemini.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: [{ text: `Parse this shopping list string: "${input}". Extract items with their quantities. If no quantity is specified, default to 1. Assign one of the following categories to each item: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, pet_food, other.` }] },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        items: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    name: { type: Type.STRING, description: "Name of the item" },
+                                    quantity: { type: Type.NUMBER, description: "Quantity of the item" },
+                                    category: { 
+                                        type: Type.STRING, 
+                                        enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'pet_food', 'other'],
+                                        description: "Category of the item"
+                                    }
+                                },
+                                required: ["name", "quantity", "category"]
+                            }
+                        }
+                    },
+                    required: ["items"]
+                }
+            }
+        });
+
+        const result = parseJsonFromString(response.text);
+        return result.items || [];
+    } catch (error) {
+        console.error("Error parsing shopping list:", error);
+        throw new Error("Could not parse shopping list.");
+    }
+};

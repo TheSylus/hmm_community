@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon, UserGroupIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon, MapPinIcon } from './Icons';
+import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon, UserGroupIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon, MapPinIcon, SparklesIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
 import { ShoppingList, UserProfile, Household, GroceryCategory } from '../types';
@@ -24,6 +24,8 @@ interface ShoppingListModalProps {
   onCreateList: (name: string) => void;
   onDeleteList: (listId: string) => void;
   onUpdateQuantity: (shoppingListItemId: string, newQuantity: number) => void;
+  onSmartAdd: (input: string) => Promise<void>;
+  isSmartAddLoading: boolean;
 }
 
 const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>> = {
@@ -70,6 +72,39 @@ const CategoryColorMap: Record<GroceryCategory, string> = {
     'personal_care': 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
     'pet_food': 'bg-stone-200 text-stone-700 dark:bg-stone-700 dark:text-stone-300',
     'other': 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+};
+
+const SmartAddInput: React.FC<{ onAdd: (input: string) => void, isLoading: boolean }> = ({ onAdd, isLoading }) => {
+    const { t } = useTranslation();
+    const [input, setInput] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (input.trim() && !isLoading) {
+            onAdd(input.trim());
+            setInput('');
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="relative mb-4">
+            <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={isLoading ? t('shoppingList.quickAdd.processing') : t('shoppingList.quickAdd.placeholder')}
+                disabled={isLoading}
+                className="w-full bg-white dark:bg-gray-700 border-2 border-indigo-100 dark:border-indigo-900/50 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3 pr-10 transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                {isLoading ? (
+                    <SpinnerIcon className="w-5 h-5 text-indigo-500" />
+                ) : (
+                    <SparklesIcon className="w-5 h-5 text-indigo-400" />
+                )}
+            </div>
+        </form>
+    );
 };
 
 const ActivityLog: React.FC<{
@@ -268,7 +303,7 @@ const ShoppingListItem: React.FC<{
 
 
 export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ 
-  allLists, activeListId, listData, household, householdMembers, currentUser, onRemove, onClear, onClose, onToggleChecked, onSelectList, onCreateList, onDeleteList, onUpdateQuantity
+  allLists, activeListId, listData, household, householdMembers, currentUser, onRemove, onClear, onClose, onToggleChecked, onSelectList, onCreateList, onDeleteList, onUpdateQuantity, onSmartAdd, isSmartAddLoading
 }) => {
   const { t } = useTranslation();
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
@@ -471,6 +506,9 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-white dark:bg-gray-800">
             {currentView === 'list' ? (
                 <>
+                    {/* Smart Input for Quick Add */}
+                    {!isShoppingMode && <SmartAddInput onAdd={onSmartAdd} isLoading={isSmartAddLoading} />}
+
                     {listData.length === 0 ? (
                         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                             <ShoppingBagIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />

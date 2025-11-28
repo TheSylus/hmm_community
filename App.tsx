@@ -136,6 +136,7 @@ const App: React.FC = () => {
   const [isItemTypeModalVisible, setIsItemTypeModalVisible] = useState(false);
   const [newItemType, setNewItemType] = useState<FoodItemType>('product');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSmartAddLoading, setIsSmartAddLoading] = useState(false);
   
   // Offline State
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -352,6 +353,91 @@ const App: React.FC = () => {
       triggerHaptic('success');
       setToastMessage(t('shoppingList.addedToast', { name: item.name }));
   }, [addItemToList, t]);
+
+  // Smart Add Logic
+  const handleSmartQuickAdd = useCallback(async (input: string) => {
+      if (!user) return;
+      setIsSmartAddLoading(true);
+      try {
+          // 1. Parse input with AI
+          const parsedItems = await geminiService.parseShoppingList(input);
+          
+          let addedCount = 0;
+          const allAvailableItems = [...foodItems, ...familyFoodItems];
+
+          for (const parsedItem of parsedItems) {
+              // 2. Try to find existing item by name (case-insensitive)
+              // We prioritize exact match, then includes
+              let match = allAvailableItems.find(i => i.name.toLowerCase() === parsedItem.name.toLowerCase());
+              
+              let foodItemId = match?.id;
+
+              // 3. If not found, Create new item on the fly
+              if (!foodItemId) {
+                  // Create a minimal item
+                  const newItemData: Omit<FoodItem, 'id' | 'user_id' | 'created_at'> = {
+                      name: parsedItem.name,
+                      rating: 0, // Unrated
+                      itemType: 'product', // Default to product
+                      category: parsedItem.category,
+                      isFamilyFavorite: !!userProfile?.household_id, // Default to shared if in household
+                  };
+                  
+                  // Use saveItem logic but await the result ID implicitly by refetching or assumption?
+                  // saveItem returns boolean. We need the ID. 
+                  // Since useFoodData's saveItem handles ID generation internally for optimistic UI,
+                  // we might need a way to get the real or temp ID back.
+                  // HOWEVER, useFoodData handles state. We can construct a temp ID here and pass it if useFoodData supported it,
+                  // but useFoodData generates its own temp ID.
+                  
+                  // Hack/Workaround for this hook limitation: 
+                  // We'll generate a consistent temp ID here to pass to both so we know what it is.
+                  const tempId = `quick_add_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+                  
+                  // We call saveItem. It will optimistic update.
+                  // Ideally saveItem should return the ID used. 
+                  // For now, we will rely on the name matching if we were strictly using the hook, 
+                  // BUT `saveItem` in `useFoodData` doesn't return the ID. 
+                  // Let's assume we can rely on a simpler flow: Create DB item directly here for guaranteed ID?
+                  // No, that breaks the hook's encapsulation.
+                  // Let's modify `saveItem` in the future to return the ID.
+                  // For now, we will assume successful creation and skip adding to list if we can't get ID?
+                  // Actually, `useFoodData` re-fetches. 
+                  
+                  // Let's just create it directly via service to get the ID, then trigger refresh.
+                  // This bypasses the hook's optimistic UI for the *Item creation*, but that's fine for "background" creation.
+                  try {
+                      // We need to import `createFoodItem` from services.
+                      const { createFoodItem } = await import('./services/foodItemService');
+                      const newItem = await createFoodItem(newItemData, user.id);
+                      foodItemId = newItem.id;
+                      refreshFoodData(); // Sync hook state
+                  } catch (e) {
+                      console.error("Failed to auto-create item", e);
+                      continue;
+                  }
+              }
+
+              // 4. Add to list
+              if (foodItemId) {
+                  addItemToList(foodItemId, parsedItem.quantity);
+                  addedCount++;
+              }
+          }
+          
+          if (addedCount > 0) {
+              triggerHaptic('success');
+              setToastMessage(t('shoppingList.addedAnotherToast', { name: `${addedCount} items` }));
+          }
+
+      } catch (e) {
+          console.error("Smart Add failed:", e);
+          setToastMessage("Could not process list. Please try again.");
+      } finally {
+          setIsSmartAddLoading(false);
+      }
+  }, [user, foodItems, familyFoodItems, userProfile, addItemToList, refreshFoodData, t]);
+
 
   const handleHouseholdCreateWrapper = useCallback(async (name: string) => {
       try {
@@ -677,6 +763,8 @@ const App: React.FC = () => {
             onCreateList={createList}
             onDeleteList={deleteList}
             onUpdateQuantity={updateQuantity}
+            onSmartAdd={handleSmartQuickAdd}
+            isSmartAddLoading={isSmartAddLoading}
         />
       }
 
