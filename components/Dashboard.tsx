@@ -3,7 +3,7 @@ import React from 'react';
 import { FoodItem } from '../types';
 import { FoodItemList } from './FoodItemList';
 import { useTranslation } from '../i18n/index';
-import { PlusCircleIcon, StarIcon } from './Icons';
+import { PlusCircleIcon, StarIcon, SparklesIcon } from './Icons';
 
 interface DashboardProps {
   items: FoodItem[];
@@ -32,10 +32,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   if (isLoading) {
       return (
-        <div className="space-y-8">
-            <div className="text-center pt-4">
-                <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-4">{t('dashboard.welcome')}</h1>
-            </div>
+        <div className="space-y-8 pt-6">
             <FoodItemList 
                 items={[]} 
                 isLoading={true} 
@@ -49,18 +46,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }
 
   // Show "Onboarding" empty state only if we have NO items and are NOT filtering.
-  // If we are filtering and have 0 results, FoodItemList handles the "No results" message.
   if (items.length === 0 && !isFiltering) {
     return (
-      <div className="text-center py-16 px-4 animate-fade-in">
-        <div className="bg-indigo-100 dark:bg-indigo-900/30 w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-6">
-            <StarIcon className="w-12 h-12 text-indigo-500 dark:text-indigo-400" filled />
+      <div className="text-center py-16 px-4 animate-fade-in flex flex-col items-center">
+        <div className="bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 w-32 h-32 rounded-full flex items-center justify-center mb-8 shadow-inner">
+            <SparklesIcon className="w-16 h-16 text-indigo-500 dark:text-indigo-400 opacity-80" />
         </div>
-        <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-3">{t('dashboard.empty.title')}</h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto leading-relaxed">{t('dashboard.empty.description')}</p>
+        <h2 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 mb-4">{t('dashboard.empty.title')}</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-10 max-w-md mx-auto leading-relaxed text-lg">{t('dashboard.empty.description')}</p>
+        
+        {/* Internal Add Button for Empty State */}
         <button
             onClick={onAddNew}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-full shadow-xl transition-all transform hover:scale-105 hover:shadow-2xl flex items-center justify-center gap-3 mx-auto"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-10 rounded-full shadow-xl transition-all transform hover:scale-105 hover:shadow-2xl flex items-center justify-center gap-3"
         >
             <PlusCircleIcon className="w-6 h-6" />
             <span className="text-lg">{t('form.addNewButton')}</span>
@@ -70,12 +68,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }
   
   return (
-    <div className="space-y-6 pb-20">
-      <div className="text-center py-4">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-200">{t('dashboard.welcome')}</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+    <div className="space-y-4 pb-24">
+      {/* Subtle Stats Header instead of big "Welcome" */}
+      <div className="flex justify-between items-end px-2 pt-2 border-b border-gray-200 dark:border-gray-800 pb-2">
+         <span className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            {t('nav.myItems')}
+         </span>
+         <span className="text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 rounded-full">
             {items.length} {items.length === 1 ? 'Eintrag' : 'Einträge'}
-        </p>
+         </span>
       </div>
 
       <FoodItemList 

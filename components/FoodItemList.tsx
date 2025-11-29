@@ -87,9 +87,10 @@ const CategorySection: React.FC<{
 
     return (
         <div className="mb-6 last:mb-0">
+            {/* Sticky Header: Adjusted top to 120px to account for the App Header + Search Bar height */}
             <button 
                 onClick={() => onToggle(category)}
-                className={`w-full flex items-center justify-between p-3 rounded-lg mb-3 transition-all duration-200 border sticky top-[72px] z-10 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}
+                className={`w-full flex items-center justify-between p-3 rounded-lg mb-3 transition-all duration-200 border sticky top-28 sm:top-32 z-10 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}
             >
                 <div className="flex items-center gap-3">
                     <div className="p-1.5 bg-white dark:bg-black/20 rounded-full">
@@ -133,9 +134,6 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, on
   // Group items by category (Quality Gate: Robust grouping with fallback)
   const groupedItems = useMemo(() => {
       const groups: Record<string, FoodItem[]> = {};
-      
-      // Initialize groups to ensure order, but only if they have items later? 
-      // No, we'll iterate CATEGORY_ORDER
       
       items.forEach(item => {
           const cat = item.category || 'other';
