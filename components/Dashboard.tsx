@@ -1,9 +1,9 @@
 
-import React from 'react';
-import { FoodItem } from '../types';
+import React, { useState, useMemo } from 'react';
+import { FoodItem, GroceryCategory } from '../types';
 import { FoodItemList } from './FoodItemList';
 import { useTranslation } from '../i18n/index';
-import { PlusCircleIcon, SparklesIcon } from './Icons';
+import { PlusCircleIcon, SparklesIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon } from './Icons';
 
 interface DashboardProps {
   items: FoodItem[];
@@ -29,6 +29,36 @@ export const Dashboard: React.FC<DashboardProps> = ({
   isFiltering
 }) => {
   const { t } = useTranslation();
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
+  // Logic to determine all categories currently present
+  const allCategories = useMemo(() => {
+      const cats = new Set<string>();
+      items.forEach(item => cats.add(item.category || 'other'));
+      return Array.from(cats);
+  }, [items]);
+
+  const isAllCollapsed = allCategories.length > 0 && collapsedCategories.size === allCategories.length;
+
+  const toggleCategory = (category: string) => {
+      setCollapsedCategories(prev => {
+          const newSet = new Set(prev);
+          if (newSet.has(category)) {
+              newSet.delete(category);
+          } else {
+              newSet.add(category);
+          }
+          return newSet;
+      });
+  };
+
+  const toggleAll = () => {
+      if (isAllCollapsed) {
+          setCollapsedCategories(new Set()); // Expand all
+      } else {
+          setCollapsedCategories(new Set(allCategories)); // Collapse all
+      }
+  };
 
   if (isLoading) {
       return (
@@ -40,6 +70,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onEdit={onEdit} 
                 onViewDetails={onViewDetails} 
                 onAddToShoppingList={onAddToShoppingList}
+                collapsedCategories={collapsedCategories}
+                onToggleCategory={toggleCategory}
             />
         </div>
       );
@@ -68,25 +100,39 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }
   
   return (
-    <div className="space-y-6 pb-24">
-      {/* Header with Title and Add Button */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-2 pt-2">
-         <div>
-             <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+    <div className="space-y-4 pb-24">
+      {/* Compact Smart Header */}
+      <div className="flex justify-between items-center px-1 py-1 sticky top-[72px] z-10 bg-gray-100/90 dark:bg-gray-900/90 backdrop-blur-sm -mx-2 sm:mx-0 sm:rounded-lg">
+         {/* Left: Title & Count */}
+         <div className="flex items-center gap-2 pl-2">
+             <h2 className="text-lg font-bold text-gray-900 dark:text-white leading-none">
                 {t('nav.myItems')}
              </h2>
-             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-medium">
-                {items.length} {items.length === 1 ? 'Eintrag' : 'Einträge'} in deiner Sammlung
-             </p>
+             <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-bold px-2 py-0.5 rounded-full">
+                {items.length}
+             </span>
          </div>
          
-         <button
-            onClick={onAddNew}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md transition-all hover:shadow-lg active:scale-95"
-         >
-            <PlusCircleIcon className="w-5 h-5" />
-            <span>{t('form.addNewButton')}</span>
-         </button>
+         {/* Right: Actions */}
+         <div className="flex items-center gap-2 pr-1">
+             {items.length > 0 && (
+                 <button 
+                    onClick={toggleAll}
+                    className="p-2 rounded-full text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+                    title={isAllCollapsed ? "Alle ausklappen" : "Alle einklappen"}
+                 >
+                    {isAllCollapsed ? <ArrowsPointingOutIcon className="w-5 h-5" /> : <ArrowsPointingInIcon className="w-5 h-5" />}
+                 </button>
+             )}
+             
+             <button
+                onClick={onAddNew}
+                className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1.5 px-3 rounded-full shadow-md transition-all active:scale-95"
+             >
+                <PlusCircleIcon className="w-5 h-5" />
+                <span className="hidden sm:inline text-sm">{t('form.addNewButton')}</span>
+             </button>
+         </div>
       </div>
 
       <FoodItemList 
@@ -97,6 +143,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         onViewDetails={onViewDetails}
         onAddToShoppingList={onAddToShoppingList}
         shoppingListFoodIds={shoppingListFoodIds}
+        collapsedCategories={collapsedCategories}
+        onToggleCategory={toggleCategory}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { FoodItem, GroceryCategory } from '../types';
 import { FoodItemCard } from './FoodItemCard';
 import { SkeletonCard } from './SkeletonCard';
@@ -8,7 +8,7 @@ import {
     CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, 
     CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, 
     CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon,
-    ChevronDownIcon, FunnelIcon
+    ChevronDownIcon
 } from './Icons';
 
 interface FoodItemListProps {
@@ -19,6 +19,8 @@ interface FoodItemListProps {
   onViewDetails: (item: FoodItem) => void;
   onAddToShoppingList: (item: FoodItem) => void;
   shoppingListFoodIds?: Set<string>;
+  collapsedCategories: Set<string>;
+  onToggleCategory: (category: string) => void;
 }
 
 // Reuse constants to match ShoppingListModal exactly (Quality Gate: Consistency)
@@ -86,26 +88,26 @@ const CategorySection: React.FC<{
     if (items.length === 0) return null;
 
     return (
-        <div className="mb-6 last:mb-0">
-            {/* Sticky Header: Adjusted top to 120px to account for the App Header + Search Bar height */}
+        <div className="mb-4 last:mb-0">
+            {/* Sticky Header: Adjusted top to match Dashboard Header height + offset */}
             <button 
                 onClick={() => onToggle(category)}
-                className={`w-full flex items-center justify-between p-3 rounded-lg mb-3 transition-all duration-200 border sticky top-28 sm:top-32 z-10 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}
+                className={`w-full flex items-center justify-between p-2 sm:p-3 rounded-lg mb-2 transition-all duration-200 border sticky top-32 sm:top-36 z-0 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}
             >
                 <div className="flex items-center gap-3">
-                    <div className="p-1.5 bg-white dark:bg-black/20 rounded-full">
-                        <Icon className="w-5 h-5" />
+                    <div className="p-1 bg-white dark:bg-black/20 rounded-full">
+                        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
-                    <span className="font-bold text-lg">{t(`category.${category}`)}</span>
-                    <span className="bg-white/50 dark:bg-black/20 px-2 py-0.5 rounded-full text-xs font-semibold">
+                    <span className="font-bold text-sm sm:text-base">{t(`category.${category}`)}</span>
+                    <span className="bg-white/50 dark:bg-black/20 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold">
                         {items.length}
                     </span>
                 </div>
-                <ChevronDownIcon className={`w-5 h-5 transition-transform duration-300 ${isCollapsed ? '-rotate-90' : ''}`} />
+                <ChevronDownIcon className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 ${isCollapsed ? '-rotate-90' : ''}`} />
             </button>
 
             {!isCollapsed && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 animate-slide-down pl-2 border-l-2 border-dashed border-gray-200 dark:border-gray-700 ml-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 animate-slide-down pl-2 border-l-2 border-dashed border-gray-200 dark:border-gray-700 ml-3 sm:ml-4">
                     {items.map(item => (
                         <FoodItemCard 
                             key={item.id} 
@@ -127,9 +129,8 @@ const CategorySection: React.FC<{
     );
 };
 
-export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, onDelete, onEdit, onViewDetails, onAddToShoppingList, shoppingListFoodIds }) => {
+export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, onDelete, onEdit, onViewDetails, onAddToShoppingList, shoppingListFoodIds, collapsedCategories, onToggleCategory }) => {
   const { t } = useTranslation();
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
   // Group items by category (Quality Gate: Robust grouping with fallback)
   const groupedItems = useMemo(() => {
@@ -142,27 +143,6 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, on
       });
       return groups;
   }, [items]);
-
-  const toggleCategory = (category: string) => {
-      setCollapsedCategories(prev => {
-          const newSet = new Set(prev);
-          if (newSet.has(category)) {
-              newSet.delete(category);
-          } else {
-              newSet.add(category);
-          }
-          return newSet;
-      });
-  };
-
-  const toggleAll = () => {
-      const allCategories = Object.keys(groupedItems);
-      if (collapsedCategories.size === allCategories.length) {
-          setCollapsedCategories(new Set()); // Expand all
-      } else {
-          setCollapsedCategories(new Set(allCategories)); // Collapse all
-      }
-  };
 
   if (isLoading) {
       return (
@@ -181,29 +161,15 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, on
     );
   }
 
-  const allCategories = Object.keys(groupedItems);
-  const isAllCollapsed = collapsedCategories.size === allCategories.length && allCategories.length > 0;
-
   return (
     <div className="pb-20">
-        {/* Helper Controls */}
-        <div className="flex justify-end mb-4">
-            <button 
-                onClick={toggleAll}
-                className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1"
-            >
-                <FunnelIcon className="w-3 h-3" />
-                {isAllCollapsed ? 'Alle ausklappen' : 'Alle einklappen'}
-            </button>
-        </div>
-
         {/* Render defined categories in order */}
         {CATEGORY_ORDER.map(category => (
             <CategorySection
                 key={category}
                 category={category}
                 items={groupedItems[category] || []}
-                onToggle={toggleCategory}
+                onToggle={onToggleCategory}
                 isCollapsed={collapsedCategories.has(category)}
                 onDelete={onDelete}
                 onEdit={onEdit}
@@ -221,7 +187,7 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, on
                     key={category}
                     category={category as GroceryCategory}
                     items={groupedItems[category]}
-                    onToggle={toggleCategory}
+                    onToggle={onToggleCategory}
                     isCollapsed={collapsedCategories.has(category)}
                     onDelete={onDelete}
                     onEdit={onEdit}
