@@ -21,6 +21,19 @@ const imageUrlToBase64 = async (url: string): Promise<string> => {
     }
 };
 
+// Helper to calculate a quality score for a product record
+// Used to pick the best match from search results
+const calculateProductQualityScore = (p: any) => {
+    let score = 0;
+    if (p.nutriscore_grade) score += 5; // High value for NutriScore
+    if (p.ingredients_text) score += 3; // Good value for ingredients
+    if (p.categories_tags && p.categories_tags.length > 0) score += 2;
+    if (p.image_front_url) score += 1;
+    // Prefer items with a reasonably long name (avoid stubs like "Cola")
+    if (p.product_name && p.product_name.length > 3) score += 1;
+    return score;
+};
+
 const fetchFromApi = async (baseUrl: string, barcode: string): Promise<any> => {
     const url = `${baseUrl}/product/${barcode}.json`;
     const response = await fetch(url);
@@ -112,25 +125,28 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Pa
     }
 };
 
-export const searchProductByNameFromOpenFoodFacts = async (productName: string): Promise<Partial<FoodItem>> => {
-    // Search usually defaults to Food Facts for broad searches, as Beauty search is less reliable via simple text
-    const searchUrl = `${FOOD_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,nutriscore_grade,ingredients_text,allergens_tags,categories_tags,labels_tags,stores&page_size=1&sort_by=popularity_key`;
+export const searchProductByNameFromOpenFoodFacts = async (productName: string, language: string = 'en'): Promise<Partial<FoodItem>> => {
+    // 1. Prioritize user's country/language
+    const country = language === 'de' ? 'de' : 'us'; 
+    
+    // 2. Fetch Top 5 results sorted by 'unique_scans_n' (scanned popularity) to avoid obscure duplicates
+    const searchUrl = `${FOOD_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,nutriscore_grade,ingredients_text,allergens_tags,categories_tags,labels_tags,stores,image_front_url&page_size=5&sort_by=unique_scans_n&cc=${country}&lc=${language}`;
     
     try {
         const response = await fetch(searchUrl);
         if (!response.ok) throw new Error('Failed to search Open Food Facts.');
         
         const data = await response.json();
+        let products = data.products || [];
         
         // If no food found, try beauty
-        if (data.count === 0 || !data.products || data.products.length === 0) {
-             const beautySearchUrl = `${BEAUTY_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,ingredients_text,categories_tags,labels_tags,stores&page_size=1`;
+        if (products.length === 0) {
+             const beautySearchUrl = `${BEAUTY_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=product_name,ingredients_text,categories_tags,labels_tags,stores&page_size=1&lc=${language}`;
              const beautyResponse = await fetch(beautySearchUrl);
              if(beautyResponse.ok) {
                  const beautyData = await beautyResponse.json();
                  if (beautyData.count > 0 && beautyData.products.length > 0) {
                      const product = beautyData.products[0];
-                     // Map Beauty Product similar to main fetch
                      return {
                          name: product.product_name,
                          itemType: 'drugstore',
@@ -144,7 +160,11 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string):
              throw new Error(`Product "${productName}" not found.`);
         }
 
-        const product = data.products[0];
+        // 3. Quality Filter: Sort results by completeness (NutriScore, Ingredients, etc.)
+        // This picks the "best" record among duplicates.
+        products.sort((a: any, b: any) => calculateProductQualityScore(b) - calculateProductQualityScore(a));
+        const product = products[0];
+
         const foodItem: Partial<FoodItem> = { itemType: 'product' };
 
         if (product.nutriscore_grade) {

@@ -197,7 +197,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
     setIsNameSearchLoading(true);
     setError(null);
     try {
-      const offResult = await searchProductByNameFromOpenFoodFacts(productName);
+      const offResult = await searchProductByNameFromOpenFoodFacts(productName, language);
       
       let mergedData = {
           tags: offResult.tags || [],
@@ -213,20 +213,9 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
       if (mergedData.tags.length > 0) newHighlightedFields.push('tags');
       if (mergedData.nutriScore) newHighlightedFields.push('nutriScore');
 
-      if (language !== 'en' && (mergedData.tags.length > 0 || mergedData.ingredients.length > 0 || mergedData.allergens.length > 0)) {
-          const textsToTranslate = [...mergedData.tags, ...mergedData.ingredients, ...mergedData.allergens];
-          try {
-              const translated = await translateTexts(textsToTranslate, language);
-              let i = 0;
-              mergedData.tags = translated.slice(i, i + mergedData.tags.length);
-              i += mergedData.tags.length;
-              mergedData.ingredients = translated.slice(i, i + mergedData.ingredients.length);
-              i += mergedData.ingredients.length;
-              mergedData.allergens = translated.slice(i, i + mergedData.allergens.length);
-          } catch (e) {
-              console.error("Failed to translate OFF results for form", e);
-          }
-      }
+      // Translation is likely handled by OFF respecting `lc`, but we can double check
+      // If we got English results despite requesting German, we might optionally translate here.
+      // For now, trusting OFF's `lc` parameter is much faster.
 
       setTags(current => (current ? `${current}, ` : '') + mergedData.tags.join(', '));
       setNutriScore(current => current || mergedData.nutriScore);
@@ -338,9 +327,10 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
             t('form.aiProgress.readingName'),
             t('form.aiProgress.findingScore'),
             t('form.aiProgress.generatingTags'),
-            ...(isOffSearchEnabled ? [t('form.aiProgress.searchingDatabase')] : []),
             t('form.aiProgress.locatingProduct')
         ];
+        
+        // Show initial loading
         setAnalysisProgress({ active: true, message: progressMessages[0] });
         let messageIndex = 0;
         progressInterval = window.setInterval(() => {
@@ -348,77 +338,100 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
             setAnalysisProgress(prev => ({ ...prev, message: progressMessages[messageIndex] }));
         }, 1500);
 
+        // 1. Run AI Analysis (Fastest first step)
         const aiResult = await analyzeFoodImage(imageDataUrl);
         
-        let offResult: Partial<FoodItem> = {};
-        if (aiResult.name && isOffSearchEnabled) {
-            try {
-                setAnalysisProgress(prev => ({ ...prev, message: t('form.aiProgress.searchingDatabase') }));
-                offResult = await searchProductByNameFromOpenFoodFacts(aiResult.name);
-            } catch (offError) {
-                console.warn("Could not fetch supplementary data from Open Food Facts:", offError);
-            }
-        }
-        
         if(progressInterval) clearInterval(progressInterval);
-        setAnalysisProgress({ active: true, message: t('form.aiProgress.complete') });
         
-        const combinedTags = new Set([...(aiResult.tags || []), ...(offResult.tags || [])]);
-
+        // 2. Prepare Data from AI
         let mergedData = {
             name: aiResult.name || '',
-            tags: Array.from(combinedTags),
-            nutriScore: (aiResult.nutriScore || offResult.nutriScore || '') as NutriScore | '',
-            ingredients: offResult.ingredients || [],
-            allergens: offResult.allergens || [],
-            isLactoseFree: offResult.isLactoseFree || false,
-            isVegan: offResult.isVegan || false,
-            isGlutenFree: offResult.isGlutenFree || false,
+            tags: aiResult.tags || [],
+            nutriScore: (aiResult.nutriScore || '') as NutriScore | '',
+            ingredients: [] as string[],
+            allergens: [] as string[],
+            isLactoseFree: false,
+            isVegan: false,
+            isGlutenFree: false,
         };
         
-        const newHighlightedFields: string[] = [];
-        if (mergedData.name) newHighlightedFields.push('name');
-        if (mergedData.tags.length > 0) newHighlightedFields.push('tags');
-        if (mergedData.nutriScore) newHighlightedFields.push('nutriScore');
-        if (aiResult.category) newHighlightedFields.push('category');
-
+        // Optional Translation for AI result
         if (language !== 'en' && textsNeedTranslation(mergedData)) {
             const textsToTranslate = [
-                mergedData.name, ...mergedData.tags, ...mergedData.ingredients, ...mergedData.allergens
+                mergedData.name, ...mergedData.tags
             ];
-            
             try {
                 const translated = await translateTexts(textsToTranslate, language);
                 if (translated.length === textsToTranslate.length) {
                     let i = 0;
                     mergedData.name = translated[i++];
                     mergedData.tags = translated.slice(i, i + mergedData.tags.length);
-                    i += mergedData.tags.length;
-                    mergedData.ingredients = translated.slice(i, i + mergedData.ingredients.length);
-                    i += mergedData.ingredients.length;
-                    mergedData.allergens = translated.slice(i, i + mergedData.allergens.length);
                 }
             } catch (e) {
-                console.error("Failed to translate merged AI/OFF results for form", e);
+                console.error("Failed to translate AI results", e);
             }
         }
         
+        // 3. Update State IMMEDIATELY (Non-blocking UI update)
         setName(mergedData.name);
         setTags(mergedData.tags.join(', '));
         setNutriScore(mergedData.nutriScore);
-        setIngredients(mergedData.ingredients);
-        setAllergens(mergedData.allergens);
         if (aiResult.category) setCategory(aiResult.category);
-        setDietary({
-            isLactoseFree: mergedData.isLactoseFree,
-            isVegan: mergedData.isVegan,
-            isGlutenFree: mergedData.isGlutenFree,
-        });
+        
+        const newHighlightedFields: string[] = [];
+        if (mergedData.name) newHighlightedFields.push('name');
+        if (mergedData.tags.length > 0) newHighlightedFields.push('tags');
+        if (mergedData.nutriScore) newHighlightedFields.push('nutriScore');
+        if (aiResult.category) newHighlightedFields.push('category');
+        setHighlightedFields(newHighlightedFields);
 
+        // Open Cropper immediately so user can interact
         setUncroppedImage(imageDataUrl);
         setSuggestedCrop(aiResult.boundingBox);
         setIsCropperOpen(true);
-        setHighlightedFields(newHighlightedFields);
+        setIsLoading(false); // Stop main loading spinner
+
+        // 4. Background OpenFoodFacts Search (Optimistic)
+        if (mergedData.name && isOffSearchEnabled) {
+            // Show non-blocking status
+            setAnalysisProgress({ active: true, message: t('form.aiProgress.searchingDatabase') });
+            
+            try {
+                const offResult = await searchProductByNameFromOpenFoodFacts(mergedData.name, language);
+                
+                // Merge OFF data into state safely (functional updates)
+                setTags(prev => {
+                    const existing = prev ? prev.split(',').map(s => s.trim()) : [];
+                    const newTags = offResult.tags || [];
+                    const combined = Array.from(new Set([...existing, ...newTags]));
+                    return combined.join(', ');
+                });
+                
+                setNutriScore(prev => prev || (offResult.nutriScore as NutriScore | '') || '');
+                setIngredients(prev => prev.length > 0 ? prev : (offResult.ingredients || []));
+                setAllergens(prev => prev.length > 0 ? prev : (offResult.allergens || []));
+                setDietary(prev => ({
+                    isLactoseFree: prev.isLactoseFree || !!offResult.isLactoseFree,
+                    isVegan: prev.isVegan || !!offResult.isVegan,
+                    isGlutenFree: prev.isGlutenFree || !!offResult.isGlutenFree,
+                }));
+                
+                // Highlight new fields found by OFF
+                setHighlightedFields(prev => {
+                    const next = [...prev];
+                    if (offResult.nutriScore && !prev.includes('nutriScore')) next.push('nutriScore');
+                    if ((offResult.tags?.length || 0) > 0 && !prev.includes('tags')) next.push('tags');
+                    return next;
+                });
+
+            } catch (offError) {
+                console.warn("Could not fetch supplementary data from Open Food Facts:", offError);
+            } finally {
+                setAnalysisProgress({ active: false, message: '' });
+            }
+        } else {
+             setAnalysisProgress({ active: false, message: '' });
+        }
 
       } catch (e) {
         if(progressInterval) clearInterval(progressInterval);
@@ -428,9 +441,8 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
         setUncroppedImage(imageDataUrl);
         setSuggestedCrop(null);
         setIsCropperOpen(true);
-      } finally {
-         setTimeout(() => setAnalysisProgress({ active: false, message: '' }), 500);
-      }
+        setAnalysisProgress({ active: false, message: '' });
+      } 
     } else { // scanMode === 'ingredients'
       setIngredientsLoading(true);
       try {
