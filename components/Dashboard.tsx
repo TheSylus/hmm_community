@@ -3,7 +3,7 @@ import React from 'react';
 import { FoodItem } from '../types';
 import { FoodItemList } from './FoodItemList';
 import { useTranslation } from '../i18n/index';
-import { PlusCircleIcon, StarIcon, SparklesIcon } from './Icons';
+import { PlusCircleIcon, SparklesIcon } from './Icons';
 
 interface DashboardProps {
   items: FoodItem[];
@@ -68,15 +68,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }
   
   return (
-    <div className="space-y-4 pb-24">
-      {/* Subtle Stats Header instead of big "Welcome" */}
-      <div className="flex justify-between items-end px-2 pt-2 border-b border-gray-200 dark:border-gray-800 pb-2">
-         <span className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-            {t('nav.myItems')}
-         </span>
-         <span className="text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 rounded-full">
-            {items.length} {items.length === 1 ? 'Eintrag' : 'Einträge'}
-         </span>
+    <div className="space-y-6 pb-24">
+      {/* Header with Title and Add Button */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-2 pt-2">
+         <div>
+             <h2 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+                {t('nav.myItems')}
+             </h2>
+             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-medium">
+                {items.length} {items.length === 1 ? 'Eintrag' : 'Einträge'} in deiner Sammlung
+             </p>
+         </div>
+         
+         <button
+            onClick={onAddNew}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md transition-all hover:shadow-lg active:scale-95"
+         >
+            <PlusCircleIcon className="w-5 h-5" />
+            <span>{t('form.addNewButton')}</span>
+         </button>
       </div>
 
       <FoodItemList 
