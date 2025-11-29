@@ -101,36 +101,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
   
   return (
     <div className="space-y-4 pb-24">
-      {/* Compact Smart Header */}
-      <div className="flex justify-between items-center px-1 py-1 sticky top-[72px] z-10 bg-gray-100/90 dark:bg-gray-900/90 backdrop-blur-sm -mx-2 sm:mx-0 sm:rounded-lg">
-         {/* Left: Title & Count */}
-         <div className="flex items-center gap-2 pl-2">
-             <h2 className="text-lg font-bold text-gray-900 dark:text-white leading-none">
-                {t('nav.myItems')}
-             </h2>
-             <span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-bold px-2 py-0.5 rounded-full">
-                {items.length}
-             </span>
-         </div>
+      {/* Clean Toolbar Header */}
+      <div className="flex justify-between items-center px-1 py-2 sticky top-[72px] z-10 bg-gray-100/95 dark:bg-gray-900/95 backdrop-blur-sm -mx-2 sm:mx-0 sm:rounded-lg border-b border-gray-200/50 dark:border-gray-800/50">
          
-         {/* Right: Actions */}
-         <div className="flex items-center gap-2 pr-1">
+         {/* Left: View Control (Collapse/Expand) */}
+         <div className="pl-1">
              {items.length > 0 && (
                  <button 
                     onClick={toggleAll}
-                    className="p-2 rounded-full text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+                    className="p-2.5 rounded-full text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all active:scale-95"
                     title={isAllCollapsed ? "Alle ausklappen" : "Alle einklappen"}
+                    aria-label={isAllCollapsed ? "Expand all categories" : "Collapse all categories"}
                  >
                     {isAllCollapsed ? <ArrowsPointingOutIcon className="w-5 h-5" /> : <ArrowsPointingInIcon className="w-5 h-5" />}
                  </button>
              )}
-             
+         </div>
+         
+         {/* Right: Primary Action (Add New) */}
+         <div className="pr-1">
              <button
                 onClick={onAddNew}
-                className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-1.5 px-3 rounded-full shadow-md transition-all active:scale-95"
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-full shadow-md transition-all active:scale-95 hover:shadow-lg"
              >
                 <PlusCircleIcon className="w-5 h-5" />
-                <span className="hidden sm:inline text-sm">{t('form.addNewButton')}</span>
+                <span className="text-sm">{t('form.addNewButton')}</span>
              </button>
          </div>
       </div>

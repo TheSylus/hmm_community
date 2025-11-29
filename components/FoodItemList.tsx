@@ -89,10 +89,10 @@ const CategorySection: React.FC<{
 
     return (
         <div className="mb-4 last:mb-0">
-            {/* Sticky Header: Adjusted top to match Dashboard Header height + offset */}
+            {/* Sticky Header: Adjusted top to match the new Toolbar Header height + offset */}
             <button 
                 onClick={() => onToggle(category)}
-                className={`w-full flex items-center justify-between p-2 sm:p-3 rounded-lg mb-2 transition-all duration-200 border sticky top-32 sm:top-36 z-0 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}
+                className={`w-full flex items-center justify-between p-2 sm:p-3 rounded-lg mb-2 transition-all duration-200 border sticky top-32 sm:top-32 z-0 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}
             >
                 <div className="flex items-center gap-3">
                     <div className="p-1 bg-white dark:bg-black/20 rounded-full">
