@@ -38,7 +38,7 @@ const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
 export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
 export type RatingFilter = 'liked' | 'disliked' | 'all';
 export type TypeFilter = 'all' | 'product' | 'dish' | 'drugstore';
-export type AppView = 'dashboard' | 'list' | 'family';
+export type AppView = 'dashboard' | 'family';
 
 
 // A version of FoodItem that includes its status on the shopping list
@@ -273,13 +273,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // View Switching Logic
-  useEffect(() => {
-    if (searchTerm.trim() !== '' || ratingFilter !== 'all' || typeFilter !== 'all' || aiSearchResults.ids !== null) {
-      setActiveView('list');
-    }
-  }, [searchTerm, ratingFilter, typeFilter, aiSearchResults.ids]);
-
   // Main Action Handlers utilizing Hooks
   const handleSaveFormItem = useCallback(async (itemData: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
       // Check for duplicates only if adding new item
@@ -335,17 +328,13 @@ const App: React.FC = () => {
   const clearAiSearch = useCallback(() => {
     setAiSearchQuery('');
     setAiSearchResults({ ids: null, error: null, isLoading: false });
-    if(!isAnyFilterActive) {
-      setActiveView('dashboard');
-    }
-  }, [isAnyFilterActive]);
+  }, []);
 
   const clearAllFilters = useCallback(() => {
     setSearchTerm('');
     setRatingFilter('all');
     setTypeFilter('all');
     clearAiSearch();
-    setActiveView('dashboard');
   }, [clearAiSearch]);
   
   const handleAddToShoppingListWrapper = useCallback((item: FoodItem) => {
@@ -383,29 +372,6 @@ const App: React.FC = () => {
                       isFamilyFavorite: !!userProfile?.household_id, // Default to shared if in household
                   };
                   
-                  // Use saveItem logic but await the result ID implicitly by refetching or assumption?
-                  // saveItem returns boolean. We need the ID. 
-                  // Since useFoodData's saveItem handles ID generation internally for optimistic UI,
-                  // we might need a way to get the real or temp ID back.
-                  // HOWEVER, useFoodData handles state. We can construct a temp ID here and pass it if useFoodData supported it,
-                  // but useFoodData generates its own temp ID.
-                  
-                  // Hack/Workaround for this hook limitation: 
-                  // We'll generate a consistent temp ID here to pass to both so we know what it is.
-                  const tempId = `quick_add_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-                  
-                  // We call saveItem. It will optimistic update.
-                  // Ideally saveItem should return the ID used. 
-                  // For now, we will rely on the name matching if we were strictly using the hook, 
-                  // BUT `saveItem` in `useFoodData` doesn't return the ID. 
-                  // Let's assume we can rely on a simpler flow: Create DB item directly here for guaranteed ID?
-                  // No, that breaks the hook's encapsulation.
-                  // Let's modify `saveItem` in the future to return the ID.
-                  // For now, we will assume successful creation and skip adding to list if we can't get ID?
-                  // Actually, `useFoodData` re-fetches. 
-                  
-                  // Let's just create it directly via service to get the ID, then trigger refresh.
-                  // This bypasses the hook's optimistic UI for the *Item creation*, but that's fine for "background" creation.
                   try {
                       // We need to import `createFoodItem` from services.
                       const { createFoodItem } = await import('./services/foodItemService');
@@ -567,20 +533,41 @@ const App: React.FC = () => {
             />
         );
     }
+    
+    // AI Search Result Banner
+    const aiBanner = aiSearchResults.ids !== null ? (
+        <div className="mb-6 p-4 bg-indigo-50 dark:bg-gray-800 rounded-lg flex items-center justify-between border border-indigo-100 dark:border-indigo-900/50">
+            <div>
+                <h2 className="text-xl font-bold text-indigo-800 dark:text-indigo-200">{t('conversationalSearch.resultsTitle')}</h2>
+                <p className="text-sm text-indigo-600 dark:text-indigo-300 italic">"{aiSearchQuery}"</p>
+            </div>
+            <button onClick={clearAiSearch} className="flex items-center gap-2 text-sm bg-indigo-200 dark:bg-indigo-600/50 hover:bg-indigo-300 dark:hover:bg-indigo-600/80 text-indigo-800 dark:text-indigo-100 font-semibold py-1.5 px-3 rounded-full transition">
+                <XMarkIcon className="w-4 h-4" />
+                {t('conversationalSearch.clear')}
+            </button>
+        </div>
+    ) : null;
+
+    const aiError = aiSearchResults.error ? <p className="text-red-500 dark:text-red-400 text-center my-4">{aiSearchResults.error}</p> : null;
+
     switch(activeView) {
       case 'dashboard':
         return (
-          <Dashboard 
-            items={foodItems}
-            isLoading={isFoodLoading}
-            onViewAll={() => setActiveView('list')}
-            onAddNew={handleAddNewClick}
-            onEdit={handleStartEdit}
-            onDelete={handleDeleteFormItem}
-            onViewDetails={handleViewDetails}
-            onAddToShoppingList={handleAddToShoppingListWrapper}
-            shoppingListFoodIds={shoppingListFoodIds}
-          />
+          <>
+            {aiBanner}
+            {aiError}
+            <Dashboard 
+                items={filteredAndSortedItems}
+                isLoading={isFoodLoading}
+                onAddNew={handleAddNewClick}
+                onEdit={handleStartEdit}
+                onDelete={handleDeleteFormItem}
+                onViewDetails={handleViewDetails}
+                onAddToShoppingList={handleAddToShoppingListWrapper}
+                shoppingListFoodIds={shoppingListFoodIds}
+                isFiltering={isAnyFilterActive}
+            />
+          </>
         );
       case 'family':
         if (!household) {
@@ -591,35 +578,25 @@ const App: React.FC = () => {
             </div>
           );
         }
-        return <FoodItemList items={filteredAndSortedItems} isLoading={isFoodLoading} onDelete={handleDeleteFormItem} onEdit={handleStartEdit} onViewDetails={handleViewDetails} onAddToShoppingList={handleAddToShoppingListWrapper} shoppingListFoodIds={shoppingListFoodIds} />;
-      case 'list':
-      default:
         return (
-          <>
-            {aiSearchResults.ids !== null && (
-              <div className="my-6 p-4 bg-indigo-50 dark:bg-gray-800 rounded-lg flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold text-indigo-800 dark:text-indigo-200">{t('conversationalSearch.resultsTitle')}</h2>
-                    <p className="text-sm text-indigo-600 dark:text-indigo-300 italic">"{aiSearchQuery}"</p>
-                  </div>
-                  <button onClick={clearAiSearch} className="flex items-center gap-2 text-sm bg-indigo-200 dark:bg-indigo-600/50 hover:bg-indigo-300 dark:hover:bg-indigo-600/80 text-indigo-800 dark:text-indigo-100 font-semibold py-1.5 px-3 rounded-full transition">
-                    <XMarkIcon className="w-4 h-4" />
-                    {t('conversationalSearch.clear')}
-                  </button>
-              </div>
-            )}
-            {aiSearchResults.error && <p className="text-red-500 dark:text-red-400 text-center my-4">{aiSearchResults.error}</p>}
-            <FoodItemList 
-              items={filteredAndSortedItems} 
-              isLoading={isFoodLoading}
-              onDelete={handleDeleteFormItem} 
-              onEdit={handleStartEdit}
-              onViewDetails={handleViewDetails}
-              onAddToShoppingList={handleAddToShoppingListWrapper}
-              shoppingListFoodIds={shoppingListFoodIds}
-            />
-          </>
+            <>
+                {aiBanner}
+                {aiError}
+                <Dashboard 
+                    items={filteredAndSortedItems} // Reuse Dashboard/FoodItemList logic for family view
+                    isLoading={isFoodLoading}
+                    onAddNew={handleAddNewClick}
+                    onDelete={handleDeleteFormItem} 
+                    onEdit={handleStartEdit} 
+                    onViewDetails={handleViewDetails} 
+                    onAddToShoppingList={handleAddToShoppingListWrapper} 
+                    shoppingListFoodIds={shoppingListFoodIds}
+                    isFiltering={isAnyFilterActive}
+                />
+            </>
         );
+      default:
+        return null;
     }
   }
 
@@ -698,7 +675,7 @@ const App: React.FC = () => {
 
             <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-[0_-2px_5px_rgba(0,0,0,0.1)] dark:shadow-[0_-2px_5px_rgba(0,0,0,0.3)] z-30">
                 <div className="container mx-auto px-4 h-16 flex justify-around items-center">
-                    <button onClick={() => setActiveView('dashboard')} className={`flex flex-col items-center justify-center gap-1 transition-colors ${activeView === 'dashboard' || activeView === 'list' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400'}`}>
+                    <button onClick={() => setActiveView('dashboard')} className={`flex flex-col items-center justify-center gap-1 transition-colors ${activeView === 'dashboard' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400'}`}>
                         <UserCircleIcon className="w-6 h-6" />
                         <span className="text-xs font-semibold">{t('nav.myItems')}</span>
                     </button>
