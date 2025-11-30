@@ -604,8 +604,8 @@ const App: React.FC = () => {
   const displayError = foodError || householdError || shoppingListError;
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans transition-colors duration-300 pb-20">
-       <header className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow-md dark:shadow-lg sticky top-0 z-20">
+    <div className="min-h-[100dvh] bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans transition-colors duration-300 pb-safe-bottom">
+       <header className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow-md dark:shadow-lg sticky top-0 z-20 pt-safe-top">
           <div className="container mx-auto px-4 py-4">
             <div className="flex justify-between items-center gap-4">
                 <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-green-500 dark:from-indigo-400 dark:to-green-400">
@@ -667,13 +667,13 @@ const App: React.FC = () => {
         <>
             <button
                 onClick={handleAddNewClick}
-                className="fixed bottom-24 right-6 bg-green-600 hover:bg-green-700 text-white font-bold p-4 rounded-full shadow-lg transition-transform transform hover:scale-110 z-30"
+                className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-6 bg-green-600 hover:bg-green-700 text-white font-bold p-4 rounded-full shadow-lg transition-transform transform hover:scale-110 z-30"
                 aria-label={t('form.addNewButton')}
             >
                 <PlusCircleIcon className="w-8 h-8" />
             </button>
 
-            <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-[0_-2px_5px_rgba(0,0,0,0.1)] dark:shadow-[0_-2px_5px_rgba(0,0,0,0.3)] z-30">
+            <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-[0_-2px_5px_rgba(0,0,0,0.1)] dark:shadow-[0_-2px_5px_rgba(0,0,0,0.3)] z-30 pb-safe-bottom">
                 <div className="container mx-auto px-4 h-16 flex justify-around items-center">
                     <button onClick={() => setActiveView('dashboard')} className={`flex flex-col items-center justify-center gap-1 transition-colors ${activeView === 'dashboard' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400'}`}>
                         <UserCircleIcon className="w-6 h-6" />
@@ -688,7 +688,7 @@ const App: React.FC = () => {
         </>
       )}
       
-      <footer className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+      <footer className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm mb-safe-bottom">
         <p>{t('footer.text')}</p>
       </footer>
 

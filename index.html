@@ -2,15 +2,44 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Food Memory Tracker</title>
     <link rel="manifest" href="/manifest.json" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         darkMode: 'class',
+        theme: {
+          extend: {
+            padding: {
+              'safe-top': 'env(safe-area-inset-top)',
+              'safe-bottom': 'env(safe-area-inset-bottom)',
+              'safe-left': 'env(safe-area-inset-left)',
+              'safe-right': 'env(safe-area-inset-right)',
+            },
+            margin: {
+              'safe-top': 'env(safe-area-inset-top)',
+              'safe-bottom': 'env(safe-area-inset-bottom)',
+            }
+          }
+        }
       }
     </script>
+    <style>
+      /* iOS Quality Gate: Prevent auto-zoom on inputs < 16px */
+      @media screen and (max-width: 768px) {
+        input, select, textarea {
+          font-size: 16px !important;
+        }
+      }
+      /* Prevent horizontal scroll bounce on iOS */
+      html, body {
+        overscroll-behavior-y: none; 
+        -webkit-tap-highlight-color: transparent;
+      }
+    </style>
     <link rel="stylesheet" href="https://aistudiocdn.com/react-image-crop@^11.0.10/dist/ReactCrop.css" />
     <!-- The importmap has been removed. Vite will now handle all JavaScript dependencies from package.json. -->
 <script type="importmap">
