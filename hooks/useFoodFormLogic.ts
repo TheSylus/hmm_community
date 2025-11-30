@@ -9,12 +9,13 @@ import { useAppSettings } from '../contexts/AppSettingsContext';
 
 interface UseFoodFormLogicProps {
   initialData?: FoodItem | null;
-  itemType: FoodItemType;
+  initialItemType?: FoodItemType;
   onSaveItem: (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => void;
   onCancel: () => void;
+  startMode?: 'barcode' | 'camera' | 'none';
 }
 
-export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }: UseFoodFormLogicProps) => {
+export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onSaveItem, onCancel, startMode = 'none' }: UseFoodFormLogicProps) => {
   const { t, language } = useTranslation();
   const { isAiEnabled, isOffSearchEnabled } = useAppSettings();
   const [apiKeyValid, setApiKeyValid] = useState(false);
@@ -26,6 +27,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
   const isAiAvailable = isAiEnabled && apiKeyValid;
 
   // --- Form State ---
+  const [itemType, setItemType] = useState<FoodItemType>(initialItemType);
   const [name, setName] = useState('');
   const [rating, setRating] = useState(0);
   const [notes, setNotes] = useState('');
@@ -67,11 +69,15 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
   const [highlightedFields, setHighlightedFields] = useState<string[]>([]);
   const [isIngredientsLoading, setIngredientsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Controls expanding details if data is found
+  const [autoExpandDetails, setAutoExpandDetails] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Initialization ---
   const resetFormState = useCallback(() => {
+    setItemType(initialItemType);
     setName('');
     setRating(0);
     setNotes('');
@@ -87,14 +93,16 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
     setCuisineType('');
     setPrice('');
     // Default category based on item type
-    setCategory(itemType === 'drugstore' ? 'personal_care' : 'other');
+    setCategory(initialItemType === 'drugstore' ? 'personal_care' : 'other');
     setError(null);
     setIsLoading(false);
+    setAutoExpandDetails(false);
     if(fileInputRef.current) fileInputRef.current.value = '';
-  }, [itemType]);
+  }, [initialItemType]);
 
   useEffect(() => {
     if (initialData) {
+      setItemType(initialData.itemType);
       setName(initialData.name);
       setRating(initialData.rating);
       setNotes(initialData.notes || '');
@@ -113,6 +121,10 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
           isVegan: initialData.isVegan || false,
           isGlutenFree: initialData.isGlutenFree || false,
         });
+        // Auto expand if there is data
+        if (initialData.nutriScore || (initialData.purchaseLocation?.length || 0) > 0 || initialData.isVegan) {
+            setAutoExpandDetails(true);
+        }
       } else {
         setRestaurantName(initialData.restaurantName || '');
         setCuisineType(initialData.cuisineType || '');
@@ -123,6 +135,18 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
     }
   }, [initialData, resetFormState]);
 
+  // Handle Start Mode (Auto-open scanners)
+  useEffect(() => {
+      if (initialData) return; // Don't auto-start if editing
+      
+      if (startMode === 'barcode') {
+          setIsBarcodeScannerOpen(true);
+      } else if (startMode === 'camera') {
+          setScanMode('main');
+          setIsCameraOpen(true);
+      }
+  }, [startMode, initialData]);
+
   // Remove highlights after delay
   useEffect(() => {
     if (highlightedFields.length > 0) {
@@ -132,6 +156,15 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
       return () => clearTimeout(timer);
     }
   }, [highlightedFields]);
+
+  // When switching item types, ensure category makes sense
+  useEffect(() => {
+      if (itemType === 'drugstore' && category !== 'personal_care' && category !== 'household') {
+          setCategory('personal_care');
+      } else if (itemType === 'product' && category === 'personal_care') {
+          setCategory('other');
+      }
+  }, [itemType]);
 
   // --- Logic Handlers ---
 
@@ -213,10 +246,6 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
       if (mergedData.tags.length > 0) newHighlightedFields.push('tags');
       if (mergedData.nutriScore) newHighlightedFields.push('nutriScore');
 
-      // Translation is likely handled by OFF respecting `lc`, but we can double check
-      // If we got English results despite requesting German, we might optionally translate here.
-      // For now, trusting OFF's `lc` parameter is much faster.
-
       setTags(current => (current ? `${current}, ` : '') + mergedData.tags.join(', '));
       setNutriScore(current => current || mergedData.nutriScore);
       setIngredients(current => [...current, ...mergedData.ingredients]);
@@ -227,6 +256,8 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
           isGlutenFree: current.isGlutenFree || mergedData.isGlutenFree,
       }));
       setHighlightedFields(newHighlightedFields);
+      if (mergedData.tags.length > 0 || mergedData.nutriScore) setAutoExpandDetails(true);
+
     } catch (e) {
       console.error("Error searching by product name:", e);
     } finally {
@@ -293,8 +324,13 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
       
       // Heuristic for category based on type
       if (productData.itemType === 'drugstore') {
+          setItemType('drugstore');
           setCategory('personal_care');
+      } else {
+          setItemType('product');
       }
+      
+      setAutoExpandDetails(true);
 
     } catch(e) {
        console.error(e);
@@ -377,6 +413,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
         setTags(mergedData.tags.join(', '));
         setNutriScore(mergedData.nutriScore);
         if (aiResult.category) setCategory(aiResult.category);
+        if (aiResult.itemType) setItemType(aiResult.itemType as FoodItemType);
         
         const newHighlightedFields: string[] = [];
         if (mergedData.name) newHighlightedFields.push('name');
@@ -384,6 +421,9 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
         if (mergedData.nutriScore) newHighlightedFields.push('nutriScore');
         if (aiResult.category) newHighlightedFields.push('category');
         setHighlightedFields(newHighlightedFields);
+        
+        // Auto expand if valuable metadata found
+        if (mergedData.nutriScore || mergedData.tags.length > 0) setAutoExpandDetails(true);
 
         // Open Cropper immediately so user can interact
         setUncroppedImage(imageDataUrl);
@@ -423,6 +463,8 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
                     if ((offResult.tags?.length || 0) > 0 && !prev.includes('tags')) next.push('tags');
                     return next;
                 });
+                
+                setAutoExpandDetails(true);
 
             } catch (offError) {
                 console.warn("Could not fetch supplementary data from Open Food Facts:", offError);
@@ -471,6 +513,7 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
             isVegan: result.isVegan,
             isGlutenFree: result.isGlutenFree,
         });
+        setAutoExpandDetails(true);
       } catch (e) {
         console.error(e);
         const errorMessage = e instanceof Error ? e.message : t('form.error.ingredientsAiError');
@@ -525,6 +568,9 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
       setError(t('form.error.nameAndRating'));
       return;
     }
+    // Rating is mandatory for "Memory Tracker", but maybe we relax it for "Quick Add"?
+    // For now, let's keep it but make it easy to select 0 if we changed logic, but types require number.
+    // Let's enforce rating > 0 for now as per original requirements.
     if (rating === 0) {
       setError(t('form.error.nameAndRating'));
       return;
@@ -545,7 +591,6 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
         onSaveItem({
           ...commonData,
           nutriScore: nutriScore || undefined,
-          // Parse purchaseLocation string into array
           purchaseLocation: purchaseLocation ? purchaseLocation.split(',').map(loc => loc.trim()).filter(Boolean) : undefined,
           ingredients: ingredients.length > 0 ? ingredients : undefined,
           allergens: allergens.length > 0 ? allergens : undefined,
@@ -578,17 +623,17 @@ export const useFoodFormLogic = ({ initialData, itemType, onSaveItem, onCancel }
     formState: {
       name, rating, notes, image, tags, isFamilyFavorite, category,
       nutriScore, purchaseLocation, ingredients, allergens, dietary,
-      restaurantName, cuisineType, price
+      restaurantName, cuisineType, price, itemType // Added itemType to state
     },
     formSetters: {
       setName, setRating, setNotes, setImage, setTags, setIsFamilyFavorite, setCategory,
-      setNutriScore, setPurchaseLocation, setIngredients, setAllergens, setRestaurantName, setCuisineType, setPrice
+      setNutriScore, setPurchaseLocation, setIngredients, setAllergens, setRestaurantName, setCuisineType, setPrice, setItemType, setAutoExpandDetails
     },
     uiState: {
       isCameraOpen, isBarcodeScannerOpen, isSpeechModalOpen, isNameSearchLoading,
       isCropperOpen, uncroppedImage, suggestedCrop, isLoading, analysisProgress,
       highlightedFields, isIngredientsLoading, error, isFindingRestaurants,
-      nearbyRestaurants, locationError, isAiAvailable, scanMode // Export scanMode
+      nearbyRestaurants, locationError, isAiAvailable, scanMode, autoExpandDetails
     },
     uiSetters: {
       setIsCameraOpen, setIsBarcodeScannerOpen, setIsSpeechModalOpen, setIsCropperOpen, setError

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList, UserProfile, Household } from './types';
 import { FoodItemForm } from './components/FoodItemForm';
@@ -18,9 +19,10 @@ import { useHousehold } from './hooks/useHousehold';
 import { useShoppingList } from './hooks/useShoppingList';
 import * as geminiService from './services/geminiService';
 import { useTranslation } from './i18n/index';
-import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, UserGroupIcon, BeakerIcon } from './components/Icons';
+import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, UserGroupIcon, BeakerIcon, BarcodeIcon, CameraIcon } from './components/Icons';
 import { useModalHistory } from './hooks/useModalHistory';
 import { triggerHaptic } from './utils/haptics';
+import { useAppSettings } from './contexts/AppSettingsContext';
 
 // Helper function to decode from URL-safe Base64 and decompress the data
 const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
@@ -63,6 +65,7 @@ const ActiveFilterPill: React.FC<{onDismiss: () => void, children: React.ReactNo
 const App: React.FC = () => {
   const { t } = useTranslation();
   const { session, user } = useAuth();
+  const { isBarcodeScannerEnabled } = useAppSettings();
 
   // --- Hook Integration ---
   
@@ -132,10 +135,11 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isShoppingListOpen, setIsShoppingListOpen] = useState(false);
   const [sharedItemToShow, setSharedItemToShow] = useState<Omit<FoodItem, 'id' | 'user_id' | 'created_at'> | null>(null);
-  const [isItemTypeModalVisible, setIsItemTypeModalVisible] = useState(false);
-  const [newItemType, setNewItemType] = useState<FoodItemType>('product');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSmartAddLoading, setIsSmartAddLoading] = useState(false);
+  
+  // New State for Quick Actions
+  const [formStartMode, setFormStartMode] = useState<'barcode' | 'camera' | 'none'>('none');
   
   // Offline State
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -146,7 +150,6 @@ const App: React.FC = () => {
   useModalHistory(isSettingsOpen, () => setIsSettingsOpen(false));
   useModalHistory(!!detailItem, () => setDetailItem(null));
   useModalHistory(isFilterPanelVisible, () => setIsFilterPanelVisible(false));
-  useModalHistory(isItemTypeModalVisible, () => setIsItemTypeModalVisible(false));
   useModalHistory(!!sharedItemToShow, () => setSharedItemToShow(null));
 
 
@@ -248,6 +251,7 @@ const App: React.FC = () => {
   const handleCancelForm = useCallback(() => {
       setIsFormVisible(false);
       setEditingItem(null);
+      setFormStartMode('none');
   }, []);
 
   // URL Share Data Handling
@@ -430,20 +434,29 @@ const App: React.FC = () => {
     if (itemToEdit) {
       setDetailItem(null);
       setEditingItem(itemToEdit);
+      setFormStartMode('none');
       setIsFormVisible(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [foodItems, familyFoodItems]);
   
-  const handleAddNewClick = useCallback(() => {
-    setEditingItem(null);
-    setIsItemTypeModalVisible(true);
+  // NEW: Quick Action Handlers
+  const handleQuickBarcode = useCallback(() => {
+      setEditingItem(null);
+      setFormStartMode('barcode');
+      setIsFormVisible(true);
   }, []);
 
-  const handleSelectType = useCallback((type: FoodItemType) => {
-    setNewItemType(type);
-    setIsItemTypeModalVisible(false);
-    setIsFormVisible(true);
+  const handleQuickCamera = useCallback(() => {
+      setEditingItem(null);
+      setFormStartMode('camera');
+      setIsFormVisible(true);
+  }, []);
+
+  const handleManualAdd = useCallback(() => {
+      setEditingItem(null);
+      setFormStartMode('none');
+      setIsFormVisible(true);
   }, []);
   
   const handleCancelDuplicateAdd = useCallback(() => {
@@ -527,8 +540,9 @@ const App: React.FC = () => {
                 onSaveItem={handleSaveFormItem} 
                 onCancel={handleCancelForm}
                 initialData={editingItem}
-                itemType={editingItem?.itemType || newItemType}
+                initialItemType={editingItem?.itemType || 'product'}
                 householdId={userProfile?.household_id || null}
+                startMode={formStartMode}
             />
         );
     }
@@ -558,7 +572,7 @@ const App: React.FC = () => {
             <Dashboard 
                 items={filteredAndSortedItems}
                 isLoading={isFoodLoading}
-                onAddNew={handleAddNewClick}
+                onAddNew={handleManualAdd}
                 onEdit={handleStartEdit}
                 onDelete={handleDeleteFormItem}
                 onViewDetails={handleViewDetails}
@@ -584,7 +598,7 @@ const App: React.FC = () => {
                 <Dashboard 
                     items={filteredAndSortedItems} // Reuse Dashboard/FoodItemList logic for family view
                     isLoading={isFoodLoading}
-                    onAddNew={handleAddNewClick}
+                    onAddNew={handleManualAdd}
                     onDelete={handleDeleteFormItem} 
                     onEdit={handleStartEdit} 
                     onViewDetails={handleViewDetails} 
@@ -664,13 +678,32 @@ const App: React.FC = () => {
 
       {!isFormVisible && (
         <>
-            <button
-                onClick={handleAddNewClick}
-                className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom, 0px))] right-6 bg-green-600 hover:bg-green-700 text-white font-bold p-4 rounded-full shadow-lg transition-transform transform hover:scale-110 z-30"
-                aria-label={t('form.addNewButton')}
-            >
-                <PlusCircleIcon className="w-8 h-8" />
-            </button>
+            {/* Speed Dial / Quick Actions */}
+            <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] right-6 flex flex-col items-end gap-3 z-30 pointer-events-none">
+                {isBarcodeScannerEnabled && (
+                    <button
+                        onClick={handleQuickBarcode}
+                        className="pointer-events-auto bg-sky-600 hover:bg-sky-700 text-white p-3 rounded-full shadow-lg transition-transform transform hover:scale-110 flex items-center justify-center"
+                        aria-label={t('form.button.scanBarcode')}
+                    >
+                        <BarcodeIcon className="w-6 h-6" />
+                    </button>
+                )}
+                <button
+                    onClick={handleQuickCamera}
+                    className="pointer-events-auto bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-full shadow-lg transition-transform transform hover:scale-110 flex items-center justify-center"
+                    aria-label={t('form.button.takePhoto')}
+                >
+                    <CameraIcon className="w-6 h-6" />
+                </button>
+                <button
+                    onClick={handleManualAdd}
+                    className="pointer-events-auto bg-green-600 hover:bg-green-700 text-white font-bold p-4 rounded-full shadow-lg transition-transform transform hover:scale-110 flex items-center justify-center"
+                    aria-label={t('form.addNewButton')}
+                >
+                    <PlusCircleIcon className="w-8 h-8" />
+                </button>
+            </div>
 
             <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-[0_-2px_5px_rgba(0,0,0,0.1)] dark:shadow-[0_-2px_5px_rgba(0,0,0,0.3)] z-30 pb-safe-bottom">
                 <div className="container mx-auto px-4 h-16 flex justify-around items-center">
@@ -755,28 +788,6 @@ const App: React.FC = () => {
         onEdit={() => handleStartEdit(detailItem.id)}
         onImageClick={setSelectedImage}
       />}
-
-      {isItemTypeModalVisible && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setIsItemTypeModalVisible(false)} role="dialog" aria-modal="true">
-            <div className="relative bg-white dark:bg-gray-800 p-6 rounded-lg shadow-2xl max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-6">{t('modal.itemType.title')}</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <button onClick={() => handleSelectType('product')} className="flex flex-col items-center gap-3 p-6 bg-gray-100 dark:bg-gray-700/50 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 hover:ring-2 hover:ring-indigo-500 transition-all">
-                        <ShoppingBagIcon className="w-12 h-12 text-indigo-500 dark:text-indigo-400" />
-                        <span className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('modal.itemType.product')}</span>
-                    </button>
-                     <button onClick={() => handleSelectType('dish')} className="flex flex-col items-center gap-3 p-6 bg-gray-100 dark:bg-gray-700/50 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 hover:ring-2 hover:ring-green-500 transition-all">
-                        <BuildingStorefrontIcon className="w-12 h-12 text-green-500 dark:text-green-400" />
-                        <span className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('modal.itemType.dish')}</span>
-                    </button>
-                    <button onClick={() => handleSelectType('drugstore')} className="flex flex-col items-center gap-3 p-6 bg-gray-100 dark:bg-gray-700/50 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 hover:ring-2 hover:ring-purple-500 transition-all">
-                        <BeakerIcon className="w-12 h-12 text-purple-500 dark:text-purple-400" />
-                        <span className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('modal.itemType.drugstore')}</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-      )}
 
       {sharedItemToShow && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setSharedItemToShow(null)} role="dialog" aria-modal="true">
