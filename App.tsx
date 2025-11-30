@@ -19,7 +19,7 @@ import { useHousehold } from './hooks/useHousehold';
 import { useShoppingList } from './hooks/useShoppingList';
 import * as geminiService from './services/geminiService';
 import { useTranslation } from './i18n/index';
-import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, UserGroupIcon, BeakerIcon, BarcodeIcon, CameraIcon } from './components/Icons';
+import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, UserGroupIcon, BeakerIcon, BarcodeIcon, CameraIcon, PencilIcon } from './components/Icons';
 import { useModalHistory } from './hooks/useModalHistory';
 import { triggerHaptic } from './utils/haptics';
 import { useAppSettings } from './contexts/AppSettingsContext';
@@ -572,7 +572,7 @@ const App: React.FC = () => {
             <Dashboard 
                 items={filteredAndSortedItems}
                 isLoading={isFoodLoading}
-                onAddNew={handleManualAdd}
+                onAddNew={handleQuickCamera} // Priority: Camera
                 onEdit={handleStartEdit}
                 onDelete={handleDeleteFormItem}
                 onViewDetails={handleViewDetails}
@@ -598,7 +598,7 @@ const App: React.FC = () => {
                 <Dashboard 
                     items={filteredAndSortedItems} // Reuse Dashboard/FoodItemList logic for family view
                     isLoading={isFoodLoading}
-                    onAddNew={handleManualAdd}
+                    onAddNew={handleQuickCamera} // Priority: Camera
                     onDelete={handleDeleteFormItem} 
                     onEdit={handleStartEdit} 
                     onViewDetails={handleViewDetails} 
@@ -683,25 +683,29 @@ const App: React.FC = () => {
                 {isBarcodeScannerEnabled && (
                     <button
                         onClick={handleQuickBarcode}
-                        className="pointer-events-auto bg-sky-600 hover:bg-sky-700 text-white p-3 rounded-full shadow-lg transition-transform transform hover:scale-110 flex items-center justify-center"
+                        className="pointer-events-auto bg-sky-500 hover:bg-sky-600 text-white p-3 rounded-full shadow-lg transition-transform transform hover:scale-110 flex items-center justify-center mb-1"
                         aria-label={t('form.button.scanBarcode')}
+                        title={t('form.button.scanBarcode')}
                     >
-                        <BarcodeIcon className="w-6 h-6" />
+                        <BarcodeIcon className="w-5 h-5" />
                     </button>
                 )}
-                <button
-                    onClick={handleQuickCamera}
-                    className="pointer-events-auto bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-full shadow-lg transition-transform transform hover:scale-110 flex items-center justify-center"
-                    aria-label={t('form.button.takePhoto')}
-                >
-                    <CameraIcon className="w-6 h-6" />
-                </button>
+                {/* Manual Add Button (Secondary) */}
                 <button
                     onClick={handleManualAdd}
-                    className="pointer-events-auto bg-green-600 hover:bg-green-700 text-white font-bold p-4 rounded-full shadow-lg transition-transform transform hover:scale-110 flex items-center justify-center"
+                    className="pointer-events-auto bg-green-600 hover:bg-green-700 text-white p-3 rounded-full shadow-lg transition-transform transform hover:scale-110 flex items-center justify-center mb-1"
                     aria-label={t('form.addNewButton')}
+                    title={t('form.addNewButton')}
                 >
-                    <PlusCircleIcon className="w-8 h-8" />
+                    <PencilIcon className="w-5 h-5" />
+                </button>
+                {/* Main Action: Camera */}
+                <button
+                    onClick={handleQuickCamera}
+                    className="pointer-events-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-xl transition-transform transform hover:scale-105 flex items-center justify-center"
+                    aria-label={t('form.button.takePhoto')}
+                >
+                    <CameraIcon className="w-8 h-8" />
                 </button>
             </div>
 

@@ -40,12 +40,12 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
     fileInputRef
   } = useFoodFormLogic({ initialData, initialItemType, onSaveItem, onCancel, startMode });
 
-  // Auto-focus name field if adding manually (no scanner started)
+  // Auto-focus name field ONLY if adding manually (no scanner started) and not analyzing
   useEffect(() => {
-      if (!isEditing && startMode === 'none' && nameInputRef.current) {
+      if (!isEditing && startMode === 'none' && !uiState.isLoading && nameInputRef.current) {
           setTimeout(() => nameInputRef.current?.focus(), 100);
       }
-  }, [isEditing, startMode]);
+  }, [isEditing, startMode, uiState.isLoading]);
 
   return (
     <>
@@ -66,14 +66,13 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
           25% { box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.4); }
           100% { box-shadow: 0 0 0 0 rgba(129, 140, 248, 0); }
         }
-        /* Custom Accordion Animations */
         details > summary { list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
         details[open] summary ~ * { animation: sweep .3s ease-in-out; }
         @keyframes sweep { 0% { opacity: 0; transform: translateY(-10px); } 100% { opacity: 1; transform: translateY(0); } }
       `}</style>
       <form onSubmit={actions.handleSubmit} className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow-lg mb-8 relative">
-         {/* Top Close Button for Mobile convenience */}
+         {/* Top Close Button */}
          <button type="button" onClick={onCancel} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
              <span className="sr-only">{t('form.button.cancel')}</span>
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
@@ -85,7 +84,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
             {isEditing ? t('form.editTitle') : t('form.addNewButton')}
         </h2>
 
-        {/* Item Type Segmented Control */}
+        {/* Item Type Segmented Control - Only visible if manual control is needed, usually AI handles this but good for fallback */}
         <div className="flex bg-gray-100 dark:bg-gray-700/50 p-1 rounded-lg mb-6">
             {(['product', 'dish', 'drugstore'] as FoodItemType[]).map((type) => (
                 <button
@@ -117,8 +116,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                 itemType={formState.itemType} 
             />
 
-            {/* 2. Main Info (Name, Rating, Notes, Tags) */}
-            {/* Removed duplicate input here, passing ref to MainInfoSection instead */}
+            {/* 2. Main Info - Contains the UNIQUE Name Input */}
             <MainInfoSection 
                 formState={formState}
                 formSetters={formSetters}
@@ -127,7 +125,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                 nameInputRef={nameInputRef}
             />
 
-            {/* 3. Type Specific Sections (Collapsible for cleaner UI) */}
+            {/* 3. Type Specific Sections */}
             {formState.itemType === 'dish' ? (
                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                     <DishDetailsSection 

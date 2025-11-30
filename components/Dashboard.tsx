@@ -1,8 +1,9 @@
+
 import React, { useState, useMemo } from 'react';
 import { FoodItem, GroceryCategory } from '../types';
 import { FoodItemList } from './FoodItemList';
 import { useTranslation } from '../i18n/index';
-import { PlusCircleIcon, SparklesIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon } from './Icons';
+import { PlusCircleIcon, SparklesIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, CameraIcon } from './Icons';
 
 interface DashboardProps {
   items: FoodItem[];
@@ -86,13 +87,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <h2 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 mb-4">{t('dashboard.empty.title')}</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-10 max-w-md mx-auto leading-relaxed text-lg">{t('dashboard.empty.description')}</p>
         
-        {/* Internal Add Button for Empty State */}
+        {/* Internal Add Button for Empty State - Prompts Camera now */}
         <button
             onClick={onAddNew}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-10 rounded-full shadow-xl transition-all transform hover:scale-105 hover:shadow-2xl flex items-center justify-center gap-3"
         >
-            <PlusCircleIcon className="w-6 h-6" />
-            <span className="text-lg">{t('form.addNewButton')}</span>
+            <CameraIcon className="w-6 h-6" />
+            <span className="text-lg">{t('form.button.takePhoto')}</span>
         </button>
       </div>
     );
@@ -118,14 +119,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
              )}
          </div>
          
-         {/* Right: Primary Action (Add New) */}
+         {/* Right: Primary Action (Quick Scan) - Small header button remains generic '+' for quick manual */}
          <div className="pr-1">
              <button
                 onClick={onAddNew}
                 className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-full shadow-md transition-all active:scale-95 hover:shadow-lg"
              >
-                <PlusCircleIcon className="w-5 h-5" />
-                <span className="text-sm">{t('form.addNewButton')}</span>
+                <CameraIcon className="w-5 h-5" />
+                <span className="text-sm">{t('form.button.takePhoto')}</span>
              </button>
          </div>
       </div>
