@@ -205,13 +205,15 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
     );
   }, [t]);
 
-  // Auto-find restaurants for new dishes
+  // Auto-find restaurants for new dishes manually selected
   useEffect(() => {
     const isEditing = !!initialData;
-    if (itemType === 'dish' && !isEditing && isAiAvailable) {
-      handleFindNearby();
+    if (itemType === 'dish' && !isEditing && isAiAvailable && startMode === 'none') {
+        // Only auto-trigger if manual entry, otherwise the camera handler triggers it after detection
+        // Actually, we can just leave it to manual trigger or only if explicitly switched.
+        // Let's rely on user clicking icon or camera result.
     }
-  }, [itemType, initialData, isAiAvailable, handleFindNearby]);
+  }, [itemType, initialData, isAiAvailable, startMode]);
 
 
   const handleScanMainImage = useCallback(() => {
@@ -349,7 +351,8 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
     setIsCameraOpen(false);
     setError(null);
   
-    if (itemType === 'dish' || !isAiAvailable) {
+    // Pre-check logic only if we are forced into manual mode, but normally we allow AI to run
+    if (!isAiAvailable) {
       setUncroppedImage(imageDataUrl);
       setSuggestedCrop(null);
       setIsCropperOpen(true);
@@ -413,7 +416,15 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
         setTags(mergedData.tags.join(', '));
         setNutriScore(mergedData.nutriScore);
         if (aiResult.category) setCategory(aiResult.category);
-        if (aiResult.itemType) setItemType(aiResult.itemType as FoodItemType);
+        
+        // Update Item Type based on AI
+        if (aiResult.itemType) {
+            setItemType(aiResult.itemType as FoodItemType);
+            // Auto-correct category for drugstore if needed
+            if (aiResult.itemType === 'drugstore' && aiResult.category !== 'household') {
+                setCategory('personal_care');
+            }
+        }
         
         const newHighlightedFields: string[] = [];
         if (mergedData.name) newHighlightedFields.push('name');
@@ -431,9 +442,12 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
         setIsCropperOpen(true);
         setIsLoading(false); // Stop main loading spinner
 
-        // 4. Background OpenFoodFacts Search (Optimistic)
-        if (mergedData.name && isOffSearchEnabled) {
-            // Show non-blocking status
+        // 4. SMART FOLLOW-UP ACTIONS based on Type
+        if (aiResult.itemType === 'dish') {
+            // For dishes, we skip OpenFoodFacts and try to find restaurants instead
+            handleFindNearby();
+        } else if (mergedData.name && isOffSearchEnabled) {
+            // For Products/Drugstore, try to find more info in OpenFoodFacts
             setAnalysisProgress({ active: true, message: t('form.aiProgress.searchingDatabase') });
             
             try {
@@ -522,7 +536,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
         setIngredientsLoading(false);
       }
     }
-  }, [itemType, isAiAvailable, scanMode, t, isOffSearchEnabled, language, textsNeedTranslation]);
+  }, [itemType, isAiAvailable, scanMode, t, isOffSearchEnabled, language, textsNeedTranslation, handleFindNearby]);
 
   const handleCropComplete = useCallback((croppedImageUrl: string) => {
     setImage(croppedImageUrl);

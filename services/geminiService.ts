@@ -97,7 +97,7 @@ export interface BoundingBox {
     height: number;
 }
 
-export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; tags: string[]; nutriScore?: NutriScore; boundingBox?: BoundingBox; itemType?: 'product' | 'drugstore'; category?: GroceryCategory }> => {
+export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; tags: string[]; nutriScore?: NutriScore; boundingBox?: BoundingBox; itemType?: 'product' | 'drugstore' | 'dish'; category?: GroceryCategory }> => {
   // Optimization: Resize image to max 800px width. High resolution is rarely needed for general object detection
   // and this significantly reduces the payload size.
   const resizedImage = await resizeImage(base64Image, 800);
@@ -120,7 +120,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
     };
 
     const textPart = {
-      text: "Analyze this image of a consumer product. It is likely a Food Product or a Drugstore/Cosmetic/Household Product. Identify the product's full name and determine if it is 'product' (food) or 'drugstore' (cosmetics/hygiene/cleaning). Categorize it into one of the following supermarket categories: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, pet_food, other. Provide up to 5 relevant tags. If it is a food product, find the Nutri-Score (A-E). Identify the primary product in the image and return its bounding box (normalized 0.0-1.0). Return a single JSON object.",
+      text: "Analyze this image. Classify the item into one of three types: 'product' (packaged food/drink items from a grocery store), 'drugstore' (cosmetics, hygiene, cleaning products), or 'dish' (prepared food, plated meal, restaurant food). Identify the full name (or dish name). Categorize it into one of the following supermarket categories if applicable (for dishes use 'other' or 'meat_fish' etc if clear): produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, pet_food, other. Provide up to 5 relevant tags. If it is a packaged food product, find the Nutri-Score (A-E). Identify the primary object and return its bounding box (normalized 0.0-1.0). Return a single JSON object.",
     };
 
     const response = await gemini.models.generateContent({
@@ -133,12 +133,12 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
           properties: {
             name: {
               type: Type.STRING,
-              description: "The full name of the product as seen on the label.",
+              description: "The full name of the product or the name of the dish.",
             },
             itemType: {
               type: Type.STRING,
-              enum: ['product', 'drugstore'],
-              description: "Classify as 'product' for food/drink or 'drugstore' for cosmetics/cleaning/hygiene.",
+              enum: ['product', 'drugstore', 'dish'],
+              description: "Classify as 'product' for packaged food, 'drugstore' for non-food items, or 'dish' for prepared meals.",
             },
             category: {
                 type: Type.STRING,
@@ -148,7 +148,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
             tags: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
-              description: "A list of relevant tags for the product.",
+              description: "A list of relevant tags.",
             },
             nutriScore: {
               type: Type.STRING,
@@ -156,7 +156,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
             },
             boundingBox: {
               type: Type.OBJECT,
-              description: "Normalized bounding box of the main product.",
+              description: "Normalized bounding box of the main object.",
               properties: {
                   x: { type: Type.NUMBER },
                   y: { type: Type.NUMBER },

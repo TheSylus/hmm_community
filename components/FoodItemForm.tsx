@@ -117,26 +117,15 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                 itemType={formState.itemType} 
             />
 
-            {/* 2. Main Info (Name, Rating, Notes, Tags) - Passed name ref for auto-focus */}
-            <div className="space-y-4">
-                <div className="relative">
-                    <input
-                    ref={nameInputRef}
-                    type="text"
-                    placeholder={formState.itemType === 'dish' ? t('form.placeholder.dishName') : t('form.placeholder.name')}
-                    value={formState.name}
-                    onChange={e => formSetters.setName(e.target.value)}
-                    required
-                    className={`w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3 transition-shadow ${uiState.highlightedFields.includes('name') ? 'highlight-ai' : ''} ${uiState.isNameSearchLoading ? 'pr-10' : ''}`}
-                    />
-                </div>
-                <MainInfoSection 
-                    formState={formState}
-                    formSetters={formSetters}
-                    uiState={uiState}
-                    itemType={formState.itemType}
-                />
-            </div>
+            {/* 2. Main Info (Name, Rating, Notes, Tags) */}
+            {/* Removed duplicate input here, passing ref to MainInfoSection instead */}
+            <MainInfoSection 
+                formState={formState}
+                formSetters={formSetters}
+                uiState={uiState}
+                itemType={formState.itemType}
+                nameInputRef={nameInputRef}
+            />
 
             {/* 3. Type Specific Sections (Collapsible for cleaner UI) */}
             {formState.itemType === 'dish' ? (

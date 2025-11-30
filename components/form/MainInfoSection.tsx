@@ -8,13 +8,15 @@ interface MainInfoSectionProps {
   formSetters: any;
   uiState: any;
   itemType: string;
+  nameInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export const MainInfoSection: React.FC<MainInfoSectionProps> = ({
   formState,
   formSetters,
   uiState,
-  itemType
+  itemType,
+  nameInputRef
 }) => {
   const { t } = useTranslation();
 
@@ -22,6 +24,7 @@ export const MainInfoSection: React.FC<MainInfoSectionProps> = ({
     <div className="space-y-4">
       <div className="relative">
         <input
+          ref={nameInputRef}
           type="text"
           placeholder={itemType === 'dish' ? t('form.placeholder.dishName') : t('form.placeholder.name')}
           value={formState.name}
