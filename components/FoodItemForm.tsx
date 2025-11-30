@@ -47,6 +47,21 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
       }
   }, [isEditing, startMode, uiState.isLoading]);
 
+  // Handler to switch from Camera to Manual input immediately
+  const handleSwitchToManual = () => {
+      uiSetters.setIsCameraOpen(false);
+      // Slight delay to ensure modal closes before focus
+      setTimeout(() => {
+          nameInputRef.current?.focus();
+      }, 300);
+  };
+
+  // Handler to switch from Camera to Barcode scanner immediately
+  const handleSwitchToBarcode = () => {
+      uiSetters.setIsCameraOpen(false);
+      uiSetters.setIsBarcodeScannerOpen(true);
+  };
+
   return (
     <>
       <style>{`
@@ -222,6 +237,8 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                 onCapture={actions.handleImageFromCamera} 
                 onClose={() => uiSetters.setIsCameraOpen(false)} 
                 mode={uiState.scanMode}
+                onSwitchToManual={handleSwitchToManual}
+                onSwitchToBarcode={handleSwitchToBarcode}
             />
         )}
         {uiState.isBarcodeScannerOpen && (

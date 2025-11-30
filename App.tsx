@@ -441,12 +441,6 @@ const App: React.FC = () => {
   }, [foodItems, familyFoodItems]);
   
   // NEW: Quick Action Handlers
-  const handleQuickBarcode = useCallback(() => {
-      setEditingItem(null);
-      setFormStartMode('barcode');
-      setIsFormVisible(true);
-  }, []);
-
   const handleQuickCamera = useCallback(() => {
       setEditingItem(null);
       setFormStartMode('camera');
@@ -625,6 +619,12 @@ const App: React.FC = () => {
                     {t('header.title')}
                 </h1>
                 <div className="flex items-center gap-2">
+                    {/* Add Manual Item (Backup) */}
+                    {!isFormVisible && (
+                        <button onClick={handleManualAdd} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label={t('form.addNewButton')}>
+                            <PlusCircleIcon className="w-7 h-7 text-gray-600 dark:text-gray-300" />
+                        </button>
+                    )}
                     <button onClick={() => setIsShoppingListOpen(true)} className="relative p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label={t('header.shoppingListAria')}>
                         <ShoppingBagIcon className="w-7 h-7 text-gray-600 dark:text-gray-300" />
                         {shoppingListItems.length > 0 && <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs font-bold ring-2 ring-white dark:ring-gray-800">{shoppingListItems.length}</span>}
@@ -678,31 +678,11 @@ const App: React.FC = () => {
 
       {!isFormVisible && (
         <>
-            {/* Speed Dial / Quick Actions */}
-            <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] right-6 flex flex-col items-end gap-3 z-30 pointer-events-none">
-                {isBarcodeScannerEnabled && (
-                    <button
-                        onClick={handleQuickBarcode}
-                        className="pointer-events-auto bg-sky-500 hover:bg-sky-600 text-white p-3 rounded-full shadow-lg transition-transform transform hover:scale-110 flex items-center justify-center mb-1"
-                        aria-label={t('form.button.scanBarcode')}
-                        title={t('form.button.scanBarcode')}
-                    >
-                        <BarcodeIcon className="w-5 h-5" />
-                    </button>
-                )}
-                {/* Manual Add Button (Secondary) */}
-                <button
-                    onClick={handleManualAdd}
-                    className="pointer-events-auto bg-green-600 hover:bg-green-700 text-white p-3 rounded-full shadow-lg transition-transform transform hover:scale-110 flex items-center justify-center mb-1"
-                    aria-label={t('form.addNewButton')}
-                    title={t('form.addNewButton')}
-                >
-                    <PencilIcon className="w-5 h-5" />
-                </button>
-                {/* Main Action: Camera */}
+            {/* Single Main Action: Camera */}
+            <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] right-6 z-30">
                 <button
                     onClick={handleQuickCamera}
-                    className="pointer-events-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-xl transition-transform transform hover:scale-105 flex items-center justify-center"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-xl transition-transform transform hover:scale-105 flex items-center justify-center active:scale-95"
                     aria-label={t('form.button.takePhoto')}
                 >
                     <CameraIcon className="w-8 h-8" />

@@ -1,15 +1,20 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon } from './Icons';
+import { XMarkIcon, PencilIcon, BarcodeIcon } from './Icons';
+import { useAppSettings } from '../contexts/AppSettingsContext';
 
 interface CameraCaptureProps {
   onCapture: (imageDataUrl: string) => void;
   onClose: () => void;
   mode?: 'main' | 'ingredients'; // 'main' = square crop (product), 'ingredients' = rectangle (text)
+  onSwitchToManual?: () => void;
+  onSwitchToBarcode?: () => void;
 }
 
-export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose, mode = 'main' }) => {
+export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose, mode = 'main', onSwitchToManual, onSwitchToBarcode }) => {
   const { t } = useTranslation();
+  const { isBarcodeScannerEnabled } = useAppSettings();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -193,15 +198,50 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
         </div>
       )}
       
-      <div className="absolute bottom-0 left-0 w-full p-8 z-20 flex justify-center bg-gradient-to-t from-black/80 to-transparent">
+      {/* Footer Controls: Main Capture + Fallback Buttons */}
+      <div className="absolute bottom-0 left-0 w-full p-8 z-20 flex justify-between items-center bg-gradient-to-t from-black/80 to-transparent">
+        
+        {/* Left: Manual Input Fallback */}
+        <div className="flex-1 flex justify-start">
+            {onSwitchToManual && (
+                <button
+                    onClick={onSwitchToManual}
+                    className="flex flex-col items-center gap-1 text-white/70 hover:text-white transition-colors p-2"
+                    aria-label={t('form.addNewButton')}
+                >
+                    <div className="p-2 bg-white/10 rounded-full backdrop-blur-md">
+                        <PencilIcon className="w-6 h-6" />
+                    </div>
+                    <span className="text-[10px] font-medium hidden sm:block">Manuell</span>
+                </button>
+            )}
+        </div>
+
+        {/* Center: Capture Trigger */}
         <button
           onClick={handleCapture}
           disabled={!isCameraReady || !!error}
-          className="w-20 h-20 bg-white rounded-full border-4 border-gray-300 shadow-lg flex items-center justify-center hover:bg-gray-100 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-20 h-20 bg-white rounded-full border-4 border-gray-300 shadow-lg flex items-center justify-center hover:bg-gray-100 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed mx-4"
           aria-label={t('camera.captureButton')}
         >
             <div className="w-16 h-16 bg-white rounded-full border-2 border-black"></div>
         </button>
+
+        {/* Right: Barcode Fallback */}
+        <div className="flex-1 flex justify-end">
+            {isBarcodeScannerEnabled && onSwitchToBarcode && (
+                <button
+                    onClick={onSwitchToBarcode}
+                    className="flex flex-col items-center gap-1 text-white/70 hover:text-white transition-colors p-2"
+                    aria-label={t('form.button.scanBarcode')}
+                >
+                    <div className="p-2 bg-white/10 rounded-full backdrop-blur-md">
+                        <BarcodeIcon className="w-6 h-6" />
+                    </div>
+                    <span className="text-[10px] font-medium hidden sm:block">Barcode</span>
+                </button>
+            )}
+        </div>
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { FoodItem, GroceryCategory } from '../types';
 import { FoodItemList } from './FoodItemList';
 import { useTranslation } from '../i18n/index';
-import { PlusCircleIcon, SparklesIcon, ArrowsPointingInIcon, ArrowsPointingOutIcon, CameraIcon } from './Icons';
+import { ArrowsPointingInIcon, ArrowsPointingOutIcon, CameraIcon, SparklesIcon } from './Icons';
 
 interface DashboardProps {
   items: FoodItem[];
@@ -87,7 +87,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <h2 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 mb-4">{t('dashboard.empty.title')}</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-10 max-w-md mx-auto leading-relaxed text-lg">{t('dashboard.empty.description')}</p>
         
-        {/* Internal Add Button for Empty State - Prompts Camera now */}
+        {/* We use the same onAddNew here which now triggers camera by default */}
         <button
             onClick={onAddNew}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-10 rounded-full shadow-xl transition-all transform hover:scale-105 hover:shadow-2xl flex items-center justify-center gap-3"
@@ -119,7 +119,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
              )}
          </div>
          
-         {/* Right: Primary Action (Quick Scan) - Small header button remains generic '+' for quick manual */}
+         {/* Right: Quick Action (Camera) used to be here, but now it's global FAB. 
+             We can keep a secondary smaller one or remove it to keep it clean. 
+             Let's keep a small camera icon for consistency if user is scrolling up/down. */}
          <div className="pr-1">
              <button
                 onClick={onAddNew}
