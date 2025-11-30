@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { FoodItem, GroceryCategory } from '../types';
 import { FoodItemCard } from './FoodItemCard';
@@ -93,7 +92,7 @@ const CategorySection: React.FC<{
             {/* 72px (App Header) + ~56px (Dashboard Toolbar) + Safe Area Top */}
             <button 
                 onClick={() => onToggle(category)}
-                className={`w-full flex items-center justify-between p-2 sm:p-3 rounded-lg mb-2 transition-all duration-200 border sticky top-[calc(130px+env(safe-area-inset-top))] sm:top-[calc(130px+env(safe-area-inset-top))] z-0 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}
+                className={`w-full flex items-center justify-between p-2 sm:p-3 rounded-lg mb-2 transition-all duration-200 border sticky top-[calc(130px+env(safe-area-inset-top,0px))] sm:top-[calc(130px+env(safe-area-inset-top,0px))] z-0 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}
             >
                 <div className="flex items-center gap-3">
                     <div className="p-1 bg-white dark:bg-black/20 rounded-full">

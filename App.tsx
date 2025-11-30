@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList, UserProfile, Household } from './types';
 import { FoodItemForm } from './components/FoodItemForm';
@@ -88,7 +87,7 @@ const App: React.FC = () => {
     isLoading: isFoodLoading, 
     error: foodError, 
     saveItem, 
-    deleteItem,
+    deleteItem, 
     refreshData: refreshFoodData
   } = useFoodData(user, userProfile?.household_id);
 
@@ -667,7 +666,7 @@ const App: React.FC = () => {
         <>
             <button
                 onClick={handleAddNewClick}
-                className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-6 bg-green-600 hover:bg-green-700 text-white font-bold p-4 rounded-full shadow-lg transition-transform transform hover:scale-110 z-30"
+                className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom, 0px))] right-6 bg-green-600 hover:bg-green-700 text-white font-bold p-4 rounded-full shadow-lg transition-transform transform hover:scale-110 z-30"
                 aria-label={t('form.addNewButton')}
             >
                 <PlusCircleIcon className="w-8 h-8" />

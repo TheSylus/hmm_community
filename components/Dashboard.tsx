@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { FoodItem, GroceryCategory } from '../types';
 import { FoodItemList } from './FoodItemList';
@@ -103,7 +102,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="space-y-4 pb-24">
       {/* Clean Toolbar Header */}
       {/* Sticky Top: Header Height (approx 72px) + Safe Area Top */}
-      <div className="flex justify-between items-center px-1 py-2 sticky top-[calc(72px+env(safe-area-inset-top))] z-10 bg-gray-100/95 dark:bg-gray-900/95 backdrop-blur-sm -mx-2 sm:mx-0 sm:rounded-lg border-b border-gray-200/50 dark:border-gray-800/50">
+      <div className="flex justify-between items-center px-1 py-2 sticky top-[calc(72px+env(safe-area-inset-top,0px))] z-10 bg-gray-100/95 dark:bg-gray-900/95 backdrop-blur-sm -mx-2 sm:mx-0 sm:rounded-lg border-b border-gray-200/50 dark:border-gray-800/50">
          
          {/* Left: View Control (Collapse/Expand) */}
          <div className="pl-1">
