@@ -64,7 +64,7 @@ const extractCleanIngredients = (product: any, lang: string = 'en'): string[] =>
 /**
  * Cleans cryptic tags and removes generic taxonomy terms.
  */
-const cleanTags = (tags: string[], productName: string = ''): string[] => {
+const cleanTags = (tags: string[], productName: string = '', itemType: FoodItemType = 'product'): string[] => {
     if (!Array.isArray(tags)) return [];
     
     const pName = productName.toLowerCase();
@@ -81,6 +81,17 @@ const cleanTags = (tags: string[], productName: string = ''): string[] => {
         'fruits and vegetables', 'cereals and potatoes',
         'fresh foods', 'fermented foods', 'desserts',
         'cosmetics', 'hygiene', 'body', 'face', 'hair', 'skin care' // Beauty generic tags
+    ];
+
+    // Tags that appear on drugstore items but are actually food categories (false positives from DB taxonomy)
+    const foodTagsToFilterForDrugstore = [
+        'beverages and beverages preparations',
+        'waters',
+        'spring waters', 
+        'mineral waters', 
+        'natural mineral waters',
+        'beverages',
+        'non-alcoholic beverages'
     ];
 
     // Conditional tags: only show if the product name supports it
@@ -104,6 +115,11 @@ const cleanTags = (tags: string[], productName: string = ''): string[] => {
             if (tag.length < 3) return false;
             if (ignoredTags.includes(tag)) return false;
             
+            // If it is a drugstore item, strictly remove food tags
+            if (itemType === 'drugstore') {
+                if (foodTagsToFilterForDrugstore.includes(tag)) return false;
+            }
+
             // Filter conditional tags
             const condition = conditionalTags.find(c => c.tag === tag);
             if (condition) {
@@ -223,8 +239,8 @@ export const fetchProductFromOpenDatabase = async (barcode: string): Promise<Par
     
     foodItem.ingredients = extractCleanIngredients(product, lang);
 
-    if (product.allergens_tags) foodItem.allergens = cleanTags(product.allergens_tags, product.product_name);
-    if (product.categories_tags) foodItem.tags = cleanTags(product.categories_tags, product.product_name);
+    if (product.allergens_tags) foodItem.allergens = cleanTags(product.allergens_tags, product.product_name, type);
+    if (product.categories_tags) foodItem.tags = cleanTags(product.categories_tags, product.product_name, type);
     if (product.stores) foodItem.purchaseLocation = product.stores.split(',').map((s: string) => s.trim()).filter(Boolean);
 
     if (product.labels_tags) {
@@ -292,8 +308,8 @@ export const searchProductByNameFromOpenDatabase = async (productName: string, i
         
         foodItem.ingredients = extractCleanIngredients(product, language);
 
-        if (product.allergens_tags) foodItem.allergens = cleanTags(product.allergens_tags, product.product_name);
-        if (product.categories_tags) foodItem.tags = cleanTags(product.categories_tags, product.product_name);
+        if (product.allergens_tags) foodItem.allergens = cleanTags(product.allergens_tags, product.product_name, itemType);
+        if (product.categories_tags) foodItem.tags = cleanTags(product.categories_tags, product.product_name, itemType);
         
         if (product.stores) {
              foodItem.purchaseLocation = product.stores.split(',').map((s: string) => s.trim()).filter(Boolean);

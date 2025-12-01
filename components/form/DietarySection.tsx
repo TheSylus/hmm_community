@@ -23,7 +23,9 @@ export const DietarySection: React.FC<DietarySectionProps> = ({
   return (
     <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700/50">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">{t('form.ingredients.title')}</h3>
+        <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+            {itemType === 'drugstore' ? t('form.ingredients.inciList') : t('form.ingredients.title')}
+        </h3>
         {uiState.isAiAvailable && formState.image && (
           <button
             type="button"
@@ -66,7 +68,9 @@ export const DietarySection: React.FC<DietarySectionProps> = ({
 
           {/* Ingredients Text Input */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">{t('form.ingredients.ingredientsList')}</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+                {t(itemType === 'drugstore' ? 'form.ingredients.inciList' : 'form.ingredients.ingredientsList')}
+            </label>
             <textarea
               value={formState.ingredients?.join(', ')}
               onChange={(e) => formSetters.setIngredients(e.target.value.split(',').map((i: string) => i.trim()).filter(Boolean))}
