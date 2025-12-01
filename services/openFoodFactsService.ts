@@ -1,12 +1,9 @@
 
-import { FoodItem, FoodItemType } from '../types';
+import { FoodItem } from '../types';
 
-// API Configuration
-const FOOD_SEARCH_API_URL = 'https://world.openfoodfacts.org/cgi/search.pl';
-const FOOD_PRODUCT_API_URL = 'https://world.openfoodfacts.org/api/v2';
-
-const BEAUTY_SEARCH_API_URL = 'https://world.openbeautyfacts.org/cgi/search.pl';
-const BEAUTY_PRODUCT_API_URL = 'https://world.openbeautyfacts.org/api/v2';
+// Using the CGI search endpoint as it mirrors the website's fuzzy search logic better than API v2
+const SEARCH_API_URL = 'https://world.openfoodfacts.org/cgi/search.pl';
+const PRODUCT_API_URL = 'https://world.openfoodfacts.org/api/v2';
 
 // Helper to fetch an image and convert it to Base64
 const imageUrlToBase64 = async (url: string): Promise<string> => {
@@ -64,12 +61,12 @@ const extractCleanIngredients = (product: any, lang: string = 'en'): string[] =>
 /**
  * Cleans cryptic tags and removes generic taxonomy terms.
  */
-const cleanTags = (tags: string[], productName: string = '', itemType: FoodItemType = 'product'): string[] => {
+const cleanTags = (tags: string[], productName: string = ''): string[] => {
     if (!Array.isArray(tags)) return [];
     
     const pName = productName.toLowerCase();
     
-    // Extensive blacklist of generic/structural categories (Food & Beauty mixed)
+    // Extensive blacklist of generic/structural categories
     const ignoredTags = [
         'beverages', 'food', 'drinks', 'groceries', 'products', 
         'non-alcoholic beverages', 'unsweetened beverages', 
@@ -79,19 +76,7 @@ const cleanTags = (tags: string[], productName: string = '', itemType: FoodItemT
         'artificially sweetened beverages', 'carbonated drinks',
         'dairies', 'meats', 'seafood', 'fishes', 
         'fruits and vegetables', 'cereals and potatoes',
-        'fresh foods', 'fermented foods', 'desserts',
-        'cosmetics', 'hygiene', 'body', 'face', 'hair', 'skin care' // Beauty generic tags
-    ];
-
-    // Tags that appear on drugstore items but are actually food categories (false positives from DB taxonomy)
-    const foodTagsToFilterForDrugstore = [
-        'beverages and beverages preparations',
-        'waters',
-        'spring waters', 
-        'mineral waters', 
-        'natural mineral waters',
-        'beverages',
-        'non-alcoholic beverages'
+        'fresh foods', 'fermented foods', 'desserts'
     ];
 
     // Conditional tags: only show if the product name supports it
@@ -100,9 +85,7 @@ const cleanTags = (tags: string[], productName: string = '', itemType: FoodItemT
         { tag: 'spring waters', keyword: ['water', 'wasser'] },
         { tag: 'mineral waters', keyword: ['water', 'wasser'] },
         { tag: 'natural mineral waters', keyword: ['water', 'wasser'] },
-        { tag: 'milks', keyword: ['milk', 'milch'] },
-        { tag: 'shampoos', keyword: ['shampoo'] },
-        { tag: 'soaps', keyword: ['soap', 'seife'] }
+        { tag: 'milks', keyword: ['milk', 'milch'] }
     ];
 
     return tags
@@ -115,11 +98,6 @@ const cleanTags = (tags: string[], productName: string = '', itemType: FoodItemT
             if (tag.length < 3) return false;
             if (ignoredTags.includes(tag)) return false;
             
-            // If it is a drugstore item, strictly remove food tags
-            if (itemType === 'drugstore') {
-                if (foodTagsToFilterForDrugstore.includes(tag)) return false;
-            }
-
             // Filter conditional tags
             const condition = conditionalTags.find(c => c.tag === tag);
             if (condition) {
@@ -134,10 +112,12 @@ const cleanTags = (tags: string[], productName: string = '', itemType: FoodItemT
 
 /**
  * Calculates a relevance score using word overlap (Jaccard-like) and length penalties.
+ * Essential for distinguishing "Coca Cola" from "Coca Cola Flavoured Candy".
  */
 const calculateRelevanceScore = (product: any, searchTerms: string[], lang: string) => {
     let score = 0;
     const pName = (product.product_name || '').toLowerCase();
+    const pNameWords = pName.split(/\s+/);
     
     // 1. Word Overlap Score
     let matchedTerms = 0;
@@ -154,6 +134,8 @@ const calculateRelevanceScore = (product: any, searchTerms: string[], lang: stri
     }
 
     // 3. Length Penalty (The anti-noise filter)
+    // If the product name is significantly longer than the search query, it's likely a derivative product.
+    // e.g. Search "Cola" (1 word) vs "Cola Flavored Chewy Candy Sticks" (5 words).
     const normalizedSearch = searchTerms.join(' ');
     const lengthRatio = pName.length / (normalizedSearch.length || 1);
     
@@ -186,92 +168,83 @@ const extractCalories = (product: any): number | undefined => {
     return undefined;
 };
 
-// Internal generic fetcher
 const fetchFromApi = async (baseUrl: string, barcode: string): Promise<any> => {
-    const fields = 'product_name,image_front_url,nutriscore_grade,ingredients_text,ingredients_text_de,ingredients_text_en,allergens_tags,categories_tags,labels_tags,stores,nutriments,quantity';
+    const fields = 'product_name,image_front_url,nutriscore_grade,ingredients_text,ingredients_text_de,ingredients_text_en,allergens_tags,categories_tags,labels_tags,stores,nutriments';
     const url = `${baseUrl}/product/${barcode}.json?fields=${fields}`;
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`API Error`);
+    if (!response.ok) throw new Error(`Product not found.`);
     const data = await response.json();
-    if (data.status === 0 || !data.product) throw new Error('Product not found.');
+    if (data.status === 0 || !data.product) throw new Error(data.status_verbose || 'Product not found.');
     return data.product;
 };
 
-/**
- * Smart fetcher that tries Food API first, then falls back to Beauty API.
- */
-export const fetchProductFromOpenDatabase = async (barcode: string): Promise<Partial<FoodItem>> => {
+export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Partial<FoodItem>> => {
     const lang = navigator.language.split('-')[0] || 'en';
-    let product;
-    let type: FoodItemType = 'product';
 
     try {
-        // 1. Try Food API
-        product = await fetchFromApi(FOOD_PRODUCT_API_URL, barcode);
-    } catch (e) {
+        let product;
+        let isFood = true;
         try {
-            // 2. Fallback to Beauty API
-            product = await fetchFromApi(BEAUTY_PRODUCT_API_URL, barcode);
-            type = 'drugstore';
-        } catch (finalError) {
-            throw new Error("Product not found in Food or Beauty databases.");
+            product = await fetchFromApi(PRODUCT_API_URL, barcode);
+        } catch (e) {
+            // Fallback to Beauty API is rarely needed but kept for safety
+            throw e; 
         }
-    }
 
-    // Mapping logic
-    const foodItem: Partial<FoodItem> = { itemType: type };
+        const foodItem: Partial<FoodItem> = { itemType: 'product' };
 
-    if (product.product_name) foodItem.name = product.product_name;
-    if (product.image_front_url) {
-        const base64 = await imageUrlToBase64(product.image_front_url);
-        if (base64) foodItem.image = base64;
-    }
+        if (product.product_name) foodItem.name = product.product_name;
+        if (product.image_front_url) {
+            const base64 = await imageUrlToBase64(product.image_front_url);
+            if (base64) foodItem.image = base64;
+        }
 
-    if (type === 'product' && product.nutriscore_grade) {
-        const score = product.nutriscore_grade.toUpperCase();
-        if (['A', 'B', 'C', 'D', 'E'].includes(score)) foodItem.nutriScore = score;
-    }
-    
-    if (type === 'product') {
+        if (product.nutriscore_grade) {
+            const score = product.nutriscore_grade.toUpperCase();
+            if (['A', 'B', 'C', 'D', 'E'].includes(score)) foodItem.nutriScore = score;
+        }
+        
         const kcal = extractCalories(product);
         if (kcal !== undefined) foodItem.calories = kcal;
+        
+        foodItem.ingredients = extractCleanIngredients(product, lang);
+
+        if (product.allergens_tags) foodItem.allergens = cleanTags(product.allergens_tags, product.product_name);
+        if (product.categories_tags) foodItem.tags = cleanTags(product.categories_tags, product.product_name);
+        if (product.stores) foodItem.purchaseLocation = product.stores.split(',').map((s: string) => s.trim()).filter(Boolean);
+
+        if (product.labels_tags) {
+            const labels = Array.isArray(product.labels_tags) ? product.labels_tags.join(' ').toLowerCase() : '';
+            foodItem.isVegan = labels.includes('vegan');
+            foodItem.isGlutenFree = labels.includes('gluten-free') || labels.includes('glutenfree');
+            foodItem.isLactoseFree = labels.includes('lactose-free') || labels.includes('lactosefree');
+        }
+
+        return foodItem;
+
+    } catch (error) {
+        console.error("Error fetching from Open Facts API:", error);
+        throw error;
     }
-    
-    foodItem.ingredients = extractCleanIngredients(product, lang);
-
-    if (product.allergens_tags) foodItem.allergens = cleanTags(product.allergens_tags, product.product_name, type);
-    if (product.categories_tags) foodItem.tags = cleanTags(product.categories_tags, product.product_name, type);
-    if (product.stores) foodItem.purchaseLocation = product.stores.split(',').map((s: string) => s.trim()).filter(Boolean);
-
-    if (product.labels_tags) {
-        const labels = Array.isArray(product.labels_tags) ? product.labels_tags.join(' ').toLowerCase() : '';
-        foodItem.isVegan = labels.includes('vegan');
-        foodItem.isGlutenFree = labels.includes('gluten-free') || labels.includes('glutenfree');
-        foodItem.isLactoseFree = labels.includes('lactose-free') || labels.includes('lactosefree');
-    }
-
-    return foodItem;
 };
 
-// Kept for backward compatibility if needed, aliased to new smart fetcher
-export const fetchProductFromOpenFoodFacts = fetchProductFromOpenDatabase;
-
-export const searchProductByNameFromOpenDatabase = async (productName: string, itemType: FoodItemType = 'product', language: string = 'en'): Promise<Partial<FoodItem>> => {
+export const searchProductByNameFromOpenFoodFacts = async (productName: string, language: string = 'en'): Promise<Partial<FoodItem>> => {
     const country = language === 'de' ? 'de' : 'us'; 
     
-    // Choose API based on item type
-    const BASE_URL = itemType === 'drugstore' ? BEAUTY_SEARCH_API_URL : FOOD_SEARCH_API_URL;
-
+    // Explicit fields to minimize payload but maximize utility
     const fields = 'product_name,nutriscore_grade,ingredients_text,ingredients_text_en,ingredients_text_de,allergens_tags,categories_tags,labels_tags,stores,image_front_url,unique_scans_n,nutriments';
-    const searchUrl = `${BASE_URL}?search_terms=${encodeURIComponent(productName)}&search_simple=1&action=process&json=1&page_size=20&fields=${fields}&cc=${country}&lc=${language}`;
+    
+    // USE SEARCH.PL (CGI) - This matches the website's search behavior better than APIv2
+    const searchUrl = `${SEARCH_API_URL}?search_terms=${encodeURIComponent(productName)}&search_simple=1&action=process&json=1&page_size=20&fields=${fields}&cc=${country}&lc=${language}`;
     
     try {
         const response = await fetch(searchUrl);
-        if (!response.ok) throw new Error('Failed to search Database.');
+        if (!response.ok) throw new Error('Failed to search Open Food Facts.');
         
         const data = await response.json();
         let products = data.products || [];
         
+        // Filter terms: ignore small words
         const searchTerms = productName.toLowerCase().split(' ').filter(w => w.length > 2);
         
         if (products.length > 0 && searchTerms.length > 0) {
@@ -280,8 +253,10 @@ export const searchProductByNameFromOpenDatabase = async (productName: string, i
                 return { ...p, _relevanceScore: score, _matchedRatio: matchedRatio };
             });
 
-            // STRICT FILTER
+            // STRICT FILTER: Match ratio must be high enough to be relevant
             const filteredProducts = scoredProducts.filter((p: any) => p._matchedRatio >= 0.5);
+
+            // Sort by our custom score (descending)
             filteredProducts.sort((a: any, b: any) => b._relevanceScore - a._relevanceScore);
 
             if (filteredProducts.length > 0) {
@@ -293,23 +268,23 @@ export const searchProductByNameFromOpenDatabase = async (productName: string, i
              throw new Error(`Product "${productName}" not found.`);
         }
 
+        // Take the best match
         const product = products[0]; 
-        const foodItem: Partial<FoodItem> = { itemType: itemType };
 
-        if (itemType === 'product' && product.nutriscore_grade) {
+        const foodItem: Partial<FoodItem> = { itemType: 'product' };
+
+        if (product.nutriscore_grade) {
             const score = product.nutriscore_grade.toUpperCase();
             if (['A', 'B', 'C', 'D', 'E'].includes(score)) foodItem.nutriScore = score;
         }
         
-        if (itemType === 'product') {
-            const kcal = extractCalories(product);
-            if (kcal !== undefined) foodItem.calories = kcal;
-        }
+        const kcal = extractCalories(product);
+        if (kcal !== undefined) foodItem.calories = kcal;
         
         foodItem.ingredients = extractCleanIngredients(product, language);
 
-        if (product.allergens_tags) foodItem.allergens = cleanTags(product.allergens_tags, product.product_name, itemType);
-        if (product.categories_tags) foodItem.tags = cleanTags(product.categories_tags, product.product_name, itemType);
+        if (product.allergens_tags) foodItem.allergens = cleanTags(product.allergens_tags, product.product_name);
+        if (product.categories_tags) foodItem.tags = cleanTags(product.categories_tags, product.product_name);
         
         if (product.stores) {
              foodItem.purchaseLocation = product.stores.split(',').map((s: string) => s.trim()).filter(Boolean);
@@ -321,6 +296,7 @@ export const searchProductByNameFromOpenDatabase = async (productName: string, i
             foodItem.isGlutenFree = labels.includes('gluten-free') || labels.includes('glutenfree');
             foodItem.isLactoseFree = labels.includes('lactose-free') || labels.includes('lactosefree');
         } else {
+            // Default to false if no labels found to avoid undefined
             foodItem.isLactoseFree = false;
             foodItem.isVegan = false;
             foodItem.isGlutenFree = false;
@@ -329,10 +305,7 @@ export const searchProductByNameFromOpenDatabase = async (productName: string, i
         return foodItem;
 
     } catch (error) {
-        console.error("Error searching Open Database by name:", error);
+        console.error("Error searching Open Facts by name:", error);
         throw error;
     }
 };
-
-// Compatibility export
-export const searchProductByNameFromOpenFoodFacts = (name: string, lang: string) => searchProductByNameFromOpenDatabase(name, 'product', lang);

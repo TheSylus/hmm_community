@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { FoodItem, FoodItemType, NutriScore, GroceryCategory } from '../types';
 import { analyzeFoodImage, analyzeIngredientsImage, hasValidApiKey, findNearbyRestaurants, BoundingBox } from '../services/geminiService';
-import { fetchProductFromOpenDatabase, searchProductByNameFromOpenDatabase } from '../services/openFoodFactsService';
+import { fetchProductFromOpenFoodFacts, searchProductByNameFromOpenFoodFacts } from '../services/openFoodFactsService';
 import { translateTexts } from '../services/translationService';
 import { useTranslation } from '../i18n/index';
 import { useAppSettings } from '../contexts/AppSettingsContext';
@@ -214,15 +214,13 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
     setIsCameraOpen(true);
   }, []);
 
-  // Process Name with the CORRECT database type
   const processSpokenProductName = useCallback(async (productName: string) => {
     if (!productName || !isOffSearchEnabled) return;
     
     setIsNameSearchLoading(true);
     setError(null);
     try {
-      // Use the current itemType to decide which DB to search (product=Food, drugstore=Beauty)
-      const offResult = await searchProductByNameFromOpenDatabase(productName, itemType, language);
+      const offResult = await searchProductByNameFromOpenFoodFacts(productName, language);
       
       let mergedData = {
           tags: offResult.tags || [],
@@ -259,13 +257,13 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
     } finally {
       setIsNameSearchLoading(false);
     }
-  }, [isOffSearchEnabled, language, itemType]);
+  }, [isOffSearchEnabled, language]);
 
   const handleDictationResult = useCallback((transcript: string) => {
     setIsSpeechModalOpen(false);
     if (transcript) {
       setName(transcript);
-      if (itemType === 'product' || itemType === 'drugstore') {
+      if (itemType === 'product') {
         processSpokenProductName(transcript);
       }
     }
@@ -282,8 +280,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
 
     setIsLoading(true);
     try {
-      // Use smart fetcher (Food -> fallback Beauty)
-      const productData = await fetchProductFromOpenDatabase(barcode);
+      const productData = await fetchProductFromOpenFoodFacts(barcode);
       
       let finalName = productData.name || '';
       let finalTags = productData.tags || [];
@@ -320,7 +317,6 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
         isGlutenFree: productData.isGlutenFree || false,
       });
       
-      // Auto-switch item type based on API Result
       if (productData.itemType === 'drugstore') {
           setItemType('drugstore');
           setCategory('personal_care');
@@ -414,22 +410,15 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
         setAllergens([]);
         setDietary({ isLactoseFree: false, isVegan: false, isGlutenFree: false });
         
-        // Handle Item Type & Category from AI
-        let currentItemType: FoodItemType = 'product';
-        
-        if (aiResult.itemType) {
+        if (aiResult.itemType === 'dish' || aiResult.itemType === 'drugstore' || aiResult.itemType === 'product') {
              if (aiResult.itemType === 'dish') {
-                 setItemType('dish');
                  setCategory('restaurant_food');
-                 currentItemType = 'dish';
+             } else if (aiResult.category) {
+                 setCategory(aiResult.category);
              } else if (aiResult.itemType === 'drugstore') {
-                 setItemType('drugstore');
                  setCategory('personal_care');
-                 currentItemType = 'drugstore';
              } else {
-                 setItemType('product');
-                 setCategory(aiResult.category || 'other');
-                 currentItemType = 'product';
+                 setCategory('other');
              }
         }
         
@@ -447,14 +436,13 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
         setIsCropperOpen(true);
         setIsLoading(false);
 
-        if (currentItemType === 'dish') {
+        if (aiResult.itemType === 'dish') {
             handleFindNearby();
         } else if (mergedData.name && isOffSearchEnabled) {
             setAnalysisProgress({ active: true, message: t('form.aiProgress.searchingDatabase') });
             
             try {
-                // Pass currentItemType so we search the correct database (Food vs Beauty)
-                const offResult = await searchProductByNameFromOpenDatabase(mergedData.name, currentItemType, language);
+                const offResult = await searchProductByNameFromOpenFoodFacts(mergedData.name, language);
                 
                 // Merge tags (keep visual tags, add DB tags)
                 setTags(prev => {
@@ -464,9 +452,11 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
                     return combined.join(', ');
                 });
                 
-                // Strictly overwrite metadata with database results.
+                // CRITICAL FIX: Strictly overwrite metadata with database results.
+                // If the database returns undefined, we want to respect that (or use our cleared state), 
+                // NOT fall back to 'prev' state which might be from a different product.
                 setNutriScore((offResult.nutriScore as NutriScore) || '');
-                // Correctly handle 0 kcal. 
+                // Correctly handle 0 kcal. It is a number, so check specifically against undefined/null.
                 setCalories((offResult.calories !== undefined && offResult.calories !== null) ? offResult.calories : '');
                 setIngredients(offResult.ingredients || []);
                 setAllergens(offResult.allergens || []);
@@ -487,7 +477,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
                 setAutoExpandDetails(true);
 
             } catch (offError) {
-                console.warn("Could not fetch supplementary data from Open Database:", offError);
+                console.warn("Could not fetch supplementary data from Open Food Facts:", offError);
             } finally {
                 setAnalysisProgress({ active: false, message: '' });
             }
