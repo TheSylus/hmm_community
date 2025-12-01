@@ -113,7 +113,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       
       if(initialData.itemType === 'product' || initialData.itemType === 'drugstore') {
         setNutriScore(initialData.nutriScore || '');
-        setCalories(initialData.calories || '');
+        setCalories(initialData.calories !== undefined && initialData.calories !== null ? initialData.calories : '');
         setPurchaseLocation(initialData.purchaseLocation?.join(', ') || '');
         setIngredients(initialData.ingredients || []);
         setAllergens(initialData.allergens || []);
@@ -122,7 +122,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
           isVegan: initialData.isVegan || false,
           isGlutenFree: initialData.isGlutenFree || false,
         });
-        if (initialData.nutriScore || (initialData.purchaseLocation?.length || 0) > 0 || initialData.isVegan || initialData.calories) {
+        if (initialData.nutriScore || (initialData.purchaseLocation?.length || 0) > 0 || initialData.isVegan || (initialData.calories !== undefined && initialData.calories !== null)) {
             setAutoExpandDetails(true);
         }
       } else {
@@ -225,7 +225,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       let mergedData = {
           tags: offResult.tags || [],
           nutriScore: (offResult.nutriScore || '') as NutriScore | '',
-          calories: (offResult.calories || '') as number | '',
+          calories: offResult.calories,
           ingredients: offResult.ingredients || [],
           allergens: offResult.allergens || [],
           isLactoseFree: offResult.isLactoseFree || false,
@@ -236,12 +236,12 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       const newHighlightedFields: string[] = [];
       if (mergedData.tags.length > 0) newHighlightedFields.push('tags');
       if (mergedData.nutriScore) newHighlightedFields.push('nutriScore');
-      if (mergedData.calories) newHighlightedFields.push('calories');
+      if (mergedData.calories !== undefined) newHighlightedFields.push('calories');
 
       setTags(current => (current ? `${current}, ` : '') + mergedData.tags.join(', '));
       // For spoken/merged data, we prefer keeping existing data if the new data is empty, but generally overwrite if new data exists
       setNutriScore(current => mergedData.nutriScore || current);
-      setCalories(current => mergedData.calories || current);
+      setCalories(current => (mergedData.calories !== undefined && mergedData.calories !== null) ? mergedData.calories : current);
       setIngredients(current => mergedData.ingredients.length > 0 ? mergedData.ingredients : current);
       setAllergens(current => mergedData.allergens.length > 0 ? mergedData.allergens : current);
       setDietary(current => ({
@@ -250,7 +250,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
           isGlutenFree: current.isGlutenFree || mergedData.isGlutenFree,
       }));
       setHighlightedFields(newHighlightedFields);
-      if (mergedData.tags.length > 0 || mergedData.nutriScore || mergedData.calories) setAutoExpandDetails(true);
+      if (mergedData.tags.length > 0 || mergedData.nutriScore || mergedData.calories !== undefined) setAutoExpandDetails(true);
 
     } catch (e) {
       console.error("Error searching by product name:", e);
@@ -306,7 +306,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       setName(finalName);
       setTags(finalTags.join(', '));
       setNutriScore((productData.nutriScore?.toUpperCase() as NutriScore) || '');
-      setCalories(productData.calories || '');
+      setCalories(productData.calories !== undefined && productData.calories !== null ? productData.calories : '');
       setPurchaseLocation(productData.purchaseLocation?.join(', ') || '');
       setImage(productData.image || null);
       setIngredients(finalIngredients);
@@ -399,12 +399,12 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
             }
         }
         
-        // Resetting state with new image data - CRITICAL FIX: Overwrite instead of merge
+        // Resetting state with new image data - STRICT OVERWRITE
         setName(mergedData.name);
         setTags(mergedData.tags.join(', '));
         setNutriScore(mergedData.nutriScore);
         
-        // Clear potentially stale data from previous scans
+        // Critical Fix: Explicitly reset potentially stale data from previous scans
         setCalories('');
         setIngredients([]);
         setAllergens([]);
@@ -452,9 +452,11 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
                     return combined.join(', ');
                 });
                 
-                // CRITICAL FIX: Overwrite metadata with database results if available
-                setNutriScore(prev => (offResult.nutriScore as NutriScore) || prev || '');
-                setCalories((offResult.calories || '') as number | '');
+                // CRITICAL FIX: Strictly overwrite metadata with database results.
+                // If the database returns undefined, we want to respect that (or use our cleared state), 
+                // NOT fall back to 'prev' state which might be from a different product.
+                setNutriScore((offResult.nutriScore as NutriScore) || '');
+                setCalories((offResult.calories !== undefined && offResult.calories !== null) ? offResult.calories : '');
                 setIngredients(offResult.ingredients || []);
                 setAllergens(offResult.allergens || []);
                 setDietary({
@@ -466,7 +468,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
                 setHighlightedFields(prev => {
                     const next = [...prev];
                     if (offResult.nutriScore && !prev.includes('nutriScore')) next.push('nutriScore');
-                    if (offResult.calories && !prev.includes('calories')) next.push('calories');
+                    if (offResult.calories !== undefined && !prev.includes('calories')) next.push('calories');
                     if ((offResult.tags?.length || 0) > 0 && !prev.includes('tags')) next.push('tags');
                     return next;
                 });

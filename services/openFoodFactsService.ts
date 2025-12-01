@@ -112,7 +112,15 @@ const extractCalories = (product: any): number | undefined => {
     
     // OFF provides 'energy-kcal', 'energy-kcal_100g', 'energy-kcal_serving'
     // We prioritize the standard 100g value or general value
-    const kcal = product.nutriments['energy-kcal_100g'] || product.nutriments['energy-kcal'] || product.nutriments['energy-kcal_value'];
+    let kcal = product.nutriments['energy-kcal_100g'];
+    
+    // Fallback keys if 100g is missing
+    if (kcal === undefined || kcal === null) {
+        kcal = product.nutriments['energy-kcal'];
+    }
+    if (kcal === undefined || kcal === null) {
+        kcal = product.nutriments['energy-kcal_value'];
+    }
     
     if (typeof kcal === 'number') return Math.round(kcal);
     if (typeof kcal === 'string') return Math.round(parseFloat(kcal));
