@@ -87,7 +87,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <h2 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 mb-4">{t('dashboard.empty.title')}</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-10 max-w-md mx-auto leading-relaxed text-lg">{t('dashboard.empty.description')}</p>
         
-        {/* We use the same onAddNew here which now triggers camera by default */}
         <button
             onClick={onAddNew}
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-10 rounded-full shadow-xl transition-all transform hover:scale-105 hover:shadow-2xl flex items-center justify-center gap-3"
@@ -101,37 +100,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
   
   return (
     <div className="space-y-4 pb-24">
-      {/* Clean Toolbar Header */}
-      {/* Sticky Top: Header Height (approx 72px) + Safe Area Top */}
-      <div className="flex justify-between items-center px-1 py-2 sticky top-[calc(72px+env(safe-area-inset-top,0px))] z-10 bg-gray-100/95 dark:bg-gray-900/95 backdrop-blur-sm -mx-2 sm:mx-0 sm:rounded-lg border-b border-gray-200/50 dark:border-gray-800/50">
-         
-         {/* Left: View Control (Collapse/Expand) */}
-         <div className="pl-1">
-             {items.length > 0 && (
-                 <button 
-                    onClick={toggleAll}
-                    className="p-2.5 rounded-full text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all active:scale-95"
-                    title={isAllCollapsed ? "Alle ausklappen" : "Alle einklappen"}
-                    aria-label={isAllCollapsed ? "Expand all categories" : "Collapse all categories"}
-                 >
-                    {isAllCollapsed ? <ArrowsPointingOutIcon className="w-5 h-5" /> : <ArrowsPointingInIcon className="w-5 h-5" />}
-                 </button>
-             )}
-         </div>
-         
-         {/* Right: Quick Action (Camera) used to be here, but now it's global FAB. 
-             We can keep a secondary smaller one or remove it to keep it clean. 
-             Let's keep a small camera icon for consistency if user is scrolling up/down. */}
-         <div className="pr-1">
-             <button
-                onClick={onAddNew}
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-full shadow-md transition-all active:scale-95 hover:shadow-lg"
+      {/* Utility Row: Expand/Collapse Control */}
+      {items.length > 0 && (
+         <div className="flex justify-end px-1 pt-2 animate-fade-in">
+             <button 
+                onClick={toggleAll}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 bg-white border border-gray-200 rounded-full shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-900 transition-all active:scale-95"
+                title={isAllCollapsed ? "Alle ausklappen" : "Alle einklappen"}
              >
-                <CameraIcon className="w-5 h-5" />
-                <span className="text-sm">{t('form.button.takePhoto')}</span>
+                {isAllCollapsed ? (
+                    <>
+                        <ArrowsPointingOutIcon className="w-3.5 h-3.5" />
+                        <span>Alles anzeigen</span>
+                    </>
+                ) : (
+                    <>
+                        <ArrowsPointingInIcon className="w-3.5 h-3.5" />
+                        <span>Alles einklappen</span>
+                    </>
+                )}
              </button>
          </div>
-      </div>
+      )}
 
       <FoodItemList 
         items={items} 
