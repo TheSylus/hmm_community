@@ -19,7 +19,7 @@ import { useHousehold } from './hooks/useHousehold';
 import { useShoppingList } from './hooks/useShoppingList';
 import * as geminiService from './services/geminiService';
 import { useTranslation } from './i18n/index';
-import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, UserGroupIcon, BeakerIcon, BarcodeIcon, CameraIcon, PencilIcon } from './components/Icons';
+import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, UserGroupIcon, BeakerIcon, BarcodeIcon, CameraIcon, PencilIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon } from './components/Icons';
 import { useModalHistory } from './hooks/useModalHistory';
 import { triggerHaptic } from './utils/haptics';
 import { useAppSettings } from './contexts/AppSettingsContext';
@@ -126,6 +126,9 @@ const App: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [sortBy, setSortBy] = useState<SortKey>('date_desc');
   
+  // View State (Collapsed Categories)
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
   // Modal & Overlay State
   const [isFilterPanelVisible, setIsFilterPanelVisible] = useState(false);
   const [potentialDuplicates, setPotentialDuplicates] = useState<FoodItem[]>([]);
@@ -157,7 +160,7 @@ const App: React.FC = () => {
   
   // Compute set of food IDs currently in the shopping list to pass down to components
   const shoppingListFoodIds = useMemo(() => {
-      return new Set(shoppingListItems.map(item => item.food_item_id));
+      return new Set(shoppingListItems.map(item => [item.food_item_id]));
   }, [shoppingListItems]);
 
   // --- Pending Invite Logic ---
@@ -458,6 +461,7 @@ const App: React.FC = () => {
     setPotentialDuplicates([]);
   }, []);
 
+  // Filtering Logic
   const filteredAndSortedItems = useMemo(() => {
     let items = activeView === 'family' ? familyFoodItems : foodItems;
 
@@ -497,6 +501,33 @@ const App: React.FC = () => {
     });
   }, [foodItems, familyFoodItems, activeView, searchTerm, ratingFilter, typeFilter, sortBy, aiSearchResults.ids]);
   
+  // Collapse Logic
+  const toggleCategory = useCallback((category: string) => {
+      setCollapsedCategories(prev => {
+          const newSet = new Set(prev);
+          if (newSet.has(category)) newSet.delete(category);
+          else newSet.add(category);
+          return newSet;
+      });
+  }, []);
+
+  const allVisibleCategories = useMemo(() => {
+      const cats = new Set<string>();
+      filteredAndSortedItems.forEach(item => cats.add(item.category || 'other'));
+      return Array.from(cats);
+  }, [filteredAndSortedItems]);
+
+  const isAllCollapsed = allVisibleCategories.length > 0 && collapsedCategories.size >= allVisibleCategories.length;
+
+  const toggleAllCategories = useCallback(() => {
+      if (isAllCollapsed) {
+          setCollapsedCategories(new Set()); // Expand all
+      } else {
+          setCollapsedCategories(new Set(allVisibleCategories)); // Collapse all
+      }
+  }, [isAllCollapsed, allVisibleCategories]);
+
+
   const hydratedShoppingList = useMemo((): HydratedShoppingListItem[] => {
       const allVisibleItems = [...foodItems, ...familyFoodItems];
       const foodItemMap = new Map(allVisibleItems.map(item => [item.id, item]));
@@ -573,6 +604,8 @@ const App: React.FC = () => {
                 onAddToShoppingList={handleAddToShoppingListWrapper}
                 shoppingListFoodIds={shoppingListFoodIds}
                 isFiltering={isAnyFilterActive}
+                collapsedCategories={collapsedCategories}
+                onToggleCategory={toggleCategory}
             />
           </>
         );
@@ -599,6 +632,8 @@ const App: React.FC = () => {
                     onAddToShoppingList={handleAddToShoppingListWrapper} 
                     shoppingListFoodIds={shoppingListFoodIds}
                     isFiltering={isAnyFilterActive}
+                    collapsedCategories={collapsedCategories}
+                    onToggleCategory={toggleCategory}
                 />
             </>
         );
@@ -619,12 +654,6 @@ const App: React.FC = () => {
                     {t('header.title')}
                 </h1>
                 <div className="flex items-center gap-2">
-                    {/* Add Manual Item (Backup) */}
-                    {!isFormVisible && (
-                        <button onClick={handleManualAdd} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label={t('form.addNewButton')}>
-                            <PlusCircleIcon className="w-7 h-7 text-gray-600 dark:text-gray-300" />
-                        </button>
-                    )}
                     <button onClick={() => setIsShoppingListOpen(true)} className="relative p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label={t('header.shoppingListAria')}>
                         <ShoppingBagIcon className="w-7 h-7 text-gray-600 dark:text-gray-300" />
                         {shoppingListItems.length > 0 && <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs font-bold ring-2 ring-white dark:ring-gray-800">{shoppingListItems.length}</span>}
@@ -649,10 +678,32 @@ const App: React.FC = () => {
                               <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                           </div>
                        </div>
-                      <button onClick={() => setIsFilterPanelVisible(true)} className="flex-shrink-0 flex items-center gap-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold py-2 px-4 rounded-md transition-colors">
-                          <FunnelIcon className="w-5 h-5" />
-                          <span className="hidden md:inline">{t('header.filter.button')}</span>
-                      </button>
+                       
+                       {/* Compact Toolbar for Filter & Expand */}
+                       <div className="flex items-center gap-1 bg-gray-200 dark:bg-gray-700 rounded-md p-1">
+                          <button 
+                            onClick={() => setIsFilterPanelVisible(true)} 
+                            className="flex items-center justify-center p-2 rounded-md hover:bg-white dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200"
+                            title={t('header.filter.button')}
+                          >
+                              <FunnelIcon className="w-5 h-5" />
+                              <span className="hidden md:inline ml-2 text-sm font-semibold">{t('header.filter.button')}</span>
+                          </button>
+                          
+                          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-0.5"></div>
+
+                          <button
+                            onClick={toggleAllCategories}
+                            className="flex items-center justify-center p-2 rounded-md hover:bg-white dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200"
+                            title={isAllCollapsed ? "Alles ausklappen" : "Alles einklappen"}
+                          >
+                             {isAllCollapsed ? (
+                                <ArrowsPointingOutIcon className="w-5 h-5" />
+                             ) : (
+                                <ArrowsPointingInIcon className="w-5 h-5" />
+                             )}
+                          </button>
+                       </div>
                     </div>
 
                     {isAnyFilterActive && (

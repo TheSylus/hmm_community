@@ -1,9 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
-import { FoodItem, GroceryCategory } from '../types';
+import React from 'react';
+import { FoodItem } from '../types';
 import { FoodItemList } from './FoodItemList';
 import { useTranslation } from '../i18n/index';
-import { ArrowsPointingInIcon, ArrowsPointingOutIcon, CameraIcon, SparklesIcon } from './Icons';
+import { CameraIcon, SparklesIcon } from './Icons';
 
 interface DashboardProps {
   items: FoodItem[];
@@ -15,6 +15,9 @@ interface DashboardProps {
   onAddToShoppingList: (item: FoodItem) => void;
   shoppingListFoodIds?: Set<string>;
   isFiltering?: boolean;
+  // State lifted from Dashboard to App
+  collapsedCategories: Set<string>;
+  onToggleCategory: (category: string) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
@@ -26,39 +29,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onViewDetails, 
   onAddToShoppingList, 
   shoppingListFoodIds,
-  isFiltering
+  isFiltering,
+  collapsedCategories,
+  onToggleCategory
 }) => {
   const { t } = useTranslation();
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
-
-  // Logic to determine all categories currently present
-  const allCategories = useMemo(() => {
-      const cats = new Set<string>();
-      items.forEach(item => cats.add(item.category || 'other'));
-      return Array.from(cats);
-  }, [items]);
-
-  const isAllCollapsed = allCategories.length > 0 && collapsedCategories.size === allCategories.length;
-
-  const toggleCategory = (category: string) => {
-      setCollapsedCategories(prev => {
-          const newSet = new Set(prev);
-          if (newSet.has(category)) {
-              newSet.delete(category);
-          } else {
-              newSet.add(category);
-          }
-          return newSet;
-      });
-  };
-
-  const toggleAll = () => {
-      if (isAllCollapsed) {
-          setCollapsedCategories(new Set()); // Expand all
-      } else {
-          setCollapsedCategories(new Set(allCategories)); // Collapse all
-      }
-  };
 
   if (isLoading) {
       return (
@@ -71,7 +46,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onViewDetails={onViewDetails} 
                 onAddToShoppingList={onAddToShoppingList}
                 collapsedCategories={collapsedCategories}
-                onToggleCategory={toggleCategory}
+                onToggleCategory={onToggleCategory}
             />
         </div>
       );
@@ -100,29 +75,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   
   return (
     <div className="space-y-4 pb-24">
-      {/* Utility Row: Expand/Collapse Control */}
-      {items.length > 0 && (
-         <div className="flex justify-end px-1 pt-2 animate-fade-in">
-             <button 
-                onClick={toggleAll}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 bg-white border border-gray-200 rounded-full shadow-sm dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-900 transition-all active:scale-95"
-                title={isAllCollapsed ? "Alle ausklappen" : "Alle einklappen"}
-             >
-                {isAllCollapsed ? (
-                    <>
-                        <ArrowsPointingOutIcon className="w-3.5 h-3.5" />
-                        <span>Alles anzeigen</span>
-                    </>
-                ) : (
-                    <>
-                        <ArrowsPointingInIcon className="w-3.5 h-3.5" />
-                        <span>Alles einklappen</span>
-                    </>
-                )}
-             </button>
-         </div>
-      )}
-
       <FoodItemList 
         items={items} 
         isLoading={false}
@@ -132,7 +84,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         onAddToShoppingList={onAddToShoppingList}
         shoppingListFoodIds={shoppingListFoodIds}
         collapsedCategories={collapsedCategories}
-        onToggleCategory={toggleCategory}
+        onToggleCategory={onToggleCategory}
       />
     </div>
   );
