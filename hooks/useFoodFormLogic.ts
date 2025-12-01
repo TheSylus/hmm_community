@@ -239,10 +239,11 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       if (mergedData.calories) newHighlightedFields.push('calories');
 
       setTags(current => (current ? `${current}, ` : '') + mergedData.tags.join(', '));
-      setNutriScore(current => current || mergedData.nutriScore);
-      setCalories(current => current || mergedData.calories);
-      setIngredients(current => [...current, ...mergedData.ingredients]);
-      setAllergens(current => [...current, ...mergedData.allergens]);
+      // For spoken/merged data, we prefer keeping existing data if the new data is empty, but generally overwrite if new data exists
+      setNutriScore(current => mergedData.nutriScore || current);
+      setCalories(current => mergedData.calories || current);
+      setIngredients(current => mergedData.ingredients.length > 0 ? mergedData.ingredients : current);
+      setAllergens(current => mergedData.allergens.length > 0 ? mergedData.allergens : current);
       setDietary(current => ({
           isLactoseFree: current.isLactoseFree || mergedData.isLactoseFree,
           isVegan: current.isVegan || mergedData.isVegan,
@@ -398,9 +399,16 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
             }
         }
         
+        // Resetting state with new image data - CRITICAL FIX: Overwrite instead of merge
         setName(mergedData.name);
         setTags(mergedData.tags.join(', '));
         setNutriScore(mergedData.nutriScore);
+        
+        // Clear potentially stale data from previous scans
+        setCalories('');
+        setIngredients([]);
+        setAllergens([]);
+        setDietary({ isLactoseFree: false, isVegan: false, isGlutenFree: false });
         
         if (aiResult.itemType === 'dish' || aiResult.itemType === 'drugstore' || aiResult.itemType === 'product') {
              if (aiResult.itemType === 'dish') {
@@ -436,6 +444,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
             try {
                 const offResult = await searchProductByNameFromOpenFoodFacts(mergedData.name, language);
                 
+                // Merge tags (keep visual tags, add DB tags)
                 setTags(prev => {
                     const existing = prev ? prev.split(',').map(s => s.trim()) : [];
                     const newTags = offResult.tags || [];
@@ -443,15 +452,16 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
                     return combined.join(', ');
                 });
                 
-                setNutriScore(prev => prev || (offResult.nutriScore as NutriScore | '') || '');
-                setCalories(prev => prev || (offResult.calories || '') as number | '');
-                setIngredients(prev => prev.length > 0 ? prev : (offResult.ingredients || []));
-                setAllergens(prev => prev.length > 0 ? prev : (offResult.allergens || []));
-                setDietary(prev => ({
-                    isLactoseFree: prev.isLactoseFree || !!offResult.isLactoseFree,
-                    isVegan: prev.isVegan || !!offResult.isVegan,
-                    isGlutenFree: prev.isGlutenFree || !!offResult.isGlutenFree,
-                }));
+                // CRITICAL FIX: Overwrite metadata with database results if available
+                setNutriScore(prev => (offResult.nutriScore as NutriScore) || prev || '');
+                setCalories((offResult.calories || '') as number | '');
+                setIngredients(offResult.ingredients || []);
+                setAllergens(offResult.allergens || []);
+                setDietary({
+                    isLactoseFree: !!offResult.isLactoseFree,
+                    isVegan: !!offResult.isVegan,
+                    isGlutenFree: !!offResult.isGlutenFree,
+                });
                 
                 setHighlightedFields(prev => {
                     const next = [...prev];
