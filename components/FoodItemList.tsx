@@ -7,7 +7,7 @@ import { useTranslation } from '../i18n/index';
 import { 
     CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, 
     CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, 
-    CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon,
+    CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon,
     CategoryRestaurantIcon, ChevronDownIcon
 } from './Icons';
 
@@ -36,7 +36,6 @@ const CATEGORY_ORDER: GroceryCategory[] = [
     'household',
     'personal_care',
     'restaurant_food',
-    'pet_food',
     'other'
 ];
 
@@ -52,7 +51,6 @@ const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>>
     'household': CategoryHouseholdIcon,
     'personal_care': CategoryPersonalCareIcon,
     'restaurant_food': CategoryRestaurantIcon,
-    'pet_food': CategoryPetFoodIcon,
     'other': CategoryOtherIcon,
 };
 
@@ -68,7 +66,6 @@ const CategoryColorMap: Record<GroceryCategory, string> = {
     'household': 'bg-gray-200 text-gray-800 dark:bg-gray-700/60 dark:text-gray-300 border-gray-300 dark:border-gray-600',
     'personal_care': 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border-purple-200 dark:border-purple-800',
     'restaurant_food': 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 border-teal-200 dark:border-teal-800',
-    'pet_food': 'bg-stone-200 text-stone-800 dark:bg-stone-700/60 dark:text-stone-300 border-stone-300 dark:border-stone-600',
     'other': 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700',
 };
 

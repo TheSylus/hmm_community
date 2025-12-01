@@ -7,7 +7,7 @@ import { GroceryCategory, NutriScore } from '../../types';
 import { 
     CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, 
     CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, 
-    CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon,
+    CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon,
     CategoryRestaurantIcon
 } from '../Icons';
 
@@ -27,10 +27,10 @@ const nutriScoreColors: Record<NutriScore, string> = {
   E: 'bg-red-600',
 };
 
-// Updated Category List including Restaurant
+// Updated Category List excluding Pet Food, including Restaurant
 const groceryCategories: GroceryCategory[] = [
     'produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 
-    'snacks', 'beverages', 'household', 'personal_care', 'pet_food', 'restaurant_food', 'other'
+    'snacks', 'beverages', 'household', 'personal_care', 'restaurant_food', 'other'
 ];
 
 const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>> = {
@@ -45,7 +45,6 @@ const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>>
     'household': CategoryHouseholdIcon,
     'personal_care': CategoryPersonalCareIcon,
     'restaurant_food': CategoryRestaurantIcon,
-    'pet_food': CategoryPetFoodIcon,
     'other': CategoryOtherIcon,
 };
 
@@ -61,7 +60,6 @@ const CategoryColorMap: Record<GroceryCategory, string> = {
     'household': 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
     'personal_care': 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
     'restaurant_food': 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300',
-    'pet_food': 'bg-stone-200 text-stone-700 dark:bg-stone-700 dark:text-stone-300',
     'other': 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
 };
 

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon, UserGroupIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon, MapPinIcon, SparklesIcon, CategoryRestaurantIcon } from './Icons';
+import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon, UserGroupIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon, MapPinIcon, SparklesIcon, CategoryRestaurantIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
 import { ShoppingList, UserProfile, Household, GroceryCategory } from '../types';
@@ -40,7 +40,6 @@ const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>>
     'household': CategoryHouseholdIcon,
     'personal_care': CategoryPersonalCareIcon,
     'restaurant_food': CategoryRestaurantIcon,
-    'pet_food': CategoryPetFoodIcon,
     'other': CategoryOtherIcon,
 };
 
@@ -57,7 +56,6 @@ const CATEGORY_ORDER: GroceryCategory[] = [
     'household',
     'personal_care',
     'restaurant_food',
-    'pet_food',
     'other'
 ];
 
@@ -73,7 +71,6 @@ const CategoryColorMap: Record<GroceryCategory, string> = {
     'household': 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
     'personal_care': 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
     'restaurant_food': 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300',
-    'pet_food': 'bg-stone-200 text-stone-700 dark:bg-stone-700 dark:text-stone-300',
     'other': 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
 };
 

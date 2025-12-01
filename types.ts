@@ -14,8 +14,7 @@ export type GroceryCategory =
   | 'beverages' 
   | 'household' 
   | 'personal_care' 
-  | 'restaurant_food' 
-  | 'pet_food'
+  | 'restaurant_food'
   | 'other';
 
 export interface FoodItem {

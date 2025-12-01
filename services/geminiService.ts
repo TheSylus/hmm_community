@@ -387,7 +387,7 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
         const gemini = getAiClient();
         const response = await gemini.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: { parts: [{ text: `Parse this shopping list string: "${input}". Extract items with their quantities. If no quantity is specified, default to 1. Assign one of the following categories to each item: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, pet_food, other.` }] },
+            contents: { parts: [{ text: `Parse this shopping list string: "${input}". Extract items with their quantities. If no quantity is specified, default to 1. Assign one of the following categories to each item: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, other.` }] },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
@@ -402,7 +402,7 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
                                     quantity: { type: Type.NUMBER, description: "Quantity of the item" },
                                     category: { 
                                         type: Type.STRING, 
-                                        enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'restaurant_food', 'pet_food', 'other'],
+                                        enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'restaurant_food', 'other'],
                                         description: "Category of the item"
                                     }
                                 },

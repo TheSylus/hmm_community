@@ -449,7 +449,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
         if (aiResult.itemType === 'dish') {
             // For dishes, we skip OpenFoodFacts and try to find restaurants instead
             handleFindNearby();
-        } else if (mergedData.name && isOffSearchEnabled && aiResult.itemType !== 'dish') {
+        } else if (mergedData.name && isOffSearchEnabled) {
             // For Products/Drugstore, try to find more info in OpenFoodFacts
             setAnalysisProgress({ active: true, message: t('form.aiProgress.searchingDatabase') });
             
