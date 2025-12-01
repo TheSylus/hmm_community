@@ -11,9 +11,10 @@ interface FoodItemDbPayload {
   image_url?: string;
   tags?: string[];
   item_type: FoodItemType;
-  category?: GroceryCategory; // New DB field
+  category?: GroceryCategory;
   is_family_favorite: boolean;
   nutri_score?: NutriScore | null;
+  calories?: number | null; // Added DB field
   ingredients?: string[];
   allergens?: string[];
   is_lactose_free: boolean;
@@ -66,14 +67,15 @@ export const mapDbToFoodItem = (dbItem: any): FoodItem => {
     name: dbItem.name,
     rating: dbItem.rating,
     notes: dbItem.notes,
-    image: dbItem.image_url, // DB: image_url -> Frontend: image
+    image: dbItem.image_url,
     tags: dbItem.tags,
-    itemType: dbItem.item_type, // DB: item_type -> Frontend: itemType
-    category: dbItem.category || 'other', // DB: category
-    isFamilyFavorite: dbItem.is_family_favorite, // DB: is_family_favorite
+    itemType: dbItem.item_type,
+    category: dbItem.category || 'other',
+    isFamilyFavorite: dbItem.is_family_favorite,
 
     // Product specific
-    nutriScore: dbItem.nutri_score, // Frontend 'nutriScore' <- DB 'nutri_score'
+    nutriScore: dbItem.nutri_score,
+    calories: dbItem.calories, // DB -> Frontend
     ingredients: dbItem.ingredients,
     allergens: dbItem.allergens,
     isLactoseFree: dbItem.is_lactose_free,
@@ -90,7 +92,6 @@ export const mapDbToFoodItem = (dbItem: any): FoodItem => {
 
 /**
  * Konvertiert das Frontend-Objekt in das Datenbank-Format.
- * Explicitly constructs the object to prevent any 'nutriScore' keys from leaking into the payload.
  */
 export const mapFoodItemToDbPayload = (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'> & { user_id: string, image_url?: string }): FoodItemDbPayload => {
   return {
@@ -101,11 +102,12 @@ export const mapFoodItemToDbPayload = (item: Omit<FoodItem, 'id' | 'user_id' | '
     image_url: item.image_url || item.image,
     tags: item.tags,
     item_type: item.itemType,
-    category: item.category, // Maps directly
+    category: item.category,
     is_family_favorite: item.isFamilyFavorite || false,
 
-    // Product specific mappings - CRITICAL: Mapping camelCase to snake_case
-    nutri_score: item.nutriScore || null, 
+    // Product specific mappings
+    nutri_score: item.nutriScore || null,
+    calories: item.calories || null, // Frontend -> DB
     ingredients: item.ingredients,
     allergens: item.allergens,
     is_lactose_free: item.isLactoseFree || false,
@@ -146,19 +148,18 @@ export const fetchFamilyFavorites = async () => {
 // Helper to handle "missing column" errors gracefully
 const handleMissingColumnRetry = async (operation: () => Promise<any>, originalError: any) => {
     // Check for specific PostgREST or Supabase error regarding missing column
-    if (originalError?.message?.includes('Could not find the') && originalError?.message?.includes('category')) {
-        console.warn("Database schema outdated: 'category' column missing. Retrying without it.");
+    if (originalError?.message?.includes('Could not find the') && (originalError?.message?.includes('category') || originalError?.message?.includes('calories'))) {
+        console.warn("Database schema outdated: Column missing. Retrying without new fields.");
         return true;
     }
     if (originalError?.code === '42703') { // Postgres undefined_column code
-         console.warn("Database schema outdated: Column missing. Retrying without 'category'.");
+         console.warn("Database schema outdated: Column missing. Retrying.");
          return true;
     }
     return false;
 }
 
 export const createFoodItem = async (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>, userId: string, imageUrl?: string) => {
-  // Ensure strict payload construction
   const payload = mapFoodItemToDbPayload({ ...item, user_id: userId, image_url: imageUrl });
   
   const { data, error } = await supabase
@@ -168,9 +169,9 @@ export const createFoodItem = async (item: Omit<FoodItem, 'id' | 'user_id' | 'cr
     .single();
 
   if (error) {
-      // Graceful degradation: If DB is missing 'category' column, remove it and retry
       if (await handleMissingColumnRetry(async () => {}, error)) {
-          const { category, ...legacyPayload } = payload;
+          // Retry logic: try stripping fields that might be missing
+          const { category, calories, ...legacyPayload } = payload;
           const { data: retryData, error: retryError } = await supabase
             .from('food_items')
             .insert(legacyPayload)
@@ -196,9 +197,8 @@ export const updateFoodItem = async (id: string, item: Omit<FoodItem, 'id' | 'us
     .single();
 
   if (error) {
-      // Graceful degradation
       if (await handleMissingColumnRetry(async () => {}, error)) {
-          const { category, ...legacyPayload } = payload;
+          const { category, calories, ...legacyPayload } = payload;
           const { data: retryData, error: retryError } = await supabase
             .from('food_items')
             .update(legacyPayload)

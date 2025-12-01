@@ -8,7 +8,7 @@ import {
     CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, 
     CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, 
     CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon,
-    CategoryRestaurantIcon
+    CategoryRestaurantIcon, SparklesIcon
 } from '../Icons';
 
 interface ProductMetadataSectionProps {
@@ -27,7 +27,6 @@ const nutriScoreColors: Record<NutriScore, string> = {
   E: 'bg-red-600',
 };
 
-// Updated Category List excluding Pet Food, including Restaurant
 const groceryCategories: GroceryCategory[] = [
     'produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 
     'snacks', 'beverages', 'household', 'personal_care', 'restaurant_food', 'other'
@@ -113,7 +112,7 @@ export const ProductMetadataSection: React.FC<ProductMetadataSectionProps> = ({
         </div>
       </div>
 
-      {/* Purchase Location (Hidden for Restaurant) */}
+      {/* Purchase Location */}
       {itemType !== 'dish' && (
         <div>
             <input
@@ -144,26 +143,46 @@ export const ProductMetadataSection: React.FC<ProductMetadataSectionProps> = ({
         </div>
       )}
 
-      {/* NutriScore (Product Only) */}
+      {/* NutriScore & Calories (Product Only) */}
       {itemType === 'product' && (
-        <div className={`p-2 rounded-md transition-shadow ${uiState.highlightedFields.includes('nutriScore') ? 'highlight-ai' : ''}`}>
-          <div className="flex items-center gap-4">
-            <label className="text-gray-700 dark:text-gray-300 font-medium shrink-0">{t('form.label.nutriScore')}</label>
-            <div className="flex items-center gap-2 flex-wrap">
-              {nutriScoreOptions.map(score => (
-                <button
-                  type="button"
-                  key={score}
-                  onClick={() => formSetters.setNutriScore((current: string) => current === score ? '' : score)}
-                  className={`w-8 h-8 rounded-full text-white font-bold flex items-center justify-center transition-transform transform ${nutriScoreColors[score]} ${formState.nutriScore === score ? 'ring-2 ring-indigo-500 dark:ring-indigo-400 ring-offset-2 ring-offset-white dark:ring-offset-gray-800 scale-110' : 'hover:scale-105'}`}
-                  aria-pressed={formState.nutriScore === score}
-                  aria-label={t('form.aria.selectNutriScore', { score })}
-                >
-                  {score}
-                </button>
-              ))}
+        <div className="flex flex-col sm:flex-row gap-4">
+            {/* NutriScore */}
+            <div className={`p-2 rounded-md transition-shadow flex-1 ${uiState.highlightedFields.includes('nutriScore') ? 'highlight-ai' : ''}`}>
+                <div className="flex items-center gap-2 mb-1">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.label.nutriScore')}</label>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                {nutriScoreOptions.map(score => (
+                    <button
+                    type="button"
+                    key={score}
+                    onClick={() => formSetters.setNutriScore((current: string) => current === score ? '' : score)}
+                    className={`w-8 h-8 rounded-full text-white font-bold flex items-center justify-center transition-transform transform ${nutriScoreColors[score]} ${formState.nutriScore === score ? 'ring-2 ring-indigo-500 dark:ring-indigo-400 ring-offset-2 ring-offset-white dark:ring-offset-gray-800 scale-110' : 'hover:scale-105'}`}
+                    aria-pressed={formState.nutriScore === score}
+                    aria-label={t('form.aria.selectNutriScore', { score })}
+                    >
+                    {score}
+                    </button>
+                ))}
+                </div>
             </div>
-          </div>
+
+            {/* Calories */}
+            <div className={`p-2 rounded-md transition-shadow flex-1 ${uiState.highlightedFields.includes('calories') ? 'highlight-ai' : ''}`}>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Kcal / 100g</label>
+                <div className="relative">
+                    <input
+                        type="number"
+                        placeholder="0"
+                        value={formState.calories}
+                        onChange={e => formSetters.setCalories(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                        className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2 pl-8"
+                    />
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-2 pointer-events-none">
+                        <span className="text-orange-500">🔥</span>
+                    </div>
+                </div>
+            </div>
         </div>
       )}
     </div>

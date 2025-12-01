@@ -34,6 +34,7 @@ export interface FoodItem {
 
   // Product-specific fields
   nutriScore?: NutriScore;
+  calories?: number; // Energy in kcal per 100g/100ml or per serving
   ingredients?: string[];
   allergens?: string[];
   isLactoseFree?: boolean;

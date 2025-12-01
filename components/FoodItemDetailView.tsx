@@ -50,10 +50,8 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
     return null; // Or a loading state
   }
   
-  // Logic Update: Allow generic attributes for both Product and Drugstore
   const isConsumableOrDrugstore = displayItem.itemType === 'product' || displayItem.itemType === 'drugstore';
   const hasAttributes = isConsumableOrDrugstore && (displayItem.isLactoseFree || displayItem.isVegan || displayItem.isGlutenFree);
-  // Allergens primarily for Food (product), but if API returns them for Drugstore, show them too.
   const hasAllergens = isConsumableOrDrugstore && displayItem.allergens && displayItem.allergens.length > 0;
   const hasIngredients = isConsumableOrDrugstore && displayItem.ingredients && displayItem.ingredients.length > 0;
   const hasTags = displayItem.tags && displayItem.tags.length > 0;
@@ -116,10 +114,20 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
             {[1, 2, 3, 4, 5].map(star => (
               <StarIcon key={star} className={`w-5 h-5 ${displayItem.rating >= star ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} filled={displayItem.rating >= star} />
             ))}
-            {displayItem.itemType === 'product' && displayItem.nutriScore && (
-              <div className={`ml-3 text-xs w-6 h-6 rounded-full text-white font-bold flex items-center justify-center flex-shrink-0 ${nutriScoreColors[displayItem.nutriScore]}`}>
-                {displayItem.nutriScore}
-              </div>
+            
+            {displayItem.itemType === 'product' && (
+                <div className="flex items-center gap-2 ml-3">
+                    {displayItem.nutriScore && (
+                    <div className={`text-xs w-6 h-6 rounded-full text-white font-bold flex items-center justify-center flex-shrink-0 ${nutriScoreColors[displayItem.nutriScore]}`}>
+                        {displayItem.nutriScore}
+                    </div>
+                    )}
+                    {displayItem.calories && (
+                        <div className="text-xs bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
+                            🔥 {displayItem.calories} kcal
+                        </div>
+                    )}
+                </div>
             )}
           </div>
            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mt-2">

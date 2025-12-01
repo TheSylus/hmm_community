@@ -38,7 +38,8 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
   
   // Product-specific
   const [nutriScore, setNutriScore] = useState<NutriScore | ''>('');
-  const [purchaseLocation, setPurchaseLocation] = useState(''); // Kept as string for comma-separated input
+  const [calories, setCalories] = useState<number | ''>(''); // New State
+  const [purchaseLocation, setPurchaseLocation] = useState('');
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [allergens, setAllergens] = useState<string[]>([]);
   const [dietary, setDietary] = useState({
@@ -70,7 +71,6 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
   const [isIngredientsLoading, setIngredientsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Controls expanding details if data is found
   const [autoExpandDetails, setAutoExpandDetails] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,6 +83,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
     setNotes('');
     setImage(null);
     setNutriScore('');
+    setCalories('');
     setPurchaseLocation('');
     setTags('');
     setIsFamilyFavorite(false);
@@ -92,7 +93,6 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
     setRestaurantName('');
     setCuisineType('');
     setPrice('');
-    // Default category based on item type
     setCategory(initialItemType === 'drugstore' ? 'personal_care' : (initialItemType === 'dish' ? 'restaurant_food' : 'other'));
     setError(null);
     setIsLoading(false);
@@ -113,6 +113,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       
       if(initialData.itemType === 'product' || initialData.itemType === 'drugstore') {
         setNutriScore(initialData.nutriScore || '');
+        setCalories(initialData.calories || '');
         setPurchaseLocation(initialData.purchaseLocation?.join(', ') || '');
         setIngredients(initialData.ingredients || []);
         setAllergens(initialData.allergens || []);
@@ -121,8 +122,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
           isVegan: initialData.isVegan || false,
           isGlutenFree: initialData.isGlutenFree || false,
         });
-        // Auto expand if there is data
-        if (initialData.nutriScore || (initialData.purchaseLocation?.length || 0) > 0 || initialData.isVegan) {
+        if (initialData.nutriScore || (initialData.purchaseLocation?.length || 0) > 0 || initialData.isVegan || initialData.calories) {
             setAutoExpandDetails(true);
         }
       } else {
@@ -135,9 +135,8 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
     }
   }, [initialData, resetFormState]);
 
-  // Handle Start Mode (Auto-open scanners)
   useEffect(() => {
-      if (initialData) return; // Don't auto-start if editing
+      if (initialData) return; 
       
       if (startMode === 'barcode') {
           setIsBarcodeScannerOpen(true);
@@ -147,7 +146,6 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       }
   }, [startMode, initialData]);
 
-  // Remove highlights after delay
   useEffect(() => {
     if (highlightedFields.length > 0) {
       const timer = setTimeout(() => {
@@ -157,8 +155,6 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
     }
   }, [highlightedFields]);
 
-  // MAIN LOGIC: Update Item Type based on Category selection
-  // This allows the unified Category Selector to drive the form mode.
   useEffect(() => {
       if (category === 'restaurant_food') {
           setItemType('dish');
@@ -219,7 +215,6 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
   }, []);
 
   const processSpokenProductName = useCallback(async (productName: string) => {
-    // Note: itemType check removed to avoid type overlap error, though contextually it's usually correct
     if (!productName || !isOffSearchEnabled) return;
     
     setIsNameSearchLoading(true);
@@ -230,6 +225,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       let mergedData = {
           tags: offResult.tags || [],
           nutriScore: (offResult.nutriScore || '') as NutriScore | '',
+          calories: (offResult.calories || '') as number | '',
           ingredients: offResult.ingredients || [],
           allergens: offResult.allergens || [],
           isLactoseFree: offResult.isLactoseFree || false,
@@ -240,9 +236,11 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       const newHighlightedFields: string[] = [];
       if (mergedData.tags.length > 0) newHighlightedFields.push('tags');
       if (mergedData.nutriScore) newHighlightedFields.push('nutriScore');
+      if (mergedData.calories) newHighlightedFields.push('calories');
 
       setTags(current => (current ? `${current}, ` : '') + mergedData.tags.join(', '));
       setNutriScore(current => current || mergedData.nutriScore);
+      setCalories(current => current || mergedData.calories);
       setIngredients(current => [...current, ...mergedData.ingredients]);
       setAllergens(current => [...current, ...mergedData.allergens]);
       setDietary(current => ({
@@ -251,7 +249,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
           isGlutenFree: current.isGlutenFree || mergedData.isGlutenFree,
       }));
       setHighlightedFields(newHighlightedFields);
-      if (mergedData.tags.length > 0 || mergedData.nutriScore) setAutoExpandDetails(true);
+      if (mergedData.tags.length > 0 || mergedData.nutriScore || mergedData.calories) setAutoExpandDetails(true);
 
     } catch (e) {
       console.error("Error searching by product name:", e);
@@ -307,6 +305,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       setName(finalName);
       setTags(finalTags.join(', '));
       setNutriScore((productData.nutriScore?.toUpperCase() as NutriScore) || '');
+      setCalories(productData.calories || '');
       setPurchaseLocation(productData.purchaseLocation?.join(', ') || '');
       setImage(productData.image || null);
       setIngredients(finalIngredients);
@@ -317,13 +316,11 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
         isGlutenFree: productData.isGlutenFree || false,
       });
       
-      // Heuristic for category based on type
       if (productData.itemType === 'drugstore') {
           setItemType('drugstore');
           setCategory('personal_care');
       } else {
           setItemType('product');
-          // Don't override category to 'other' if user has already set it, but here it's fresh scan
           setCategory('other'); 
       }
       
@@ -346,7 +343,6 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
     setIsCameraOpen(false);
     setError(null);
   
-    // Pre-check logic only if we are forced into manual mode, but normally we allow AI to run
     if (!isAiAvailable) {
       setUncroppedImage(imageDataUrl);
       setSuggestedCrop(null);
@@ -364,7 +360,6 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
             t('form.aiProgress.locatingProduct')
         ];
         
-        // Show initial loading
         setAnalysisProgress({ active: true, message: progressMessages[0] });
         let messageIndex = 0;
         progressInterval = window.setInterval(() => {
@@ -372,12 +367,10 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
             setAnalysisProgress(prev => ({ ...prev, message: progressMessages[messageIndex] }));
         }, 1500);
 
-        // 1. Run AI Analysis (Fastest first step)
         const aiResult = await analyzeFoodImage(imageDataUrl);
         
         if(progressInterval) clearInterval(progressInterval);
         
-        // 2. Prepare Data from AI
         let mergedData = {
             name: aiResult.name || '',
             tags: aiResult.tags || [],
@@ -389,7 +382,6 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
             isGlutenFree: false,
         };
         
-        // Optional Translation for AI result
         if (language !== 'en' && textsNeedTranslation(mergedData)) {
             const textsToTranslate = [
                 mergedData.name, ...mergedData.tags
@@ -406,23 +398,17 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
             }
         }
         
-        // 3. Update State IMMEDIATELY (Non-blocking UI update)
         setName(mergedData.name);
         setTags(mergedData.tags.join(', '));
         setNutriScore(mergedData.nutriScore);
         
-        // Update Item Type & Category based on AI
-        // Priority: AI detection results
         if (aiResult.itemType === 'dish' || aiResult.itemType === 'drugstore' || aiResult.itemType === 'product') {
-             // The itemType will be auto-set by the useEffect on `category` change.
-             // So we just need to set the Category correctly.
-             
              if (aiResult.itemType === 'dish') {
                  setCategory('restaurant_food');
              } else if (aiResult.category) {
                  setCategory(aiResult.category);
              } else if (aiResult.itemType === 'drugstore') {
-                 setCategory('personal_care'); // Default fallback
+                 setCategory('personal_care');
              } else {
                  setCategory('other');
              }
@@ -435,28 +421,21 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
         if (aiResult.category) newHighlightedFields.push('category');
         setHighlightedFields(newHighlightedFields);
         
-        // Auto expand if valuable metadata found
         if (mergedData.nutriScore || mergedData.tags.length > 0) setAutoExpandDetails(true);
 
-        // Open Cropper immediately so user can interact
         setUncroppedImage(imageDataUrl);
         setSuggestedCrop(aiResult.boundingBox);
         setIsCropperOpen(true);
-        setIsLoading(false); // Stop main loading spinner
+        setIsLoading(false);
 
-        // 4. SMART FOLLOW-UP ACTIONS based on Type
-        // Note: category state update might not be instant in this closure, check aiResult directly
         if (aiResult.itemType === 'dish') {
-            // For dishes, we skip OpenFoodFacts and try to find restaurants instead
             handleFindNearby();
         } else if (mergedData.name && isOffSearchEnabled) {
-            // For Products/Drugstore, try to find more info in OpenFoodFacts
             setAnalysisProgress({ active: true, message: t('form.aiProgress.searchingDatabase') });
             
             try {
                 const offResult = await searchProductByNameFromOpenFoodFacts(mergedData.name, language);
                 
-                // Merge OFF data into state safely (functional updates)
                 setTags(prev => {
                     const existing = prev ? prev.split(',').map(s => s.trim()) : [];
                     const newTags = offResult.tags || [];
@@ -465,6 +444,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
                 });
                 
                 setNutriScore(prev => prev || (offResult.nutriScore as NutriScore | '') || '');
+                setCalories(prev => prev || (offResult.calories || '') as number | '');
                 setIngredients(prev => prev.length > 0 ? prev : (offResult.ingredients || []));
                 setAllergens(prev => prev.length > 0 ? prev : (offResult.allergens || []));
                 setDietary(prev => ({
@@ -473,10 +453,10 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
                     isGlutenFree: prev.isGlutenFree || !!offResult.isGlutenFree,
                 }));
                 
-                // Highlight new fields found by OFF
                 setHighlightedFields(prev => {
                     const next = [...prev];
                     if (offResult.nutriScore && !prev.includes('nutriScore')) next.push('nutriScore');
+                    if (offResult.calories && !prev.includes('calories')) next.push('calories');
                     if ((offResult.tags?.length || 0) > 0 && !prev.includes('tags')) next.push('tags');
                     return next;
                 });
@@ -580,7 +560,6 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
     e.preventDefault();
     setError(null);
 
-    // Validation
     if (!name.trim()) {
       setError(t('form.error.nameAndRating'));
       return;
@@ -605,6 +584,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
         onSaveItem({
           ...commonData,
           nutriScore: nutriScore || undefined,
+          calories: calories !== '' ? Number(calories) : undefined,
           purchaseLocation: purchaseLocation ? purchaseLocation.split(',').map(loc => loc.trim()).filter(Boolean) : undefined,
           ingredients: ingredients.length > 0 ? ingredients : undefined,
           allergens: allergens.length > 0 ? allergens : undefined,
@@ -620,7 +600,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
           price: price !== '' ? Number(price) : undefined,
         });
     }
-  }, [name, rating, t, notes, image, tags, itemType, category, onSaveItem, nutriScore, purchaseLocation, ingredients, allergens, dietary, restaurantName, cuisineType, price, isFamilyFavorite]);
+  }, [name, rating, t, notes, image, tags, itemType, category, onSaveItem, nutriScore, calories, purchaseLocation, ingredients, allergens, dietary, restaurantName, cuisineType, price, isFamilyFavorite]);
 
   const handleSelectRestaurant = useCallback((restaurantIndex: number) => {
       const selected = nearbyRestaurants[restaurantIndex];
@@ -636,12 +616,12 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
   return {
     formState: {
       name, rating, notes, image, tags, isFamilyFavorite, category,
-      nutriScore, purchaseLocation, ingredients, allergens, dietary,
-      restaurantName, cuisineType, price, itemType // Added itemType to state
+      nutriScore, calories, purchaseLocation, ingredients, allergens, dietary,
+      restaurantName, cuisineType, price, itemType
     },
     formSetters: {
       setName, setRating, setNotes, setImage, setTags, setIsFamilyFavorite, setCategory,
-      setNutriScore, setPurchaseLocation, setIngredients, setAllergens, setRestaurantName, setCuisineType, setPrice, setItemType, setAutoExpandDetails
+      setNutriScore, setCalories, setPurchaseLocation, setIngredients, setAllergens, setRestaurantName, setCuisineType, setPrice, setItemType, setAutoExpandDetails
     },
     uiState: {
       isCameraOpen, isBarcodeScannerOpen, isSpeechModalOpen, isNameSearchLoading,

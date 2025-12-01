@@ -185,7 +185,11 @@ const DatabaseManager: React.FC = () => {
     const { t } = useTranslation();
     const [showSql, setShowSql] = useState(false);
     
-    const sqlCode = `ALTER TABLE food_items ADD COLUMN IF NOT EXISTS category text DEFAULT 'other';`;
+    // SQL to add missing columns safely
+    const sqlCode = `
+ALTER TABLE food_items ADD COLUMN IF NOT EXISTS category text DEFAULT 'other';
+ALTER TABLE food_items ADD COLUMN IF NOT EXISTS calories integer;
+`.trim();
 
     return (
         <div>
@@ -200,7 +204,7 @@ const DatabaseManager: React.FC = () => {
                     </button>
                 ) : (
                     <div className="mt-2">
-                        <code className="block p-3 bg-gray-800 text-gray-200 rounded-md font-mono text-xs select-all overflow-x-auto">
+                        <code className="block p-3 bg-gray-800 text-gray-200 rounded-md font-mono text-xs select-all overflow-x-auto whitespace-pre">
                             {sqlCode}
                         </code>
                         <p className="text-xs text-gray-500 mt-1">{t('settings.troubleshoot.sqlInstructions')}</p>
@@ -257,7 +261,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, household
             
             <hr className="border-gray-200 dark:border-gray-700" />
 
-            {/* Database Maintenance (For Category Update) */}
+            {/* Database Maintenance (For Category/Calories Update) */}
             <DatabaseManager />
 
             <hr className="border-gray-200 dark:border-gray-700" />

@@ -42,23 +42,40 @@ const extractCleanIngredients = (product: any, lang: string = 'en'): string[] =>
 
     if (!rawText) return [];
 
-    // 2. Clean the raw text
-    // Remove underscores used for allergens (e.g. _Milk_) and asterisks
-    const cleanedText = rawText.replace(/_/g, '').replace(/\*/g, '');
+    // 2. Pre-Clean the raw text
+    // Remove "Ingredients:" or "Zutaten:" prefixes (common OCR artifact)
+    let cleanedText = rawText.replace(/^(ingredients|zutaten|inhaltsstoffe):\s*/i, '');
+    
+    // Remove underscores/asterisks used for bolding allergens (e.g. _Milk_, *Soy*)
+    cleanedText = cleanedText.replace(/[_*{}]/g, '');
+    
+    // Remove percentage values if they are detached or confusing (optional, keeping for now but cleaning format)
+    // Replace HTML entities if any (basic check)
+    cleanedText = cleanedText.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
 
     // 3. Smart Split
     // Split by comma, BUT ignore commas inside parentheses to keep compound ingredients together.
     // e.g. "Sauce (Tomato, Basil), Pasta" -> ["Sauce (Tomato, Basil)", "Pasta"]
-    // Regex explanation: Match comma followed by whitespace, NOT followed by non-parenthesis chars and a closing parenthesis
     const parts = cleanedText.split(/,\s*(?![^()]*\))/);
 
     // 4. Post-process each ingredient
     return parts.map(p => {
         let s = p.trim();
+        
+        // Remove trailing periods
+        if (s.endsWith('.')) s = s.slice(0, -1);
+        
+        // Remove percentages at the end like "Tomato 50%" -> "Tomato" if preferred, 
+        // but often percentages are useful. We'll just ensure spacing.
+        
         // Capitalize first letter only to fix ALL CAPS ingredients often found in OCR
         if (s.length > 2 && s === s.toUpperCase()) {
             s = s.charAt(0) + s.slice(1).toLowerCase();
         }
+        
+        // Remove list bullets
+        s = s.replace(/^[-•]\s*/, '');
+
         return s;
     }).filter(s => s.length > 1); // Remove empty or single char artifacts
 };
@@ -89,9 +106,23 @@ const calculateProductQualityScore = (p: any, lang: string) => {
     return score;
 };
 
+// Extract calories (kcal) from nutriments
+const extractCalories = (product: any): number | undefined => {
+    if (!product.nutriments) return undefined;
+    
+    // OFF provides 'energy-kcal', 'energy-kcal_100g', 'energy-kcal_serving'
+    // We prioritize the standard 100g value or general value
+    const kcal = product.nutriments['energy-kcal_100g'] || product.nutriments['energy-kcal'] || product.nutriments['energy-kcal_value'];
+    
+    if (typeof kcal === 'number') return Math.round(kcal);
+    if (typeof kcal === 'string') return Math.round(parseFloat(kcal));
+    
+    return undefined;
+};
+
 const fetchFromApi = async (baseUrl: string, barcode: string): Promise<any> => {
-    // We explicitly request language specific fields to avoid empty ingredient lists
-    const fields = 'product_name,image_front_url,nutriscore_grade,ingredients_text,ingredients_text_de,ingredients_text_en,allergens_tags,categories_tags,labels_tags,stores';
+    // We explicitly request language specific fields to avoid empty ingredient lists AND nutriments
+    const fields = 'product_name,image_front_url,nutriscore_grade,ingredients_text,ingredients_text_de,ingredients_text_en,allergens_tags,categories_tags,labels_tags,stores,nutriments';
     const url = `${baseUrl}/product/${barcode}.json?fields=${fields}`;
     const response = await fetch(url);
     if (!response.ok) {
@@ -136,11 +167,16 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Pa
             if (base64) foodItem.image = base64;
         }
 
-        if (isFood && product.nutriscore_grade) {
-            const score = product.nutriscore_grade.toUpperCase();
-            if (['A', 'B', 'C', 'D', 'E'].includes(score)) {
-                foodItem.nutriScore = score as FoodItem['nutriScore'];
+        if (isFood) {
+            if (product.nutriscore_grade) {
+                const score = product.nutriscore_grade.toUpperCase();
+                if (['A', 'B', 'C', 'D', 'E'].includes(score)) {
+                    foodItem.nutriScore = score as FoodItem['nutriScore'];
+                }
             }
+            // Extract Calories
+            const kcal = extractCalories(product);
+            if (kcal !== undefined) foodItem.calories = kcal;
         }
         
         // Use robust extraction
@@ -167,18 +203,6 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Pa
             if (isFood) {
                 if (labels.includes('lactose-free') || labels.includes('lactosefree')) {
                     foodItem.isLactoseFree = true;
-                } else if (foodItem.allergens) {
-                    // Heuristic: If allergens are listed but NO dairy is found, it MIGHT be lactose free, 
-                    // but safer to rely on explicit labels or user input.
-                    // However, we can check if Milk is explicitly NOT in allergens if list exists.
-                    const dairyAllergens = ['milk', 'lactose', 'dairy', 'milch', 'laktose'];
-                    const hasDairy = foodItem.allergens.some(allergen => 
-                        dairyAllergens.some(dairy => allergen.toLowerCase().includes(dairy))
-                    );
-                    // Only assume lactose free if we have a detailed allergen list and no dairy found
-                    if (!hasDairy && foodItem.allergens.length > 0) {
-                        // foodItem.isLactoseFree = true; // Use with caution
-                    }
                 }
             }
         }
@@ -195,8 +219,8 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string, 
     // 1. Prioritize user's country/language
     const country = language === 'de' ? 'de' : 'us'; 
     
-    // Explicitly ask for language specific ingredient fields
-    const fields = 'product_name,nutriscore_grade,ingredients_text,ingredients_text_en,ingredients_text_de,allergens_tags,categories_tags,labels_tags,stores,image_front_url,unique_scans_n';
+    // Explicitly ask for language specific ingredient fields and nutriments
+    const fields = 'product_name,nutriscore_grade,ingredients_text,ingredients_text_en,ingredients_text_de,allergens_tags,categories_tags,labels_tags,stores,image_front_url,unique_scans_n,nutriments';
     
     // 2. Fetch Top 5 results sorted by 'unique_scans_n' (scanned popularity) to avoid obscure duplicates
     const searchUrl = `${FOOD_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=${fields}&page_size=5&sort_by=unique_scans_n&cc=${country}&lc=${language}`;
@@ -242,6 +266,9 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string, 
             }
         }
         
+        const kcal = extractCalories(product);
+        if (kcal !== undefined) foodItem.calories = kcal;
+        
         foodItem.ingredients = extractCleanIngredients(product, language);
 
         if (product.allergens_tags && Array.isArray(product.allergens_tags)) {
@@ -263,17 +290,9 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string, 
             
             if (labels.includes('lactose-free') || labels.includes('lactosefree')) {
                 foodItem.isLactoseFree = true;
-            } else if (foodItem.allergens) {
-                const dairyAllergens = ['milk', 'lactose', 'dairy', 'milch', 'laktose'];
-                const hasDairy = foodItem.allergens.some(allergen => 
-                    dairyAllergens.some(dairy => allergen.toLowerCase().includes(dairy))
-                );
-                if (!hasDairy && foodItem.allergens.length > 0) {
-                    // foodItem.isLactoseFree = true;
-                }
-            } else {
-                foodItem.isLactoseFree = false;
             }
+        } else {
+            foodItem.isLactoseFree = false;
         }
         
         return foodItem;
