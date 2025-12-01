@@ -186,7 +186,9 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
       {/* Ingredients */}
       {hasIngredients && (
         <div className="pt-3 border-t border-gray-200 dark:border-gray-700/50">
-          <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('detail.ingredientsTitle')}</h4>
+          <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">
+            {t(displayItem.itemType === 'drugstore' ? 'form.ingredients.inciList' : 'detail.ingredientsTitle')}
+          </h4>
           <p className="text-gray-500 dark:text-gray-500 italic text-xs leading-snug">{displayItem.ingredients!.join(', ')}</p>
         </div>
       )}
