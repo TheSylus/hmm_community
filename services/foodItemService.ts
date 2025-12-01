@@ -147,20 +147,6 @@ export const fetchFamilyFavorites = async () => {
     return (data || []).map(mapDbToFoodItem);
 };
 
-// Helper to handle "missing column" errors gracefully
-const handleMissingColumnRetry = async (operation: () => Promise<any>, originalError: any) => {
-    // Check for specific PostgREST or Supabase error regarding missing column
-    if (originalError?.message?.includes('Could not find the') && (originalError?.message?.includes('category') || originalError?.message?.includes('calories'))) {
-        console.warn("Database schema outdated: Column missing. Retrying without new fields.");
-        return true;
-    }
-    if (originalError?.code === '42703') { // Postgres undefined_column code
-         console.warn("Database schema outdated: Column missing. Retrying.");
-         return true;
-    }
-    return false;
-}
-
 export const createFoodItem = async (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>, userId: string, imageUrl?: string) => {
   const payload = mapFoodItemToDbPayload({ ...item, user_id: userId, image_url: imageUrl });
   
@@ -171,18 +157,37 @@ export const createFoodItem = async (item: Omit<FoodItem, 'id' | 'user_id' | 'cr
     .single();
 
   if (error) {
-      if (await handleMissingColumnRetry(async () => {}, error)) {
-          // Retry logic: try stripping fields that might be missing
-          const { category, calories, ...legacyPayload } = payload;
-          const { data: retryData, error: retryError } = await supabase
-            .from('food_items')
-            .insert(legacyPayload)
-            .select()
-            .single();
-          
-          if (retryError) throw retryError;
-          return mapDbToFoodItem(retryData);
+      console.warn("Initial create failed, attempting cascade retry strategy for missing columns.", error.message);
+
+      // RETRY STRATEGY: Cascade downwards from newest features to oldest
+      
+      // 1. Try removing 'calories' (Newest field)
+      const { calories, ...payloadNoCalories } = payload;
+      const { data: retry1Data, error: retry1Error } = await supabase
+        .from('food_items')
+        .insert(payloadNoCalories)
+        .select()
+        .single();
+      
+      if (!retry1Error) {
+          console.log("Recovered by omitting 'calories' column.");
+          return mapDbToFoodItem(retry1Data);
       }
+
+      // 2. Try removing 'calories' AND 'category' (Oldest stable schema)
+      const { category, ...payloadLegacy } = payloadNoCalories;
+      const { data: retry2Data, error: retry2Error } = await supabase
+        .from('food_items')
+        .insert(payloadLegacy)
+        .select()
+        .single();
+
+      if (!retry2Error) {
+          console.log("Recovered by omitting 'calories' and 'category' columns.");
+          return mapDbToFoodItem(retry2Data);
+      }
+
+      // If all fail, throw original error
       throw error;
   }
   return mapDbToFoodItem(data);
@@ -199,21 +204,38 @@ export const updateFoodItem = async (id: string, item: Omit<FoodItem, 'id' | 'us
     .single();
 
   if (error) {
-      // If we hit the missing column error, we strip the fields and retry.
-      // NOTE: This means data is NOT saved if the schema is outdated.
-      if (await handleMissingColumnRetry(async () => {}, error)) {
-          console.warn("Retrying update without 'category' and 'calories' due to schema mismatch.");
-          const { category, calories, ...legacyPayload } = payload;
-          const { data: retryData, error: retryError } = await supabase
-            .from('food_items')
-            .update(legacyPayload)
-            .eq('id', id)
-            .select()
-            .single();
-          
-          if (retryError) throw retryError;
-          return mapDbToFoodItem(retryData);
+      console.warn("Initial update failed, attempting cascade retry strategy.", error.message);
+
+      // RETRY STRATEGY: Cascade downwards
+      
+      // 1. Try removing 'calories' but KEEP 'category'
+      const { calories, ...payloadNoCalories } = payload;
+      const { data: retry1Data, error: retry1Error } = await supabase
+        .from('food_items')
+        .update(payloadNoCalories)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (!retry1Error) {
+          console.log("Update recovered by omitting 'calories'.");
+          return mapDbToFoodItem(retry1Data);
       }
+
+      // 2. Try removing 'category' too (fallback to legacy)
+      const { category, ...payloadLegacy } = payloadNoCalories;
+      const { data: retry2Data, error: retry2Error } = await supabase
+        .from('food_items')
+        .update(payloadLegacy)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (!retry2Error) {
+          console.log("Update recovered by omitting 'calories' and 'category'.");
+          return mapDbToFoodItem(retry2Data);
+      }
+
       throw error;
   }
   return mapDbToFoodItem(data);
