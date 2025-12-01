@@ -82,28 +82,54 @@ const extractCleanIngredients = (product: any, lang: string = 'en'): string[] =>
 
 /**
  * Cleans cryptic tags like "en:plant-based-foods" -> "plant based foods"
+ * Filters out structural tags that are not useful for the user.
  */
-const cleanTag = (tag: string): string => {
-    if (!tag) return '';
-    // Remove language prefix (e.g. "en:", "de:", "fr:")
-    const withoutPrefix = tag.replace(/^[a-z]{2}:/, '');
-    // Replace hyphens with spaces
-    return withoutPrefix.replace(/-/g, ' ');
+const cleanTags = (tags: string[]): string[] => {
+    if (!Array.isArray(tags)) return [];
+    
+    const ignoredTags = [
+        'beverages', 'food', 'drinks', 'groceries', 'products', 
+        'non-alcoholic beverages', 'unsweetened beverages', 
+        'cocoa and its products', 'snacks', 'sweet snacks' // Usually too generic, but keep if very relevant? No, usually spammy.
+    ];
+
+    return tags
+        .map(tag => {
+            // Remove language prefix (e.g. "en:", "de:", "fr:")
+            let cleaned = tag.replace(/^[a-z]{2}:/, '').replace(/-/g, ' ');
+            return cleaned.trim().toLowerCase();
+        })
+        .filter(tag => tag.length > 2 && !ignoredTags.includes(tag))
+        .slice(0, 5); // Limit to top 5 cleaned tags
 };
 
-// Helper to calculate a quality score for a product record
-// Used to pick the best match from search results
-const calculateProductQualityScore = (p: any, lang: string) => {
+// Calculates a relevance score to ensure the found product matches the search term.
+// Prevents getting "Chocolate" when searching for "Cola".
+const calculateRelevanceScore = (product: any, searchTerms: string[], lang: string) => {
     let score = 0;
-    if (p.nutriscore_grade) score += 5; // High value for NutriScore
-    // Bonus if ingredients exist in the target language
-    if (p[`ingredients_text_${lang}`]) score += 10;
-    else if (p.ingredients_text) score += 3;
+    const pName = (product.product_name || '').toLowerCase();
     
-    if (p.image_front_url) score += 2;
-    // Prefer items with a reasonably long name (avoid stubs like "Cola")
-    if (p.product_name && p.product_name.length > 3) score += 1;
-    return score;
+    // 1. Name Match Score
+    let matchedTerms = 0;
+    searchTerms.forEach(term => {
+        if (pName.includes(term)) {
+            score += 10;
+            matchedTerms++;
+        }
+    });
+
+    // Penalize if the product name is WAY longer than the search term (indicates a specific variant or wrong item)
+    // e.g. Search: "Cola", Result: "Cola flavored Gummy Bears extreme"
+    const nameLengthRatio = pName.length / (searchTerms.join(' ').length || 1);
+    if (nameLengthRatio > 3) score -= 5;
+
+    // 2. Data Quality Score
+    if (product.nutriscore_grade) score += 5;
+    if (product[`ingredients_text_${lang}`]) score += 10;
+    else if (product.ingredients_text) score += 3;
+    if (product.image_front_url) score += 2;
+
+    return { score, matchedRatio: matchedTerms / searchTerms.length };
 };
 
 // Extract calories (kcal) from nutriments
@@ -191,11 +217,11 @@ export const fetchProductFromOpenFoodFacts = async (barcode: string): Promise<Pa
         foodItem.ingredients = extractCleanIngredients(product, lang);
 
         if (product.allergens_tags && Array.isArray(product.allergens_tags)) {
-            foodItem.allergens = product.allergens_tags.map(cleanTag);
+            foodItem.allergens = cleanTags(product.allergens_tags);
         }
         
         if (product.categories_tags && Array.isArray(product.categories_tags)) {
-             foodItem.tags = product.categories_tags.map(cleanTag).slice(0, 5); // Limit to 5 relevant tags
+             foodItem.tags = cleanTags(product.categories_tags);
         }
 
         if (product.stores) {
@@ -230,8 +256,9 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string, 
     // Explicitly ask for language specific ingredient fields and nutriments
     const fields = 'product_name,nutriscore_grade,ingredients_text,ingredients_text_en,ingredients_text_de,allergens_tags,categories_tags,labels_tags,stores,image_front_url,unique_scans_n,nutriments';
     
-    // 2. Fetch Top 5 results sorted by 'unique_scans_n' (scanned popularity) to avoid obscure duplicates
-    const searchUrl = `${FOOD_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=${fields}&page_size=5&sort_by=unique_scans_n&cc=${country}&lc=${language}`;
+    // 2. Fetch Top 10 results (increased from 5 to allow filtering)
+    // We sort by unique_scans_n to get popular items, but we MUST filter them next.
+    const searchUrl = `${FOOD_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=${fields}&page_size=10&sort_by=unique_scans_n&cc=${country}&lc=${language}`;
     
     try {
         const response = await fetch(searchUrl);
@@ -240,7 +267,30 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string, 
         const data = await response.json();
         let products = data.products || [];
         
-        // If no food found, try beauty
+        // Filter out results that don't match the search term well enough
+        // This is CRITICAL for "Coca Cola Zero" not showing "Chocolate"
+        const searchTerms = productName.toLowerCase().split(' ').filter(w => w.length > 2); // Ignore small words like "the", "in"
+        
+        if (products.length > 0) {
+            // Augment products with a score
+            const scoredProducts = products.map((p: any) => {
+                const { score, matchedRatio } = calculateRelevanceScore(p, searchTerms, language);
+                return { ...p, _relevanceScore: score, _matchedRatio: matchedRatio };
+            });
+
+            // Filter: At least 50% of significant search words must appear in product name
+            const filteredProducts = scoredProducts.filter((p: any) => p._matchedRatio >= 0.5);
+
+            // Sort by relevance score desc
+            filteredProducts.sort((a: any, b: any) => b._relevanceScore - a._relevanceScore);
+
+            // Use filtered list if not empty, otherwise fallback (maybe search terms were too strict)
+            if (filteredProducts.length > 0) {
+                products = filteredProducts;
+            }
+        }
+
+        // If no food found or score too low, try beauty (only if initial list was empty or filtered to empty)
         if (products.length === 0) {
              const beautySearchUrl = `${BEAUTY_API_URL}/search?search_terms=${encodeURIComponent(productName)}&fields=${fields}&page_size=1&lc=${language}`;
              const beautyResponse = await fetch(beautySearchUrl);
@@ -252,7 +302,7 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string, 
                          name: product.product_name,
                          itemType: 'drugstore',
                          ingredients: extractCleanIngredients(product, language),
-                         tags: product.categories_tags ? product.categories_tags.map(cleanTag) : [],
+                         tags: cleanTags(product.categories_tags),
                          purchaseLocation: product.stores ? product.stores.split(',') : [],
                          isVegan: product.labels_tags ? product.labels_tags.join(' ').toLowerCase().includes('vegan') : false
                      };
@@ -261,9 +311,7 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string, 
              throw new Error(`Product "${productName}" not found.`);
         }
 
-        // 3. Quality Filter: Sort results by completeness AND language match
-        products.sort((a: any, b: any) => calculateProductQualityScore(b, language) - calculateProductQualityScore(a, language));
-        const product = products[0];
+        const product = products[0]; // Take the best match
 
         const foodItem: Partial<FoodItem> = { itemType: 'product' };
 
@@ -280,11 +328,11 @@ export const searchProductByNameFromOpenFoodFacts = async (productName: string, 
         foodItem.ingredients = extractCleanIngredients(product, language);
 
         if (product.allergens_tags && Array.isArray(product.allergens_tags)) {
-            foodItem.allergens = product.allergens_tags.map(cleanTag);
+            foodItem.allergens = cleanTags(product.allergens_tags);
         }
         
         if (product.categories_tags && Array.isArray(product.categories_tags)) {
-             foodItem.tags = product.categories_tags.map(cleanTag).slice(0, 5);
+             foodItem.tags = cleanTags(product.categories_tags);
         }
         
         if (product.stores) {

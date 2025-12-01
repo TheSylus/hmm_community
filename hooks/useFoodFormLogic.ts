@@ -456,6 +456,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
                 // If the database returns undefined, we want to respect that (or use our cleared state), 
                 // NOT fall back to 'prev' state which might be from a different product.
                 setNutriScore((offResult.nutriScore as NutriScore) || '');
+                // Correctly handle 0 kcal. It is a number, so check specifically against undefined/null.
                 setCalories((offResult.calories !== undefined && offResult.calories !== null) ? offResult.calories : '');
                 setIngredients(offResult.ingredients || []);
                 setAllergens(offResult.allergens || []);
