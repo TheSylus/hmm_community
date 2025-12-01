@@ -38,7 +38,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
   
   // Product-specific
   const [nutriScore, setNutriScore] = useState<NutriScore | ''>('');
-  const [calories, setCalories] = useState<number | ''>(''); // New State
+  const [calories, setCalories] = useState<number | ''>(''); 
   const [purchaseLocation, setPurchaseLocation] = useState('');
   const [ingredients, setIngredients] = useState<string[]>([]);
   const [allergens, setAllergens] = useState<string[]>([]);
@@ -93,7 +93,11 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
     setRestaurantName('');
     setCuisineType('');
     setPrice('');
-    setCategory(initialItemType === 'drugstore' ? 'personal_care' : (initialItemType === 'dish' ? 'restaurant_food' : 'other'));
+    
+    // Smart default category based on initial type
+    const defaultCat = initialItemType === 'drugstore' ? 'personal_care' : (initialItemType === 'dish' ? 'restaurant_food' : 'other');
+    setCategory(defaultCat);
+    
     setError(null);
     setIsLoading(false);
     setAutoExpandDetails(false);
@@ -109,7 +113,15 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       setImage(initialData.image || null);
       setTags(initialData.tags?.join(', ') || '');
       setIsFamilyFavorite(initialData.isFamilyFavorite || false);
-      setCategory(initialData.category || (initialData.itemType === 'drugstore' ? 'personal_care' : (initialData.itemType === 'dish' ? 'restaurant_food' : 'other')));
+      
+      // Strict category initialization: Use data from DB if exists, otherwise fallback intelligently
+      if (initialData.category) {
+          setCategory(initialData.category);
+      } else {
+          // Fallback only if no category saved
+          const fallbackCat = initialData.itemType === 'drugstore' ? 'personal_care' : (initialData.itemType === 'dish' ? 'restaurant_food' : 'other');
+          setCategory(fallbackCat);
+      }
       
       if(initialData.itemType === 'product' || initialData.itemType === 'drugstore') {
         setNutriScore(initialData.nutriScore || '');
@@ -155,6 +167,8 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
     }
   }, [highlightedFields]);
 
+  // One-way binding: Category implies Type.
+  // We use this to auto-switch the form mode when a user selects a specific category.
   useEffect(() => {
       if (category === 'restaurant_food') {
           setItemType('dish');
@@ -599,7 +613,8 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       image: image || undefined,
       tags: tags ? tags.split(',').map(tag => tag.trim()).filter(Boolean) : undefined,
       itemType,
-      category,
+      // CRITICAL: Force category to be present. If empty string or undefined, use 'other'.
+      category: category || 'other', 
       isFamilyFavorite,
     };
 

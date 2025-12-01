@@ -14,7 +14,7 @@ interface FoodItemDbPayload {
   category?: GroceryCategory;
   is_family_favorite: boolean;
   nutri_score?: NutriScore | null;
-  calories?: number | null; // Added DB field
+  calories?: number | null;
   ingredients?: string[];
   allergens?: string[];
   is_lactose_free: boolean;
@@ -70,12 +70,13 @@ export const mapDbToFoodItem = (dbItem: any): FoodItem => {
     image: dbItem.image_url,
     tags: dbItem.tags,
     itemType: dbItem.item_type,
+    // Provide a safe fallback if category is null in DB
     category: dbItem.category || 'other',
     isFamilyFavorite: dbItem.is_family_favorite,
 
     // Product specific
     nutriScore: dbItem.nutri_score,
-    calories: dbItem.calories, // DB -> Frontend
+    calories: dbItem.calories,
     ingredients: dbItem.ingredients,
     allergens: dbItem.allergens,
     isLactoseFree: dbItem.is_lactose_free,
@@ -102,12 +103,13 @@ export const mapFoodItemToDbPayload = (item: Omit<FoodItem, 'id' | 'user_id' | '
     image_url: item.image_url || item.image,
     tags: item.tags,
     item_type: item.itemType,
-    category: item.category,
+    // Explicitly pass category, ensuring it defaults to 'other' if somehow undefined to ensure DB column is hit
+    category: item.category || 'other',
     is_family_favorite: item.isFamilyFavorite || false,
 
     // Product specific mappings
     nutri_score: item.nutriScore || null,
-    calories: item.calories || null, // Frontend -> DB
+    calories: item.calories || null,
     ingredients: item.ingredients,
     allergens: item.allergens,
     is_lactose_free: item.isLactoseFree || false,
@@ -197,7 +199,10 @@ export const updateFoodItem = async (id: string, item: Omit<FoodItem, 'id' | 'us
     .single();
 
   if (error) {
+      // If we hit the missing column error, we strip the fields and retry.
+      // NOTE: This means data is NOT saved if the schema is outdated.
       if (await handleMissingColumnRetry(async () => {}, error)) {
+          console.warn("Retrying update without 'category' and 'calories' due to schema mismatch.");
           const { category, calories, ...legacyPayload } = payload;
           const { data: retryData, error: retryError } = await supabase
             .from('food_items')
