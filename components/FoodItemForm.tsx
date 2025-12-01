@@ -7,7 +7,7 @@ import { CameraCapture } from './CameraCapture';
 import { BarcodeScanner } from './BarcodeScanner';
 import { SpeechInputModal } from './SpeechInputModal';
 import { ImageCropper } from './ImageCropper';
-import { ShoppingBagIcon, BuildingStorefrontIcon, BeakerIcon, ChevronDownIcon } from './Icons';
+import { ChevronDownIcon } from './Icons';
 
 // Sub-components
 import { ImageCaptureSection } from './form/ImageCaptureSection';
@@ -99,27 +99,6 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
             {isEditing ? t('form.editTitle') : t('form.addNewButton')}
         </h2>
 
-        {/* Item Type Segmented Control - Only visible if manual control is needed, usually AI handles this but good for fallback */}
-        <div className="flex bg-gray-100 dark:bg-gray-700/50 p-1 rounded-lg mb-6">
-            {(['product', 'dish', 'drugstore'] as FoodItemType[]).map((type) => (
-                <button
-                    key={type}
-                    type="button"
-                    onClick={() => formSetters.setItemType(type)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all ${
-                        formState.itemType === type
-                            ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10'
-                            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                    }`}
-                >
-                    {type === 'product' && <ShoppingBagIcon className="w-4 h-4" />}
-                    {type === 'dish' && <BuildingStorefrontIcon className="w-4 h-4" />}
-                    {type === 'drugstore' && <BeakerIcon className="w-4 h-4" />}
-                    <span className="capitalize">{t(`modal.itemType.${type}`)}</span>
-                </button>
-            ))}
-        </div>
-
         <div className="space-y-6">
             {/* 1. Image Capture & Preview */}
             <ImageCaptureSection 
@@ -140,58 +119,51 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                 nameInputRef={nameInputRef}
             />
 
-            {/* 3. Type Specific Sections */}
-            {formState.itemType === 'dish' ? (
-                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                    <DishDetailsSection 
-                        formState={formState}
-                        formSetters={formSetters}
-                        uiState={uiState}
-                        actions={actions}
-                    />
-                </div>
-            ) : (
-                <>
-                    {/* Collapsible Metadata */}
-                    <details open={uiState.autoExpandDetails} className="group bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                        <summary className="flex items-center justify-between p-3 cursor-pointer select-none bg-gray-100 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                            <span className="font-semibold text-gray-700 dark:text-gray-300 text-sm">
-                                {t('form.attributes.title')} / {t('form.category.title')}
-                            </span>
-                            <ChevronDownIcon className="w-5 h-5 text-gray-500 transition-transform group-open:rotate-180" />
-                        </summary>
-                        <div className="p-4 space-y-4">
-                            <ProductMetadataSection 
-                                formState={formState}
-                                formSetters={formSetters}
-                                uiState={uiState}
-                                itemType={formState.itemType}
-                            />
-                        </div>
-                    </details>
+            {/* 3. Category Selection & Dynamic Sections */}
+            {/* The Category Selector is now the driver for the item type */}
+            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4">
+                <ProductMetadataSection 
+                    formState={formState}
+                    formSetters={formSetters}
+                    uiState={uiState}
+                    itemType={formState.itemType}
+                />
 
-                    {/* Collapsible Ingredients/Dietary */}
-                    <details className="group bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                        <summary className="flex items-center justify-between p-3 cursor-pointer select-none bg-gray-100 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                            <span className="font-semibold text-gray-700 dark:text-gray-300 text-sm">
-                                {t('form.ingredients.title')}
-                            </span>
-                            <ChevronDownIcon className="w-5 h-5 text-gray-500 transition-transform group-open:rotate-180" />
-                        </summary>
-                        <div className="p-4">
-                            <DietarySection 
-                                formState={formState}
-                                formSetters={formSetters}
-                                uiState={uiState}
-                                actions={actions}
-                                itemType={formState.itemType}
-                            />
-                        </div>
-                    </details>
-                </>
+                {/* If it's a dish (restaurant food), show restaurant details */}
+                {formState.itemType === 'dish' && (
+                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                        <DishDetailsSection 
+                            formState={formState}
+                            formSetters={formSetters}
+                            uiState={uiState}
+                            actions={actions}
+                        />
+                    </div>
+                )}
+            </div>
+
+            {/* 4. Collapsible Ingredients/Dietary (Only for Products/Drugstore) */}
+            {formState.itemType !== 'dish' && (
+                <details className="group bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden" open={uiState.autoExpandDetails}>
+                    <summary className="flex items-center justify-between p-3 cursor-pointer select-none bg-gray-100 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                        <span className="font-semibold text-gray-700 dark:text-gray-300 text-sm">
+                            {t('form.ingredients.title')}
+                        </span>
+                        <ChevronDownIcon className="w-5 h-5 text-gray-500 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="p-4">
+                        <DietarySection 
+                            formState={formState}
+                            formSetters={formSetters}
+                            uiState={uiState}
+                            actions={actions}
+                            itemType={formState.itemType}
+                        />
+                    </div>
+                </details>
             )}
 
-            {/* 4. Household Sharing */}
+            {/* 5. Household Sharing */}
             {householdId && (
                 <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-md border border-gray-200 dark:border-gray-700">
                     <input

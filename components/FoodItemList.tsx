@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { FoodItem, GroceryCategory } from '../types';
 import { FoodItemCard } from './FoodItemCard';
@@ -7,7 +8,7 @@ import {
     CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, 
     CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, 
     CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon,
-    ChevronDownIcon
+    CategoryRestaurantIcon, ChevronDownIcon
 } from './Icons';
 
 interface FoodItemListProps {
@@ -22,7 +23,7 @@ interface FoodItemListProps {
   onToggleCategory: (category: string) => void;
 }
 
-// Reuse constants to match ShoppingListModal exactly (Quality Gate: Consistency)
+// Updated order
 const CATEGORY_ORDER: GroceryCategory[] = [
     'produce',
     'bakery',
@@ -34,6 +35,7 @@ const CATEGORY_ORDER: GroceryCategory[] = [
     'frozen',
     'household',
     'personal_care',
+    'restaurant_food',
     'pet_food',
     'other'
 ];
@@ -49,6 +51,7 @@ const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>>
     'beverages': CategoryBeveragesIcon,
     'household': CategoryHouseholdIcon,
     'personal_care': CategoryPersonalCareIcon,
+    'restaurant_food': CategoryRestaurantIcon,
     'pet_food': CategoryPetFoodIcon,
     'other': CategoryOtherIcon,
 };
@@ -64,6 +67,7 @@ const CategoryColorMap: Record<GroceryCategory, string> = {
     'beverages': 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-800',
     'household': 'bg-gray-200 text-gray-800 dark:bg-gray-700/60 dark:text-gray-300 border-gray-300 dark:border-gray-600',
     'personal_care': 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+    'restaurant_food': 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 border-teal-200 dark:border-teal-800',
     'pet_food': 'bg-stone-200 text-stone-800 dark:bg-stone-700/60 dark:text-stone-300 border-stone-300 dark:border-stone-600',
     'other': 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700',
 };
@@ -89,7 +93,6 @@ const CategorySection: React.FC<{
     return (
         <div className="mb-4 last:mb-0">
             {/* Sticky Header: Adjusted top to match the new Toolbar Header height + offset + Safe Area */}
-            {/* 72px (App Header) + ~56px (Dashboard Toolbar) + Safe Area Top */}
             <button 
                 onClick={() => onToggle(category)}
                 className={`w-full flex items-center justify-between p-2 sm:p-3 rounded-lg mb-2 transition-all duration-200 border sticky top-[calc(130px+env(safe-area-inset-top,0px))] sm:top-[calc(130px+env(safe-area-inset-top,0px))] z-0 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}

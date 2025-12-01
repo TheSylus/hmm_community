@@ -120,7 +120,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
     };
 
     const textPart = {
-      text: "Analyze this image. Classify the item into one of three types: 'product' (packaged food/drink items from a grocery store), 'drugstore' (cosmetics, hygiene, cleaning products), or 'dish' (prepared food, plated meal, restaurant food). Identify the full name (or dish name). Categorize it into one of the following supermarket categories if applicable (for dishes use 'other' or 'meat_fish' etc if clear): produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, pet_food, other. Provide up to 5 relevant tags. If it is a packaged food product, find the Nutri-Score (A-E). Identify the primary object and return its bounding box (normalized 0.0-1.0). Return a single JSON object.",
+      text: "Analyze this image. Classify the item into one of three types: 'product' (packaged food/drink items from a grocery store), 'drugstore' (cosmetics, hygiene, cleaning products), or 'dish' (prepared food, plated meal, restaurant food). Identify the full name (or dish name). Categorize it into one of the following supermarket categories if applicable (for dishes use 'restaurant_food', otherwise match the aisle): produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, other. Provide up to 5 relevant tags. If it is a packaged food product, find the Nutri-Score (A-E). Identify the primary object and return its bounding box (normalized 0.0-1.0). Return a single JSON object.",
     };
 
     const response = await gemini.models.generateContent({
@@ -142,7 +142,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
             },
             category: {
                 type: Type.STRING,
-                enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'pet_food', 'other'],
+                enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'restaurant_food', 'other'],
                 description: "The supermarket category/aisle for this item.",
             },
             tags: {
@@ -387,7 +387,7 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
         const gemini = getAiClient();
         const response = await gemini.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: { parts: [{ text: `Parse this shopping list string: "${input}". Extract items with their quantities. If no quantity is specified, default to 1. Assign one of the following categories to each item: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, pet_food, other.` }] },
+            contents: { parts: [{ text: `Parse this shopping list string: "${input}". Extract items with their quantities. If no quantity is specified, default to 1. Assign one of the following categories to each item: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, pet_food, other.` }] },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
@@ -402,7 +402,7 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
                                     quantity: { type: Type.NUMBER, description: "Quantity of the item" },
                                     category: { 
                                         type: Type.STRING, 
-                                        enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'pet_food', 'other'],
+                                        enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'restaurant_food', 'pet_food', 'other'],
                                         description: "Category of the item"
                                     }
                                 },

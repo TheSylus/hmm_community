@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon, UserGroupIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon, MapPinIcon, SparklesIcon } from './Icons';
+import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon, UserGroupIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon, MapPinIcon, SparklesIcon, CategoryRestaurantIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
 import { ShoppingList, UserProfile, Household, GroceryCategory } from '../types';
@@ -39,6 +39,7 @@ const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>>
     'beverages': CategoryBeveragesIcon,
     'household': CategoryHouseholdIcon,
     'personal_care': CategoryPersonalCareIcon,
+    'restaurant_food': CategoryRestaurantIcon,
     'pet_food': CategoryPetFoodIcon,
     'other': CategoryOtherIcon,
 };
@@ -55,6 +56,7 @@ const CATEGORY_ORDER: GroceryCategory[] = [
     'frozen',
     'household',
     'personal_care',
+    'restaurant_food',
     'pet_food',
     'other'
 ];
@@ -70,6 +72,7 @@ const CategoryColorMap: Record<GroceryCategory, string> = {
     'beverages': 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
     'household': 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
     'personal_care': 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
+    'restaurant_food': 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300',
     'pet_food': 'bg-stone-200 text-stone-700 dark:bg-stone-700 dark:text-stone-300',
     'other': 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
 };
@@ -299,351 +302,225 @@ const ShoppingListItem: React.FC<{
         )}
     </li>
   );
-}
+};
 
-
-export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({ 
-  allLists, activeListId, listData, household, householdMembers, currentUser, onRemove, onClear, onClose, onToggleChecked, onSelectList, onCreateList, onDeleteList, onUpdateQuantity, onSmartAdd, isSmartAddLoading
+export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
+  allLists,
+  activeListId,
+  listData,
+  household,
+  householdMembers,
+  currentUser,
+  onRemove,
+  onClear,
+  onClose,
+  onToggleChecked,
+  onSelectList,
+  onCreateList,
+  onDeleteList,
+  onUpdateQuantity,
+  onSmartAdd,
+  isSmartAddLoading
 }) => {
   const { t } = useTranslation();
-  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
-  const [isCreatingNewList, setIsCreatingNewList] = useState(false);
   const [newListName, setNewListName] = useState('');
-  const [shareStatus, setShareStatus] = useState<'idle' | 'copying' | 'copied'>('idle');
-  const [isManageMenuOpen, setIsManageMenuOpen] = useState(false);
-  const manageMenuRef = useRef<HTMLDivElement>(null);
+  const [isCreatingList, setIsCreatingList] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [isShoppingMode, setIsShoppingMode] = useState(false);
-  const [currentView, setCurrentView] = useState<'list' | 'members'>('list');
 
+  const toggleExpand = (id: string) => {
+      setExpandedItems(prev => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+      });
+  };
 
-  const activeList = useMemo(() => allLists.find(l => l.id === activeListId), [allLists, activeListId]);
-
-  const handleExpand = useCallback((foodItemId: string) => {
-    setExpandedItemId(prev => prev === foodItemId ? null : foodItemId);
-  }, []);
-  
-  const handleCreateList = (e: React.FormEvent) => {
-      e.preventDefault();
-      if(newListName.trim()){
+  const handleCreateList = () => {
+      if (newListName.trim()) {
           onCreateList(newListName.trim());
           setNewListName('');
-          setIsCreatingNewList(false);
+          setIsCreatingList(false);
       }
-  }
-
-  const handleDelete = () => {
-    if (!activeList) return;
-    triggerHaptic('warning');
-    if (window.confirm(t('shoppingList.delete.confirm', { listName: activeList.name }))) {
-        onDeleteList(activeList.id);
-        setIsManageMenuOpen(false);
-    }
   };
 
-  const handleShareHousehold = useCallback(async () => {
-    if (!household) return;
-    setShareStatus('copying');
-    const inviteUrl = `${window.location.origin}${window.location.pathname}?join_household=${household.id}`;
-    try {
-      await navigator.clipboard.writeText(inviteUrl);
-      setShareStatus('copied');
-      triggerHaptic('success');
-      setTimeout(() => setShareStatus('idle'), 2000); // Reset after 2 seconds
-    } catch (err) {
-      console.error('Failed to copy share link:', err);
-      alert(t('shoppingList.share.copyFailed'));
-      setShareStatus('idle');
-    }
-  }, [household, t]);
-
-  const getInitials = (name: string) => {
-      if (!name) return '?';
-      const parts = name.split('@')[0].replace(/[^a-zA-Z\s]/g, ' ').split(' ');
-      if (parts.length > 1 && parts[0] && parts[parts.length -1]) {
-          return (parts[0][0] + (parts[parts.length - 1][0] || '')).toUpperCase();
+  const handleDeleteList = () => {
+      if (activeListId) {
+          const listName = allLists.find(l => l.id === activeListId)?.name;
+          if (window.confirm(t('shoppingList.delete.confirm', { listName }))) {
+              onDeleteList(activeListId);
+          }
       }
-      return name.substring(0, 2).toUpperCase();
   };
 
-  // Grouping Logic: Shop -> Category -> Items
-  const { groupedByShop, sortedShopNames, checkedItemsCount } = useMemo(() => {
-      const checkedCount = listData.filter(i => i.checked).length;
-
-      // Type: ShopName -> CategoryName -> Items[]
-      const grouped: Record<string, Record<string, HydratedShoppingListItem[]>> = {};
-      const unknownShopKey = t('shoppingList.uncategorized'); // Or "Other Stores"
-
+  // Sort/Group logic
+  // Group by category, but unchecked first? Or just category.
+  // Let's stick to Category grouping like Dashboard for consistency
+  const groupedItems = useMemo(() => {
+      const groups: Record<string, HydratedShoppingListItem[]> = {};
       listData.forEach(item => {
-          // 1. Determine Shop
-          let shopName = unknownShopKey;
-          if (item.purchaseLocation && item.purchaseLocation.length > 0) {
-              shopName = item.purchaseLocation[0]; // Primary shop is the first one
-          }
-
-          if (!grouped[shopName]) {
-              grouped[shopName] = {};
-          }
-
-          // 2. Determine Category within Shop
-          const category = item.category || 'other';
-          if (!grouped[shopName][category]) {
-              grouped[shopName][category] = [];
-          }
-
-          grouped[shopName][category].push(item);
+          const cat = item.category || 'other';
+          if (!groups[cat]) groups[cat] = [];
+          groups[cat].push(item);
       });
+      return groups;
+  }, [listData]);
 
-      // Sort Shops alphabetically, but keep "Uncategorized" at the bottom
-      const sortedShops = Object.keys(grouped).sort((a, b) => {
-          if (a === unknownShopKey) return 1;
-          if (b === unknownShopKey) return -1;
-          return a.localeCompare(b);
-      });
-
-      return { groupedByShop: grouped, sortedShopNames: sortedShops, checkedItemsCount: checkedCount };
-  }, [listData, t]);
+  const activeList = allLists.find(l => l.id === activeListId);
+  const completedCount = listData.filter(i => i.checked).length;
 
   return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-    >
-      <div
-        className="relative bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
-            {/* Title / List Selector */}
-            <div className="flex-1 min-w-0 mr-2">
-                {isCreatingNewList ? (
-                    <form onSubmit={handleCreateList} className="flex gap-2">
-                        <input
-                            type="text"
-                            value={newListName}
-                            onChange={(e) => setNewListName(e.target.value)}
-                            placeholder={t('shoppingList.newListPlaceholder')}
-                            className="flex-1 bg-gray-100 dark:bg-gray-700 border-none rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:text-white"
-                            autoFocus
-                        />
-                        <button type="submit" className="text-xs bg-indigo-600 text-white px-2 rounded hover:bg-indigo-700">{t('shoppingList.createButton')}</button>
-                        <button type="button" onClick={() => setIsCreatingNewList(false)} className="text-gray-500 hover:text-gray-700"><XMarkIcon className="w-4 h-4"/></button>
-                    </form>
-                ) : (
-                    <div className="relative">
-                        <button 
-                            onClick={() => setIsManageMenuOpen(!isManageMenuOpen)} 
-                            className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white truncate hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in" role="dialog" aria-modal="true" onClick={onClose}>
+        <div className="bg-white dark:bg-gray-900 w-full max-w-2xl h-[90vh] rounded-xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <ShoppingBagIcon className="w-6 h-6 text-indigo-600" />
+                    {activeList ? activeList.name : t('shoppingList.title')}
+                </h2>
+                <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
+                    <XMarkIcon className="w-6 h-6 text-gray-500" />
+                </button>
+            </div>
+
+            {/* Toolbar: List Selector & Mode Toggle */}
+            <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-3 items-center justify-between">
+                {allLists.length > 1 || household ? (
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <select 
+                            value={activeListId || ''} 
+                            onChange={(e) => {
+                                if (e.target.value === 'new') setIsCreatingList(true);
+                                else onSelectList(e.target.value);
+                            }}
+                            className="bg-gray-100 dark:bg-gray-700 border-none rounded-lg py-2 pl-3 pr-8 text-sm font-medium focus:ring-2 focus:ring-indigo-500 max-w-[200px]"
                         >
-                            {activeList?.name || t('shoppingList.title')}
-                            <ChevronDownIcon className="w-4 h-4" />
-                        </button>
-                        
-                        {/* Dropdown for List Management */}
-                        {isManageMenuOpen && (
-                            <div ref={manageMenuRef} className="absolute top-full left-0 mt-1 w-56 bg-white dark:bg-gray-700 rounded-md shadow-lg z-50 border border-gray-200 dark:border-gray-600 py-1 animate-fade-in">
-                                {allLists.map(list => (
-                                    <button
-                                        key={list.id}
-                                        onClick={() => { onSelectList(list.id); setIsManageMenuOpen(false); }}
-                                        className={`w-full text-left px-4 py-2 text-sm flex justify-between items-center ${activeListId === list.id ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-medium' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600'}`}
-                                    >
-                                        <span className="truncate">{list.name}</span>
-                                        {activeListId === list.id && <CheckBadgeIcon className="w-4 h-4" />}
-                                    </button>
-                                ))}
-                                <div className="border-t border-gray-200 dark:border-gray-600 my-1"></div>
-                                <button
-                                    onClick={() => { setIsCreatingNewList(true); setIsManageMenuOpen(false); }}
-                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
-                                >
-                                    <PlusCircleIcon className="w-4 h-4" />
-                                    {t('shoppingList.newListButton')}
-                                </button>
-                                {activeList && (
-                                    <button
-                                        onClick={handleDelete}
-                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center gap-2"
-                                    >
-                                        <TrashIcon className="w-4 h-4" />
-                                        {t('shoppingList.delete.button')}
-                                    </button>
-                                )}
-                            </div>
+                            {allLists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                            {household && <option value="new">+ {t('shoppingList.newListButton')}</option>}
+                        </select>
+                        {activeList && activeList.household_id && (
+                            <button onClick={handleDeleteList} className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 p-2 rounded-full" title={t('shoppingList.delete.button')}>
+                                <TrashIcon className="w-4 h-4" />
+                            </button>
                         )}
                     </div>
+                ) : null}
+                
+                {isCreatingList && (
+                    <div className="absolute inset-0 bg-white dark:bg-gray-800 z-10 flex items-center gap-2 p-3 animate-fade-in">
+                        <input 
+                            type="text" 
+                            value={newListName} 
+                            onChange={e => setNewListName(e.target.value)} 
+                            placeholder={t('shoppingList.newListPlaceholder')} 
+                            className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-md px-3 py-2 border-none focus:ring-2 focus:ring-indigo-500"
+                            autoFocus
+                        />
+                        <button onClick={handleCreateList} className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-bold">{t('shoppingList.createButton')}</button>
+                        <button onClick={() => setIsCreatingList(false)} className="text-gray-500 hover:text-gray-700 px-2"><XMarkIcon className="w-5 h-5"/></button>
+                    </div>
                 )}
-            </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2">
-                <button
-                    onClick={() => setIsShoppingMode(!isShoppingMode)}
-                    className={`p-2 rounded-full transition-all duration-300 ${isShoppingMode ? 'bg-green-600 text-white shadow-lg ring-2 ring-green-300 dark:ring-green-800' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
-                    title={t('shoppingList.mode.startShopping')}
+                <button 
+                    onClick={() => setIsShoppingMode(!isShoppingMode)} 
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${isShoppingMode ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`}
                 >
-                    <ShoppingBagIcon className="w-5 h-5" />
-                </button>
-                <button
-                    onClick={() => setCurrentView(v => v === 'list' ? 'members' : 'list')}
-                    className={`p-2 rounded-full transition-colors ${currentView === 'members' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
-                    title={t('shoppingList.collaboration.members')}
-                >
-                    <UserGroupIcon className="w-5 h-5" />
-                </button>
-                <button
-                    onClick={onClose}
-                    className="p-2 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                >
-                    <XMarkIcon className="w-6 h-6" />
+                    <CheckBadgeIcon className="w-4 h-4" />
+                    {isShoppingMode ? t('shoppingList.mode.done') : t('shoppingList.mode.startShopping')}
                 </button>
             </div>
-        </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6 bg-white dark:bg-gray-800">
-            {currentView === 'list' ? (
-                <>
-                    {/* Smart Input for Quick Add */}
-                    {!isShoppingMode && <SmartAddInput onAdd={onSmartAdd} isLoading={isSmartAddLoading} />}
+            {/* Smart Add Input */}
+            <div className="p-4 pb-0">
+                <SmartAddInput onAdd={onSmartAdd} isLoading={isSmartAddLoading} />
+            </div>
 
-                    {listData.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                            <ShoppingBagIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                            <p>{t('shoppingList.empty')}</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-8 pb-10">
-                            {sortedShopNames.map(shopName => (
-                                <div key={shopName} className="space-y-2">
-                                    {/* Shop Header */}
-                                    <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm py-2 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
-                                        {shopName !== t('shoppingList.uncategorized') ? (
-                                            <StoreLogo name={shopName} size="md" className="shrink-0" />
-                                        ) : (
-                                            <div className="w-9 h-9 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                                                <MapPinIcon className="w-5 h-5 text-gray-500" />
-                                            </div>
-                                        )}
-                                        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-                                            {shopName}
-                                        </h3>
-                                    </div>
-
-                                    <div className="space-y-4 pl-2">
-                                        {/* Categories within Shop */}
-                                        {CATEGORY_ORDER.map(cat => {
-                                            const categoryItems = groupedByShop[shopName][cat];
-                                            if (!categoryItems || categoryItems.length === 0) return null;
-
-                                            return (
-                                                <div key={`${shopName}-${cat}`} className="space-y-1">
-                                                    <h4 className={`text-[10px] font-bold uppercase tracking-widest pl-1 mb-1.5 opacity-80 flex items-center gap-2 ${CategoryColorMap[cat].split(' ')[1]}`}>
-                                                        {t(`category.${cat}`)}
-                                                    </h4>
-                                                    <ul className="space-y-2">
-                                                        {categoryItems.map(item => (
-                                                            <ShoppingListItem
-                                                                key={item.shoppingListItemId}
-                                                                item={item}
-                                                                onRemove={onRemove}
-                                                                onToggleChecked={onToggleChecked}
-                                                                onUpdateQuantity={onUpdateQuantity}
-                                                                isExpanded={expandedItemId === item.id}
-                                                                onExpand={handleExpand}
-                                                                members={householdMembers}
-                                                                currentUser={currentUser}
-                                                                isShoppingMode={isShoppingMode}
-                                                                groupPrefix={`${shopName}-${cat}`}
-                                                            />
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            );
-                                        })}
-                                        {/* Handle 'other' or undefined categories explicitly if not in CATEGORY_ORDER */}
-                                        {Object.keys(groupedByShop[shopName]).filter(c => !CATEGORY_ORDER.includes(c as GroceryCategory)).map(cat => (
-                                             <div key={`${shopName}-${cat}`} className="space-y-1">
-                                                <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 pl-1 mb-1.5">
-                                                    {t(`category.${cat}`)}
-                                                </h4>
-                                                <ul className="space-y-2">
-                                                    {groupedByShop[shopName][cat].map(item => (
-                                                        <ShoppingListItem
-                                                            key={item.shoppingListItemId}
-                                                            item={item}
-                                                            onRemove={onRemove}
-                                                            onToggleChecked={onToggleChecked}
-                                                            onUpdateQuantity={onUpdateQuantity}
-                                                            isExpanded={expandedItemId === item.id}
-                                                            onExpand={handleExpand}
-                                                            members={householdMembers}
-                                                            currentUser={currentUser}
-                                                            isShoppingMode={isShoppingMode}
-                                                            groupPrefix={`${shopName}-${cat}`}
-                                                        />
-                                                    ))}
-                                                </ul>
-                                            </div>
+            {/* List Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                {listData.length === 0 ? (
+                    <div className="text-center text-gray-500 dark:text-gray-400 py-10">
+                        <ShoppingBagIcon className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                        <p>{t('shoppingList.empty')}</p>
+                    </div>
+                ) : (
+                    <>
+                        {CATEGORY_ORDER.map(cat => {
+                            const items = groupedItems[cat];
+                            if (!items || items.length === 0) return null;
+                            const CatIcon = CategoryIconMap[cat];
+                            
+                            return (
+                                <div key={cat} className="space-y-2">
+                                    {!isShoppingMode && (
+                                        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 pb-1 mb-2">
+                                            <CatIcon className="w-4 h-4" />
+                                            <span className="text-xs font-bold uppercase tracking-wider">{t(`category.${cat}`)}</span>
+                                        </div>
+                                    )}
+                                    <div className="space-y-2">
+                                        {items.map(item => (
+                                            <ShoppingListItem
+                                                key={item.shoppingListItemId}
+                                                item={item}
+                                                onRemove={onRemove}
+                                                onToggleChecked={onToggleChecked}
+                                                onUpdateQuantity={onUpdateQuantity}
+                                                isExpanded={expandedItems.has(item.id)}
+                                                onExpand={toggleExpand}
+                                                members={householdMembers}
+                                                currentUser={currentUser}
+                                                isShoppingMode={isShoppingMode}
+                                                groupPrefix={cat}
+                                            />
                                         ))}
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </>
-            ) : (
-                <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{t('shoppingList.collaboration.members')}</h3>
-                    <div className="space-y-2">
-                        {householdMembers.map(member => (
-                            <div key={member.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-                                <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center text-indigo-700 dark:text-indigo-200 font-bold">
-                                    {getInitials(member.display_name)}
+                            );
+                        })}
+                        
+                        {/* Fallback for items with unknown category */}
+                        {Object.keys(groupedItems).filter(cat => !CATEGORY_ORDER.includes(cat as GroceryCategory)).map(cat => (
+                             <div key={cat} className="space-y-2">
+                                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 pb-1 mb-2">
+                                    <span className="text-xs font-bold uppercase tracking-wider">{cat}</span>
                                 </div>
-                                <div>
-                                    <p className="font-medium text-gray-900 dark:text-white">
-                                        {member.id === currentUser?.id ? `${member.display_name} (${t('shoppingList.collaboration.you')})` : member.display_name}
-                                    </p>
+                                <div className="space-y-2">
+                                    {groupedItems[cat].map(item => (
+                                        <ShoppingListItem
+                                            key={item.shoppingListItemId}
+                                            item={item}
+                                            onRemove={onRemove}
+                                            onToggleChecked={onToggleChecked}
+                                            onUpdateQuantity={onUpdateQuantity}
+                                            isExpanded={expandedItems.has(item.id)}
+                                            onExpand={toggleExpand}
+                                            members={householdMembers}
+                                            currentUser={currentUser}
+                                            isShoppingMode={isShoppingMode}
+                                            groupPrefix={cat}
+                                        />
+                                    ))}
                                 </div>
-                            </div>
+                             </div>
                         ))}
-                    </div>
-                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <button 
-                            onClick={handleShareHousehold} 
-                            disabled={shareStatus !== 'idle'}
-                            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition-colors disabled:opacity-70"
-                        >
-                            <UserPlusIcon className="w-5 h-5" />
-                            {shareStatus === 'copied' ? t('shoppingList.share.linkCopied') : t('shoppingList.share.inviteButton')}
-                        </button>
-                    </div>
+                    </>
+                )}
+            </div>
+
+            {/* Footer */}
+            {completedCount > 0 && (
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <button 
+                        onClick={onClear}
+                        className="w-full py-2 flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-sm font-semibold"
+                    >
+                        <TrashIcon className="w-4 h-4" />
+                        {t('shoppingList.mode.clearCompleted', { count: completedCount })}
+                    </button>
                 </div>
             )}
         </div>
-
-        {/* Footer */}
-        {currentView === 'list' && checkedItemsCount > 0 && (
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                <button
-                    onClick={onClear}
-                    className="w-full flex items-center justify-center gap-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 py-2 rounded-md transition-colors"
-                >
-                    <TrashIcon className="w-5 h-5" />
-                    {t('shoppingList.mode.clearCompleted', { count: checkedItemsCount })}
-                </button>
-            </div>
-        )}
-      </div>
-      <style>{`
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .animate-fade-in { animation: fadeIn 0.2s ease-out; }
-        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in-down { animation: fadeInDown 0.2s ease-out; }
-      `}</style>
     </div>
   );
 };

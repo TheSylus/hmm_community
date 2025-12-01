@@ -7,7 +7,8 @@ import { GroceryCategory, NutriScore } from '../../types';
 import { 
     CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, 
     CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, 
-    CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon 
+    CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryPetFoodIcon, CategoryOtherIcon,
+    CategoryRestaurantIcon
 } from '../Icons';
 
 interface ProductMetadataSectionProps {
@@ -26,9 +27,10 @@ const nutriScoreColors: Record<NutriScore, string> = {
   E: 'bg-red-600',
 };
 
+// Updated Category List including Restaurant
 const groceryCategories: GroceryCategory[] = [
     'produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 
-    'snacks', 'beverages', 'household', 'personal_care', 'pet_food', 'other'
+    'snacks', 'beverages', 'household', 'personal_care', 'pet_food', 'restaurant_food', 'other'
 ];
 
 const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>> = {
@@ -42,6 +44,7 @@ const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>>
     'beverages': CategoryBeveragesIcon,
     'household': CategoryHouseholdIcon,
     'personal_care': CategoryPersonalCareIcon,
+    'restaurant_food': CategoryRestaurantIcon,
     'pet_food': CategoryPetFoodIcon,
     'other': CategoryOtherIcon,
 };
@@ -57,6 +60,7 @@ const CategoryColorMap: Record<GroceryCategory, string> = {
     'beverages': 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
     'household': 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
     'personal_care': 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
+    'restaurant_food': 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300',
     'pet_food': 'bg-stone-200 text-stone-700 dark:bg-stone-700 dark:text-stone-300',
     'other': 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
 };
@@ -88,7 +92,7 @@ export const ProductMetadataSection: React.FC<ProductMetadataSectionProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Category Selection */}
+      {/* Unified Category Selection */}
       <div className={`space-y-2 transition-shadow rounded-md p-1 ${uiState.highlightedFields.includes('category') ? 'highlight-ai' : ''}`}>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('form.category.title')}</label>
         <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
@@ -111,34 +115,36 @@ export const ProductMetadataSection: React.FC<ProductMetadataSectionProps> = ({
         </div>
       </div>
 
-      {/* Purchase Location */}
-      <div>
-        <input
-          type="text"
-          placeholder={t('form.placeholder.purchaseLocation')}
-          value={formState.purchaseLocation}
-          onChange={e => formSetters.setPurchaseLocation(e.target.value)}
-          className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3"
-        />
-        {savedShops.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-2">
-            {savedShops.map(shop => {
-              const isSelected = isShopSelected(shop);
-              return (
-                <button
-                  key={shop}
-                  type="button"
-                  onClick={() => toggleShop(shop)}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs border transition-colors ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/50 border-indigo-300 dark:border-indigo-700' : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                >
-                  <StoreLogo name={shop} size="sm" />
-                  <span className={isSelected ? 'font-semibold text-indigo-800 dark:text-indigo-200' : 'text-gray-600 dark:text-gray-300'}>{shop}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      {/* Purchase Location (Hidden for Restaurant) */}
+      {itemType !== 'dish' && (
+        <div>
+            <input
+            type="text"
+            placeholder={t('form.placeholder.purchaseLocation')}
+            value={formState.purchaseLocation}
+            onChange={e => formSetters.setPurchaseLocation(e.target.value)}
+            className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3"
+            />
+            {savedShops.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+                {savedShops.map(shop => {
+                const isSelected = isShopSelected(shop);
+                return (
+                    <button
+                    key={shop}
+                    type="button"
+                    onClick={() => toggleShop(shop)}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs border transition-colors ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/50 border-indigo-300 dark:border-indigo-700' : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    >
+                    <StoreLogo name={shop} size="sm" />
+                    <span className={isSelected ? 'font-semibold text-indigo-800 dark:text-indigo-200' : 'text-gray-600 dark:text-gray-300'}>{shop}</span>
+                    </button>
+                );
+                })}
+            </div>
+            )}
+        </div>
+      )}
 
       {/* NutriScore (Product Only) */}
       {itemType === 'product' && (

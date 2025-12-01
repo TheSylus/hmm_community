@@ -411,6 +411,14 @@ export const CategoryPersonalCareIcon: React.FC<{ className?: string }> = ({ cla
     </svg>
 );
 
+export const CategoryRestaurantIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+        <path d="M7 2v20" />
+        <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+    </svg>
+);
+
 export const CategoryPetFoodIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
         <path d="M10.72 6.875c-.625.375-1.225 1.1-1.225 1.875 0 1.675 2.5 3 2.5 3s2.5-1.325 2.5-3c0-.775-.6-1.5-1.225-1.875" />
