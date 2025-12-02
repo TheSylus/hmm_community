@@ -107,7 +107,8 @@ const CategorySection: React.FC<{
             </button>
 
             {!isCollapsed && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 animate-slide-down mt-2">
+                // Changed: Added `pl-3` for minimal indentation, ensured no border classes are present on the container.
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 animate-slide-down mt-2 pl-3">
                     {items.map(item => (
                         <FoodItemCard 
                             key={item.id} 
