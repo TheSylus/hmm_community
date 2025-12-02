@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList, UserProfile, Household } from './types';
 import { FoodItemForm } from './components/FoodItemForm';
@@ -58,21 +59,6 @@ const ActiveFilterPill: React.FC<{onDismiss: () => void, children: React.ReactNo
       </button>
   </div>
 );
-
-// Chip component for the top filter bar
-const FilterChip: React.FC<{ label: string, active: boolean, onClick: () => void }> = ({ label, active, onClick }) => (
-    <button
-        onClick={onClick}
-        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap ${
-            active 
-            ? 'bg-indigo-600 text-white shadow-sm' 
-            : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-        }`}
-    >
-        {label}
-    </button>
-);
-
 
 const App: React.FC = () => {
   const { t } = useTranslation();
@@ -718,32 +704,13 @@ const App: React.FC = () => {
                        </div>
                     </div>
 
-                    {/* Owner Filters (Replacement for Bottom Nav) */}
-                    <div className="flex gap-2 pb-1 overflow-x-auto scrollbar-hide">
-                        <FilterChip 
-                            label={t('header.filter.owner.all')} 
-                            active={ownerFilter === 'all'} 
-                            onClick={() => setOwnerFilter('all')} 
-                        />
-                        <FilterChip 
-                            label={t('header.filter.owner.mine')} 
-                            active={ownerFilter === 'mine'} 
-                            onClick={() => setOwnerFilter('mine')} 
-                        />
-                        <FilterChip 
-                            label={t('header.filter.owner.family')} 
-                            active={ownerFilter === 'family'} 
-                            onClick={() => setOwnerFilter('family')} 
-                        />
-                    </div>
-
                     {isAnyFilterActive && (ownerFilter !== 'all' || searchTerm.trim() || typeFilter !== 'all' || ratingFilter !== 'all') && (
                         <div className="flex items-center gap-2 flex-wrap pt-1">
+                            {ownerFilter !== 'all' && <ActiveFilterPill onDismiss={() => setOwnerFilter('all')}>{t(`header.filter.active.owner.${ownerFilter}`)}</ActiveFilterPill>}
                             {searchTerm.trim() && <ActiveFilterPill onDismiss={() => setSearchTerm('')}>{t('header.filter.active.search', { term: searchTerm })}</ActiveFilterPill>}
                             {aiSearchQuery && <ActiveFilterPill onDismiss={clearAiSearch}>{t('header.filter.active.aiSearch', { term: aiSearchQuery })}</ActiveFilterPill>}
                             {typeFilter !== 'all' && <ActiveFilterPill onDismiss={() => setTypeFilter('all')}>{t(`header.filter.active.type.${typeFilter}`)}</ActiveFilterPill>}
                             {ratingFilter !== 'all' && <ActiveFilterPill onDismiss={() => setRatingFilter('all')}>{t(`header.filter.active.rating.${ratingFilter}`)}</ActiveFilterPill>}
-                            {/* We don't need a pill for owner filter as the chips themselves are the indicator */}
                             <button onClick={clearAllFilters} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">{t('header.filter.clearAll')}</button>
                         </div>
                     )}
@@ -791,6 +758,8 @@ const App: React.FC = () => {
             setTypeFilter={setTypeFilter}
             ratingFilter={ratingFilter}
             setRatingFilter={setRatingFilter}
+            ownerFilter={ownerFilter}
+            setOwnerFilter={setOwnerFilter}
             sortBy={sortBy}
             setSortBy={setSortBy}
             onReset={clearAllFilters}

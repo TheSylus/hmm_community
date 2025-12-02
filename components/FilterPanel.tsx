@@ -2,7 +2,7 @@
 import React from 'react';
 import { useTranslation } from '../i18n/index';
 import { XMarkIcon } from './Icons';
-import { SortKey, RatingFilter, TypeFilter } from '../App';
+import { SortKey, RatingFilter, TypeFilter, OwnerFilter } from '../App';
 import { ConversationalSearchInput } from './ConversationalSearchInput';
 
 interface FilterPanelProps {
@@ -13,6 +13,8 @@ interface FilterPanelProps {
   setTypeFilter: (filter: TypeFilter) => void;
   ratingFilter: RatingFilter;
   setRatingFilter: (filter: RatingFilter) => void;
+  ownerFilter: OwnerFilter;
+  setOwnerFilter: (filter: OwnerFilter) => void;
   sortBy: SortKey;
   setSortBy: (key: SortKey) => void;
   onReset: () => void;
@@ -28,6 +30,8 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   setTypeFilter,
   ratingFilter,
   setRatingFilter,
+  ownerFilter,
+  setOwnerFilter,
   sortBy,
   setSortBy,
   onReset,
@@ -90,6 +94,21 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                 onChange={e => setSearchTerm(e.target.value)}
                 className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
             />
+          </div>
+
+          {/* Owner Filter */}
+          <div>
+            <label htmlFor="owner-filter" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('filterPanel.filterByOwner')}</label>
+            <select
+                id="owner-filter"
+                value={ownerFilter}
+                onChange={e => setOwnerFilter(e.target.value as OwnerFilter)}
+                className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
+            >
+                <option value="all">{t('header.filter.owner.all')}</option>
+                <option value="mine">{t('header.filter.owner.mine')}</option>
+                <option value="family">{t('header.filter.owner.family')}</option>
+            </select>
           </div>
 
           {/* Type Filter */}
