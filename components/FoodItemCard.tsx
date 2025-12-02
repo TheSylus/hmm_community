@@ -61,7 +61,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   const isFamilyShared = displayItem.isFamilyFavorite;
   const isDrugstore = displayItem.itemType === 'drugstore';
 
-  // Visual indicator for item type
+  // Visual indicator for item type on the image (removed shopping cart check from here)
   const getPlaceholderIcon = () => {
       switch(displayItem.itemType) {
           case 'dish': return <BuildingStorefrontIcon className="w-8 h-8"/>;
@@ -71,8 +71,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   };
 
   const getStatusIcon = () => {
-      if (isInShoppingList) return <ShoppingCartIcon className="w-3.5 h-3.5 text-indigo-400" />;
-      
+      // Logic simplified to only show item type icon, cart status is now on the button
       switch(displayItem.itemType) {
           case 'dish': return <BuildingStorefrontIcon className="w-3.5 h-3.5" />;
           case 'drugstore': return <BeakerIcon className="w-3.5 h-3.5" />;
@@ -109,7 +108,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                     </div>
                 )}
                 
-                {/* Overlay Icons (Status) - Moved onto image to save space */}
+                {/* Overlay Icons (Item Type & Share Status) */}
                 <div className="absolute top-1 left-1 flex flex-col gap-1">
                     <div className="bg-black/60 backdrop-blur-sm p-1 rounded-full text-white shadow-sm">
                         {getStatusIcon()}
@@ -145,10 +144,18 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                                 {displayItem.itemType !== 'dish' && (
                                     <button
                                     onClick={(e) => { e.stopPropagation(); onAddToShoppingList(item); }}
-                                    className="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                                    className={`p-1.5 rounded-full transition-colors ${
+                                        isInShoppingList 
+                                        ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50' 
+                                        : 'text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                                    }`}
                                     aria-label={t('shoppingList.addAria', { name: displayItem.name })}
                                     >
-                                    <ShoppingBagIcon className="w-4 h-4" />
+                                    {isInShoppingList ? (
+                                        <ShoppingCartIcon className="w-4 h-4" />
+                                    ) : (
+                                        <ShoppingBagIcon className="w-4 h-4" />
+                                    )}
                                 </button>
                                 )}
                                 <button
