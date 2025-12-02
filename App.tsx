@@ -342,11 +342,23 @@ const App: React.FC = () => {
     clearAiSearch();
   }, [clearAiSearch]);
   
-  const handleAddToShoppingListWrapper = useCallback((item: FoodItem) => {
-      addItemToList(item.id, 1);
-      triggerHaptic('success');
-      setToastMessage(t('shoppingList.addedToast', { name: item.name }));
-  }, [addItemToList, t]);
+  // Toggle Logic: Add if missing, Remove if present
+  const handleToggleShoppingList = useCallback((item: FoodItem) => {
+      // Check if item is in the current active list
+      const existingItem = shoppingListItems.find(i => i.food_item_id === item.id);
+      
+      if (existingItem) {
+          // Remove
+          removeItem(existingItem.id);
+          triggerHaptic('medium');
+          setToastMessage(t('shoppingList.removedToast', { name: item.name }));
+      } else {
+          // Add
+          addItemToList(item.id, 1);
+          triggerHaptic('success');
+          setToastMessage(t('shoppingList.addedToast', { name: item.name }));
+      }
+  }, [shoppingListItems, removeItem, addItemToList, t]);
 
   // Smart Add Logic
   const handleSmartQuickAdd = useCallback(async (input: string) => {
@@ -600,7 +612,7 @@ const App: React.FC = () => {
                 onEdit={handleStartEdit}
                 onDelete={handleDeleteFormItem}
                 onViewDetails={handleViewDetails}
-                onAddToShoppingList={handleAddToShoppingListWrapper}
+                onAddToShoppingList={handleToggleShoppingList}
                 shoppingListFoodIds={shoppingListFoodIds}
                 isFiltering={isAnyFilterActive}
                 collapsedCategories={collapsedCategories}
@@ -628,7 +640,7 @@ const App: React.FC = () => {
                     onDelete={handleDeleteFormItem} 
                     onEdit={handleStartEdit} 
                     onViewDetails={handleViewDetails} 
-                    onAddToShoppingList={handleAddToShoppingListWrapper} 
+                    onAddToShoppingList={handleToggleShoppingList} 
                     shoppingListFoodIds={shoppingListFoodIds}
                     isFiltering={isAnyFilterActive}
                     collapsedCategories={collapsedCategories}

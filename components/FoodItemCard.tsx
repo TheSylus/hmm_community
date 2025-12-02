@@ -154,8 +154,8 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                                         ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md' 
                                         : 'text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700/50'
                                     }`}
-                                    aria-label={t('shoppingList.addAria', { name: displayItem.name })}
-                                    title={isInShoppingList ? "In cart" : "Add to cart"}
+                                    aria-label={isInShoppingList ? t('shoppingList.removeAria', { name: displayItem.name }) : t('shoppingList.addAria', { name: displayItem.name })}
+                                    title={isInShoppingList ? t('shoppingList.removeAria', { name: displayItem.name }) : t('shoppingList.addAria', { name: displayItem.name })}
                                     >
                                     {isInShoppingList ? (
                                         <ShoppingCartIcon className="w-4 h-4" />
