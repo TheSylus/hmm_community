@@ -21,6 +21,7 @@ interface FoodItemListProps {
   shoppingListFoodIds?: Set<string>;
   collapsedCategories: Set<string>;
   onToggleCategory: (category: string) => void;
+  onToggleFamilyStatus: (item: FoodItem) => void;
 }
 
 // Updated order
@@ -79,6 +80,7 @@ const CategorySection: React.FC<{
     onEdit: (id: string) => void;
     onViewDetails: (item: FoodItem) => void;
     onAddToShoppingList: (item: FoodItem) => void;
+    onToggleFamilyStatus: (item: FoodItem) => void;
     shoppingListFoodIds?: Set<string>;
 }> = ({ category, items, onToggle, isCollapsed, ...props }) => {
     const { t } = useTranslation();
@@ -117,6 +119,7 @@ const CategorySection: React.FC<{
                             onEdit={props.onEdit}
                             onViewDetails={props.onViewDetails}
                             onAddToShoppingList={props.onAddToShoppingList}
+                            onToggleFamilyStatus={props.onToggleFamilyStatus}
                             isInShoppingList={props.shoppingListFoodIds?.has(item.id)}
                         />
                     ))}
@@ -130,7 +133,7 @@ const CategorySection: React.FC<{
     );
 };
 
-export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, onDelete, onEdit, onViewDetails, onAddToShoppingList, shoppingListFoodIds, collapsedCategories, onToggleCategory }) => {
+export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, onDelete, onEdit, onViewDetails, onAddToShoppingList, shoppingListFoodIds, collapsedCategories, onToggleCategory, onToggleFamilyStatus }) => {
   const { t } = useTranslation();
 
   // Group items by category (Quality Gate: Robust grouping with fallback)
@@ -176,6 +179,7 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, on
                 onEdit={onEdit}
                 onViewDetails={onViewDetails}
                 onAddToShoppingList={onAddToShoppingList}
+                onToggleFamilyStatus={onToggleFamilyStatus}
                 shoppingListFoodIds={shoppingListFoodIds}
             />
         ))}
@@ -194,6 +198,7 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, on
                     onEdit={onEdit}
                     onViewDetails={onViewDetails}
                     onAddToShoppingList={onAddToShoppingList}
+                    onToggleFamilyStatus={onToggleFamilyStatus}
                     shoppingListFoodIds={shoppingListFoodIds}
                 />
             ))

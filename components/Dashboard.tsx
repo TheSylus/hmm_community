@@ -13,6 +13,7 @@ interface DashboardProps {
   onEdit: (id: string) => void;
   onViewDetails: (item: FoodItem) => void;
   onAddToShoppingList: (item: FoodItem) => void;
+  onToggleFamilyStatus: (item: FoodItem) => void;
   shoppingListFoodIds?: Set<string>;
   isFiltering?: boolean;
   // State lifted from Dashboard to App
@@ -28,6 +29,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onEdit, 
   onViewDetails, 
   onAddToShoppingList, 
+  onToggleFamilyStatus,
   shoppingListFoodIds,
   isFiltering,
   collapsedCategories,
@@ -45,6 +47,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onEdit={onEdit} 
                 onViewDetails={onViewDetails} 
                 onAddToShoppingList={onAddToShoppingList}
+                onToggleFamilyStatus={onToggleFamilyStatus}
                 collapsedCategories={collapsedCategories}
                 onToggleCategory={onToggleCategory}
             />
@@ -82,6 +85,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         onEdit={onEdit}
         onViewDetails={onViewDetails}
         onAddToShoppingList={onAddToShoppingList}
+        onToggleFamilyStatus={onToggleFamilyStatus}
         shoppingListFoodIds={shoppingListFoodIds}
         collapsedCategories={collapsedCategories}
         onToggleCategory={onToggleCategory}

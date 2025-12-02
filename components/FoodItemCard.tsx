@@ -6,6 +6,7 @@ import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { StoreLogo } from './StoreLogo';
+import { useAuth } from '../contexts/AuthContext';
 
 interface FoodItemCardProps {
   item: FoodItem;
@@ -13,6 +14,7 @@ interface FoodItemCardProps {
   onEdit: (id: string) => void;
   onViewDetails: (item: FoodItem) => void;
   onAddToShoppingList: (item: FoodItem) => void;
+  onToggleFamilyStatus?: (item: FoodItem) => void;
   isPreview?: boolean;
   isInShoppingList?: boolean;
 }
@@ -47,8 +49,9 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
     );
 }
 
-export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, isPreview = false, isInShoppingList = false }) => {
+export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, onToggleFamilyStatus, isPreview = false, isInShoppingList = false }) => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const displayItem = useTranslatedItem(item);
 
   if (!displayItem) {
@@ -60,6 +63,8 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   const isClickable = !!onViewDetails;
   const isFamilyShared = displayItem.isFamilyFavorite;
   const isDrugstore = displayItem.itemType === 'drugstore';
+  
+  const isOwner = user?.id === displayItem.user_id;
 
   // Visual indicator for item type on the image
   // FIX: Only show icons for special types (dish, drugstore). Remove icon for standard 'product' to avoid confusion with cart status.
@@ -119,13 +124,25 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                         </div>
                     )}
                     {/* Family Status Indicator */}
-                    <div className={`backdrop-blur-sm p-1 rounded-full shadow-sm ${isFamilyShared ? 'bg-amber-500 text-white' : 'bg-black/60 text-gray-300'}`}>
+                    <button
+                        type="button" 
+                        className={`backdrop-blur-sm p-1 rounded-full shadow-sm transition-all duration-200 ${isFamilyShared ? 'bg-amber-500 text-white' : 'bg-black/60 text-gray-300'} ${isOwner && !isPreview ? 'cursor-pointer hover:scale-110 active:scale-95' : ''}`}
+                        onClick={(e) => {
+                            if (isOwner && !isPreview && onToggleFamilyStatus) {
+                                e.stopPropagation();
+                                onToggleFamilyStatus(item);
+                            }
+                        }}
+                        title={isOwner ? t('card.toggleFamilyStatus') : (isFamilyShared ? t('card.familyFavoriteTooltip') : t('card.privateTooltip'))}
+                        aria-label={t('card.toggleFamilyStatus')}
+                        disabled={!isOwner || isPreview}
+                    >
                         {isFamilyShared ? (
                             <UserGroupIcon className="w-3.5 h-3.5" />
                         ) : (
                             <LockClosedIcon className="w-3.5 h-3.5" />
                         )}
-                    </div>
+                    </button>
                 </div>
                 
                 {/* NutriScore Overlay (Bottom Right of Image) */}

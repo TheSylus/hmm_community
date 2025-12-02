@@ -575,6 +575,29 @@ const App: React.FC = () => {
       return hydratedItems;
   }, [foodItems, familyFoodItems, shoppingListItems]);
 
+  // Handler for Toggling Family Status
+  const handleToggleFamilyStatus = useCallback(async (item: FoodItem) => {
+      if (!user || item.user_id !== user.id) return;
+
+      const newStatus = !item.isFamilyFavorite;
+      
+      // We strip the ID/etc because saveItem takes Omit<FoodItem, ...> and existingId
+      // But we need to construct the payload correctly.
+      const { id, user_id, created_at, ...dataToSave } = item;
+      
+      const payload = { ...dataToSave, isFamilyFavorite: newStatus };
+      
+      const success = await saveItem(payload, id);
+      
+      if (success) {
+          triggerHaptic('medium');
+          setToastMessage(newStatus 
+              ? t('toast.familyShared', { name: item.name }) 
+              : t('toast.private', { name: item.name })
+          );
+      }
+  }, [user, saveItem, t]);
+
 
   if (!session) {
     return <Auth />;
@@ -632,6 +655,7 @@ const App: React.FC = () => {
             onDelete={handleDeleteFormItem}
             onViewDetails={handleViewDetails}
             onAddToShoppingList={handleToggleShoppingList}
+            onToggleFamilyStatus={handleToggleFamilyStatus}
             shoppingListFoodIds={shoppingListFoodIds}
             isFiltering={isAnyFilterActive}
             collapsedCategories={collapsedCategories}
