@@ -107,7 +107,7 @@ const CategorySection: React.FC<{
             </button>
 
             {!isCollapsed && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 animate-slide-down pl-2 border-l-2 border-dashed border-gray-200 dark:border-gray-700 ml-3 sm:ml-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 animate-slide-down mt-2">
                     {items.map(item => (
                         <FoodItemCard 
                             key={item.id} 
