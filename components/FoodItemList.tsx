@@ -92,7 +92,7 @@ const CategorySection: React.FC<{
             {/* Sticky Header: Adjusted top to match the new Toolbar Header height + offset + Safe Area */}
             <button 
                 onClick={() => onToggle(category)}
-                className={`w-full flex items-center justify-between p-2 sm:p-3 rounded-lg mb-2 transition-all duration-200 border sticky top-[calc(130px+env(safe-area-inset-top,0px))] sm:top-[calc(130px+env(safe-area-inset-top,0px))] z-0 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}
+                className={`w-full flex items-center justify-between p-2 sm:p-3 rounded-lg mb-2 transition-all duration-200 border sticky top-[calc(130px+env(safe-area-inset-top,0px))] sm:top-[calc(130px+env(safe-area-inset-top,0px))] z-10 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}
             >
                 <div className="flex items-center gap-3">
                     <div className="p-1 bg-white dark:bg-black/20 rounded-full">
@@ -107,7 +107,7 @@ const CategorySection: React.FC<{
             </button>
 
             {!isCollapsed && (
-                // Changed: Removed border classes and used pl-2 for minimal indentation
+                // FIX: Minimal indentation (pl-2) and NO left border lines.
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 animate-slide-down mt-2 pl-2">
                     {items.map(item => (
                         <FoodItemCard 

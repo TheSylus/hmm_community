@@ -61,23 +61,25 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   const isFamilyShared = displayItem.isFamilyFavorite;
   const isDrugstore = displayItem.itemType === 'drugstore';
 
-  // Visual indicator for item type on the image (removed shopping cart check from here)
+  // Visual indicator for item type on the image
+  // FIX: Only show icons for special types (dish, drugstore). Remove icon for standard 'product' to avoid confusion with cart status.
   const getPlaceholderIcon = () => {
       switch(displayItem.itemType) {
           case 'dish': return <BuildingStorefrontIcon className="w-8 h-8"/>;
           case 'drugstore': return <BeakerIcon className="w-8 h-8"/>;
-          default: return <ShoppingBagIcon className="w-8 h-8"/>;
+          default: return <ShoppingBagIcon className="w-8 h-8"/>; // Still show placeholder if no image
       }
   };
 
   const getStatusIcon = () => {
-      // Logic simplified to only show item type icon, cart status is now on the button
       switch(displayItem.itemType) {
           case 'dish': return <BuildingStorefrontIcon className="w-3.5 h-3.5" />;
           case 'drugstore': return <BeakerIcon className="w-3.5 h-3.5" />;
-          default: return <ShoppingBagIcon className="w-3.5 h-3.5" />;
+          default: return null; // Don't show generic product icon overlay
       }
   };
+
+  const statusIcon = getStatusIcon();
 
   // Dynamic Border/Ring Color Logic
   let borderClass = 'border-gray-100 dark:border-gray-700/50';
@@ -110,9 +112,12 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                 
                 {/* Overlay Icons (Item Type & Share Status) */}
                 <div className="absolute top-1 left-1 flex flex-col gap-1">
-                    <div className="bg-black/60 backdrop-blur-sm p-1 rounded-full text-white shadow-sm">
-                        {getStatusIcon()}
-                    </div>
+                    {/* Only render this if there is a status icon (non-product) */}
+                    {statusIcon && (
+                        <div className="bg-black/60 backdrop-blur-sm p-1 rounded-full text-white shadow-sm">
+                            {statusIcon}
+                        </div>
+                    )}
                     {/* Family Status Indicator */}
                     <div className={`backdrop-blur-sm p-1 rounded-full shadow-sm ${isFamilyShared ? 'bg-amber-500 text-white' : 'bg-black/60 text-gray-300'}`}>
                         {isFamilyShared ? (
@@ -144,12 +149,13 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                                 {displayItem.itemType !== 'dish' && (
                                     <button
                                     onClick={(e) => { e.stopPropagation(); onAddToShoppingList(item); }}
-                                    className={`p-1.5 rounded-full transition-colors ${
+                                    className={`p-1.5 rounded-full transition-all duration-200 ${
                                         isInShoppingList 
-                                        ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50' 
-                                        : 'text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                                        ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md' 
+                                        : 'text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700/50'
                                     }`}
                                     aria-label={t('shoppingList.addAria', { name: displayItem.name })}
+                                    title={isInShoppingList ? "In cart" : "Add to cart"}
                                     >
                                     {isInShoppingList ? (
                                         <ShoppingCartIcon className="w-4 h-4" />

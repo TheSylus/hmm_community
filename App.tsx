@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList, UserProfile, Household } from './types';
 import { FoodItemForm } from './components/FoodItemForm';
@@ -160,7 +159,7 @@ const App: React.FC = () => {
   
   // Compute set of food IDs currently in the shopping list to pass down to components
   const shoppingListFoodIds = useMemo(() => {
-      return new Set(shoppingListItems.map(item => [item.food_item_id]));
+      return new Set(shoppingListItems.map(item => item.food_item_id));
   }, [shoppingListItems]);
 
   // --- Pending Invite Logic ---
