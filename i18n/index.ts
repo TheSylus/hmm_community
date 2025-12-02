@@ -2,11 +2,12 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useMemo, useCallback } from 'react';
 
 const enTranslations = {
-  "nav.myItems": "My Items",
-  "nav.family": "Family",
   "header.title": "Food Memory Tracker",
   "header.searchPlaceholder": "Search by name, notes, tags...",
   "header.filter.button": "Filters",
+  "header.filter.owner.all": "All Items",
+  "header.filter.owner.mine": "My Items",
+  "header.filter.owner.family": "Family Favorites",
   "header.filter.all": "All Items",
   "header.filter.liked": "Liked (4-5 Stars)",
   "header.filter.disliked": "Disliked (1-2 Stars)",
@@ -49,7 +50,7 @@ const enTranslations = {
   "family.loading": "Loading Family Favorites...",
   "family.empty.title": "No Family Favorites Yet!",
   "family.empty.description": "When you or someone in your household adds an item and marks it as a favorite, it will appear here.",
-  "family.noHousehold.title": "Join a Household to see Family Favorites",
+  "family.noHousehold.title": "Join a Household",
   "family.noHousehold.description": "Create or join a household in the settings to start sharing items and shopping lists with your family.",
   "conversationalSearch.placeholder": "Ask about your food... (e.g., a gluten-free snack I liked)",
   "conversationalSearch.tooltip": "Search with AI",
@@ -291,11 +292,12 @@ const enTranslations = {
 };
 
 const deTranslations = {
-  "nav.myItems": "Meine Einträge",
-  "nav.family": "Familie",
   "header.title": "Lebensmittel-Tracker",
   "header.searchPlaceholder": "Suche nach Name, Notizen, Tags...",
   "header.filter.button": "Filter",
+  "header.filter.owner.all": "Alle Einträge",
+  "header.filter.owner.mine": "Meine Einträge",
+  "header.filter.owner.family": "Familienfavoriten",
   "header.filter.all": "Alle Produkte",
   "header.filter.liked": "Gemocht (4-5 Sterne)",
   "header.filter.disliked": "Nicht gemocht (1-2 Sterne)",
@@ -579,7 +581,6 @@ const deTranslations = {
   "apiKeyModal.link.whereToGet": "Hol dir einen kostenlosen API Key vom Google AI Studio",
 };
 
-// --- Context Setup ---
 interface I18nContextType {
   language: 'en' | 'de';
   setLanguage: (lang: 'en' | 'de') => void;

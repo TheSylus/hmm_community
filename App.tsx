@@ -38,8 +38,7 @@ const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
 export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
 export type RatingFilter = 'liked' | 'disliked' | 'all';
 export type TypeFilter = 'all' | 'product' | 'dish' | 'drugstore';
-export type AppView = 'dashboard' | 'family';
-
+export type OwnerFilter = 'all' | 'mine' | 'family'; // New Filter
 
 // A version of FoodItem that includes its status on the shopping list
 export type HydratedShoppingListItem = FoodItem & {
@@ -58,6 +57,20 @@ const ActiveFilterPill: React.FC<{onDismiss: () => void, children: React.ReactNo
           <XMarkIcon className="w-3 h-3"/>
       </button>
   </div>
+);
+
+// Chip component for the top filter bar
+const FilterChip: React.FC<{ label: string, active: boolean, onClick: () => void }> = ({ label, active, onClick }) => (
+    <button
+        onClick={onClick}
+        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 whitespace-nowrap ${
+            active 
+            ? 'bg-indigo-600 text-white shadow-sm' 
+            : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+        }`}
+    >
+        {label}
+    </button>
 );
 
 
@@ -112,8 +125,6 @@ const App: React.FC = () => {
 
   // --- Local UI State ---
   
-  // UI/View State
-  const [activeView, setActiveView] = useState<AppView>('dashboard');
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<FoodItem | null>(null);
   
@@ -123,6 +134,7 @@ const App: React.FC = () => {
   const [aiSearchResults, setAiSearchResults] = useState<{ ids: string[] | null, error: string | null, isLoading: boolean }>({ ids: null, error: null, isLoading: false });
   const [ratingFilter, setRatingFilter] = useState<RatingFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all'); // New unified filter state
   const [sortBy, setSortBy] = useState<SortKey>('date_desc');
   
   // View State (Collapsed Categories)
@@ -155,7 +167,7 @@ const App: React.FC = () => {
   useModalHistory(!!sharedItemToShow, () => setSharedItemToShow(null));
 
 
-  const isAnyFilterActive = useMemo(() => searchTerm.trim() !== '' || ratingFilter !== 'all' || typeFilter !== 'all' || aiSearchQuery !== '', [searchTerm, ratingFilter, typeFilter, aiSearchQuery]);
+  const isAnyFilterActive = useMemo(() => searchTerm.trim() !== '' || ratingFilter !== 'all' || typeFilter !== 'all' || aiSearchQuery !== '' || ownerFilter !== 'all', [searchTerm, ratingFilter, typeFilter, aiSearchQuery, ownerFilter]);
   
   // Compute set of food IDs currently in the shopping list to pass down to components
   const shoppingListFoodIds = useMemo(() => {
@@ -339,6 +351,7 @@ const App: React.FC = () => {
     setSearchTerm('');
     setRatingFilter('all');
     setTypeFilter('all');
+    setOwnerFilter('all');
     clearAiSearch();
   }, [clearAiSearch]);
   
@@ -472,17 +485,37 @@ const App: React.FC = () => {
     setPotentialDuplicates([]);
   }, []);
 
-  // Filtering Logic
+  // --- Filtering & Sorting Logic (Unified) ---
   const filteredAndSortedItems = useMemo(() => {
-    let items = activeView === 'family' ? familyFoodItems : foodItems;
+    // 1. Merge and Deduplicate
+    const uniqueItemsMap = new Map<string, FoodItem>();
+    
+    // Add Family items first
+    familyFoodItems.forEach(item => uniqueItemsMap.set(item.id, item));
+    
+    // Add Personal items (overwriting shared ones if duplicate exists - though likely they are the same object ref if fetched smartly, but this is safe)
+    // Actually, `useFoodData` separates them. If an item is both mine and shared, it appears in both lists.
+    // We prioritize the personal list for "My Items" view, but for unified view, we just need one copy.
+    foodItems.forEach(item => uniqueItemsMap.set(item.id, item));
+    
+    let items = Array.from(uniqueItemsMap.values());
 
+    // 2. Apply AI Search Filter
     if (aiSearchResults.ids) {
       const idSet = new Set(aiSearchResults.ids);
       items = items.filter(item => idSet.has(item.id));
     }
+
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
+    
+    // 3. Apply all filters
     items = items
       .filter(item => typeFilter === 'all' || item.itemType === typeFilter)
+      .filter(item => {
+        if (ownerFilter === 'mine') return item.user_id === user?.id; // Only my items
+        if (ownerFilter === 'family') return item.isFamilyFavorite; // Only shared items
+        return true; // 'all' - show everything
+      })
       .filter(item => {
         if (ratingFilter === 'all') return true;
         if (ratingFilter === 'liked') return item.rating >= 4;
@@ -499,6 +532,8 @@ const App: React.FC = () => {
           ))
         )
       );
+      
+    // 4. Sort
     return [...items].sort((a, b) => {
       switch (sortBy) {
         case 'date_asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
@@ -510,7 +545,7 @@ const App: React.FC = () => {
         default: return new Date(b.created_at).getTime() - new Date(b.created_at).getTime();
       }
     });
-  }, [foodItems, familyFoodItems, activeView, searchTerm, ratingFilter, typeFilter, sortBy, aiSearchResults.ids]);
+  }, [foodItems, familyFoodItems, searchTerm, ratingFilter, typeFilter, ownerFilter, sortBy, aiSearchResults.ids, user?.id]);
   
   // Collapse Logic
   const toggleCategory = useCallback((category: string) => {
@@ -599,58 +634,25 @@ const App: React.FC = () => {
 
     const aiError = aiSearchResults.error ? <p className="text-red-500 dark:text-red-400 text-center my-4">{aiSearchResults.error}</p> : null;
 
-    switch(activeView) {
-      case 'dashboard':
-        return (
-          <>
-            {aiBanner}
-            {aiError}
-            <Dashboard 
-                items={filteredAndSortedItems}
-                isLoading={isFoodLoading}
-                onAddNew={handleQuickCamera} // Priority: Camera
-                onEdit={handleStartEdit}
-                onDelete={handleDeleteFormItem}
-                onViewDetails={handleViewDetails}
-                onAddToShoppingList={handleToggleShoppingList}
-                shoppingListFoodIds={shoppingListFoodIds}
-                isFiltering={isAnyFilterActive}
-                collapsedCategories={collapsedCategories}
-                onToggleCategory={toggleCategory}
-            />
-          </>
-        );
-      case 'family':
-        if (!household) {
-          return (
-            <div className="text-center py-10 px-4">
-              <h2 className="text-2xl font-semibold text-gray-600 dark:text-gray-400">{t('family.noHousehold.title')}</h2>
-              <p className="text-gray-500 dark:text-gray-400 mt-2">{t('family.noHousehold.description')}</p>
-            </div>
-          );
-        }
-        return (
-            <>
-                {aiBanner}
-                {aiError}
-                <Dashboard 
-                    items={filteredAndSortedItems} // Reuse Dashboard/FoodItemList logic for family view
-                    isLoading={isFoodLoading}
-                    onAddNew={handleQuickCamera} // Priority: Camera
-                    onDelete={handleDeleteFormItem} 
-                    onEdit={handleStartEdit} 
-                    onViewDetails={handleViewDetails} 
-                    onAddToShoppingList={handleToggleShoppingList} 
-                    shoppingListFoodIds={shoppingListFoodIds}
-                    isFiltering={isAnyFilterActive}
-                    collapsedCategories={collapsedCategories}
-                    onToggleCategory={toggleCategory}
-                />
-            </>
-        );
-      default:
-        return null;
-    }
+    return (
+        <>
+        {aiBanner}
+        {aiError}
+        <Dashboard 
+            items={filteredAndSortedItems}
+            isLoading={isFoodLoading}
+            onAddNew={handleQuickCamera} // Priority: Camera
+            onEdit={handleStartEdit}
+            onDelete={handleDeleteFormItem}
+            onViewDetails={handleViewDetails}
+            onAddToShoppingList={handleToggleShoppingList}
+            shoppingListFoodIds={shoppingListFoodIds}
+            isFiltering={isAnyFilterActive}
+            collapsedCategories={collapsedCategories}
+            onToggleCategory={toggleCategory}
+        />
+        </>
+    );
   }
 
   // Aggregate errors for display
@@ -676,6 +678,7 @@ const App: React.FC = () => {
             </div>
             {!isFormVisible && (
                 <div className="mt-4 space-y-3">
+                    {/* Search & Filter Controls */}
                     <div className="flex gap-2 items-center">
                        <div className="relative flex-1">
                           <input
@@ -690,7 +693,6 @@ const App: React.FC = () => {
                           </div>
                        </div>
                        
-                       {/* Compact Toolbar for Filter & Expand */}
                        <div className="flex items-center gap-1 bg-gray-200 dark:bg-gray-700 rounded-md p-1">
                           <button 
                             onClick={() => setIsFilterPanelVisible(true)} 
@@ -698,7 +700,6 @@ const App: React.FC = () => {
                             title={t('header.filter.button')}
                           >
                               <FunnelIcon className="w-5 h-5" />
-                              <span className="hidden md:inline ml-2 text-sm font-semibold">{t('header.filter.button')}</span>
                           </button>
                           
                           <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-0.5"></div>
@@ -717,12 +718,32 @@ const App: React.FC = () => {
                        </div>
                     </div>
 
-                    {isAnyFilterActive && (
-                        <div className="flex items-center gap-2 flex-wrap pt-2">
+                    {/* Owner Filters (Replacement for Bottom Nav) */}
+                    <div className="flex gap-2 pb-1 overflow-x-auto scrollbar-hide">
+                        <FilterChip 
+                            label={t('header.filter.owner.all')} 
+                            active={ownerFilter === 'all'} 
+                            onClick={() => setOwnerFilter('all')} 
+                        />
+                        <FilterChip 
+                            label={t('header.filter.owner.mine')} 
+                            active={ownerFilter === 'mine'} 
+                            onClick={() => setOwnerFilter('mine')} 
+                        />
+                        <FilterChip 
+                            label={t('header.filter.owner.family')} 
+                            active={ownerFilter === 'family'} 
+                            onClick={() => setOwnerFilter('family')} 
+                        />
+                    </div>
+
+                    {isAnyFilterActive && (ownerFilter !== 'all' || searchTerm.trim() || typeFilter !== 'all' || ratingFilter !== 'all') && (
+                        <div className="flex items-center gap-2 flex-wrap pt-1">
                             {searchTerm.trim() && <ActiveFilterPill onDismiss={() => setSearchTerm('')}>{t('header.filter.active.search', { term: searchTerm })}</ActiveFilterPill>}
                             {aiSearchQuery && <ActiveFilterPill onDismiss={clearAiSearch}>{t('header.filter.active.aiSearch', { term: aiSearchQuery })}</ActiveFilterPill>}
                             {typeFilter !== 'all' && <ActiveFilterPill onDismiss={() => setTypeFilter('all')}>{t(`header.filter.active.type.${typeFilter}`)}</ActiveFilterPill>}
                             {ratingFilter !== 'all' && <ActiveFilterPill onDismiss={() => setRatingFilter('all')}>{t(`header.filter.active.rating.${ratingFilter}`)}</ActiveFilterPill>}
+                            {/* We don't need a pill for owner filter as the chips themselves are the indicator */}
                             <button onClick={clearAllFilters} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">{t('header.filter.clearAll')}</button>
                         </div>
                     )}
@@ -739,33 +760,18 @@ const App: React.FC = () => {
       </main>
 
       {!isFormVisible && (
-        <>
-            {/* Single Main Action: Camera */}
-            <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] right-6 z-30">
-                <button
-                    onClick={handleQuickCamera}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-xl transition-transform transform hover:scale-105 flex items-center justify-center active:scale-95"
-                    aria-label={t('form.button.takePhoto')}
-                >
-                    <CameraIcon className="w-8 h-8" />
-                </button>
-            </div>
-
-            <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-[0_-2px_5px_rgba(0,0,0,0.1)] dark:shadow-[0_-2px_5px_rgba(0,0,0,0.3)] z-30 pb-safe-bottom">
-                <div className="container mx-auto px-4 h-16 flex justify-around items-center">
-                    <button onClick={() => setActiveView('dashboard')} className={`flex flex-col items-center justify-center gap-1 transition-colors ${activeView === 'dashboard' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400'}`}>
-                        <UserCircleIcon className="w-6 h-6" />
-                        <span className="text-xs font-semibold">{t('nav.myItems')}</span>
-                    </button>
-                    <button onClick={() => setActiveView('family')} className={`flex flex-col items-center justify-center gap-1 transition-colors ${activeView === 'family' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400'}`} disabled={!household}>
-                        <UserGroupIcon className="w-6 h-6" />
-                        <span className="text-xs font-semibold">{t('nav.family')}</span>
-                    </button>
-                </div>
-            </nav>
-        </>
+        <div className="fixed bottom-[calc(2rem+env(safe-area-inset-bottom,0px))] right-6 z-30">
+            <button
+                onClick={handleQuickCamera}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-xl transition-transform transform hover:scale-105 flex items-center justify-center active:scale-95"
+                aria-label={t('form.button.takePhoto')}
+            >
+                <CameraIcon className="w-8 h-8" />
+            </button>
+        </div>
       )}
       
+      {/* Footer text pushed down by safe area */}
       <footer className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm mb-safe-bottom">
         <p>{t('footer.text')}</p>
       </footer>
