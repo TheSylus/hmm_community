@@ -539,10 +539,12 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                             const items = categoriesInStore[cat];
                                             if (!items || items.length === 0) return null;
                                             const catColorStyle = CategoryColorMap[cat];
+                                            const Icon = CategoryIconMap[cat];
 
                                             return (
                                                 <div key={cat} className="space-y-2">
-                                                    <div className={`flex items-center gap-2 py-1`}>
+                                                    <div className={`flex items-center gap-1.5 py-1`}>
+                                                        <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                                                         <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${catColorStyle.replace('border', 'border-0')}`}>{t(`category.${cat}`)}</span>
                                                         <span className="text-xs text-gray-400 font-normal ml-auto bg-gray-200 dark:bg-gray-800 px-2 rounded-full">{items.length}</span>
                                                     </div>
@@ -570,7 +572,8 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                         {/* Unknown Categories fallback */}
                                         {unknownCategories.map(cat => (
                                             <div key={cat} className="space-y-2">
-                                                <div className="flex items-center gap-2 py-1">
+                                                <div className="flex items-center gap-1.5 py-1">
+                                                    <CategoryOtherIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                                                     <span className="text-xs font-bold uppercase tracking-wider text-gray-500">{cat}</span>
                                                 </div>
                                                 <div className="space-y-2">
