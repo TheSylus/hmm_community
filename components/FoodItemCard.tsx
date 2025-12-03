@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { FoodItem, NutriScore } from '../types';
 import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, UserGroupIcon, LockClosedIcon, ShoppingCartIcon, BeakerIcon } from './Icons';
@@ -49,7 +48,8 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
     );
 }
 
-export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, onToggleFamilyStatus, isPreview = false, isInShoppingList = false }) => {
+// Internal component for the actual card content
+const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, onToggleFamilyStatus, isPreview = false, isInShoppingList = false }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const displayItem = useTranslatedItem(item);
@@ -67,7 +67,6 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   const isOwner = user?.id === displayItem.user_id;
 
   // Visual indicator for item type on the image
-  // FIX: Only show icons for special types (dish, drugstore). Remove icon for standard 'product' to avoid confusion with cart status.
   const getPlaceholderIcon = () => {
       switch(displayItem.itemType) {
           case 'dish': return <BuildingStorefrontIcon className="w-8 h-8"/>;
@@ -272,3 +271,7 @@ export const FoodItemCard: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
     </div>
   );
 };
+
+// Memoized export to prevent re-renders when parent list updates but card data remains same.
+// This prevents the translation hook from firing unnecessarily.
+export const FoodItemCard = React.memo(FoodItemCardContent);
