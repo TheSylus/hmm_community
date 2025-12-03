@@ -425,73 +425,86 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-0 sm:p-4 animate-fade-in" role="dialog" aria-modal="true" onClick={onClose}>
         <div className="bg-white dark:bg-gray-900 w-full max-w-2xl h-full sm:h-[90vh] rounded-none sm:rounded-xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-            {/* Header with Safe Area support */}
-            <div className="p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <ShoppingBagIcon className="w-6 h-6 text-indigo-600" />
-                    {activeList ? activeList.name : t('shoppingList.title')}
-                </h2>
-                <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
+            
+            {/* Header: Integrated Title Dropdown */}
+            <div className="p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50 gap-2">
+                
+                {/* Left Side: Icon + Dropdown Title */}
+                <div className="flex-1 min-w-0 flex items-center gap-3">
+                    <ShoppingBagIcon className="w-6 h-6 text-indigo-600 flex-shrink-0" />
+                    
+                    {allLists.length > 1 || household ? (
+                        <div className="relative flex-1 min-w-0 group">
+                            <select 
+                                value={activeListId || ''} 
+                                onChange={(e) => {
+                                    if (e.target.value === 'new') setIsCreatingList(true);
+                                    else onSelectList(e.target.value);
+                                }}
+                                className="appearance-none bg-transparent text-xl font-bold text-gray-900 dark:text-white w-full pr-6 py-1 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded truncate"
+                            >
+                                {allLists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                {household && <option value="new">+ {t('shoppingList.newListButton')}</option>}
+                            </select>
+                            <ChevronDownIcon className="w-5 h-5 text-gray-400 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none group-hover:text-indigo-500 transition-colors" />
+                        </div>
+                    ) : (
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white truncate">
+                            {activeList ? activeList.name : t('shoppingList.title')}
+                        </h2>
+                    )}
+
+                    {activeList && activeList.household_id && (
+                        <button onClick={handleDeleteList} className="text-gray-400 hover:text-red-500 dark:hover:text-red-400 p-1.5 rounded-full flex-shrink-0 transition-colors" title={t('shoppingList.delete.button')}>
+                            <TrashIcon className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+
+                {/* Right Side: Close */}
+                <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors flex-shrink-0">
                     <XMarkIcon className="w-6 h-6 text-gray-500" />
                 </button>
             </div>
 
-            {/* Toolbar - Optimized for Mobile (Single Row) */}
-            <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
-                {/* List Dropdown Area */}
-                {allLists.length > 1 || household ? (
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <select 
-                            value={activeListId || ''} 
-                            onChange={(e) => {
-                                if (e.target.value === 'new') setIsCreatingList(true);
-                                else onSelectList(e.target.value);
-                            }}
-                            className="bg-gray-100 dark:bg-gray-700 border-none rounded-lg py-2 pl-3 pr-8 text-sm font-medium focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto max-w-full sm:max-w-[200px] truncate"
-                        >
-                            {allLists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                            {household && <option value="new">+ {t('shoppingList.newListButton')}</option>}
-                        </select>
-                        {activeList && activeList.household_id && (
-                            <button onClick={handleDeleteList} className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 p-2 rounded-full flex-shrink-0" title={t('shoppingList.delete.button')}>
-                                <TrashIcon className="w-4 h-4" />
-                            </button>
-                        )}
-                    </div>
-                ) : <div className="flex-1" />}
-                
-                {isCreatingList && (
-                    <div className="absolute inset-0 bg-white dark:bg-gray-800 z-10 flex items-center gap-2 p-3 animate-fade-in">
-                        <input 
-                            type="text" 
-                            value={newListName} 
-                            onChange={e => setNewListName(e.target.value)} 
-                            placeholder={t('shoppingList.newListPlaceholder')} 
-                            className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-md px-3 py-2 border-none focus:ring-2 focus:ring-indigo-500"
-                            autoFocus
-                        />
-                        <button onClick={handleCreateList} className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-bold">{t('shoppingList.createButton')}</button>
-                        <button onClick={() => setIsCreatingList(false)} className="text-gray-500 hover:text-gray-700 px-2"><XMarkIcon className="w-5 h-5"/></button>
-                    </div>
-                )}
+            {/* List Creation Overlay (conditionally rendered) */}
+            {isCreatingList && (
+                <div className="absolute top-0 left-0 right-0 bg-white dark:bg-gray-800 z-20 p-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] border-b border-gray-200 dark:border-gray-700 flex items-center gap-2 animate-fade-in shadow-md">
+                    <input 
+                        type="text" 
+                        value={newListName} 
+                        onChange={e => setNewListName(e.target.value)} 
+                        placeholder={t('shoppingList.newListPlaceholder')} 
+                        className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-md px-3 py-2 border-none focus:ring-2 focus:ring-indigo-500 text-lg"
+                        autoFocus
+                        onKeyDown={(e) => e.key === 'Enter' && handleCreateList()}
+                    />
+                    <button onClick={handleCreateList} className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-bold">{t('shoppingList.createButton')}</button>
+                    <button onClick={() => setIsCreatingList(false)} className="text-gray-500 hover:text-gray-700 px-2"><XMarkIcon className="w-6 h-6"/></button>
+                </div>
+            )}
 
+            {/* Toolbar: Actions */}
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3 bg-white dark:bg-gray-900">
+                <div className="flex-1">
+                    {!isShoppingMode && (
+                        <div className="w-full">
+                             <SmartAddInput onAdd={onSmartAdd} isLoading={isSmartAddLoading} />
+                        </div>
+                    )}
+                </div>
+                
                 <button 
                     onClick={() => setIsShoppingMode(!isShoppingMode)} 
-                    className={`flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${isShoppingMode ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`}
+                    className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all shadow-sm active:scale-95 ${isShoppingMode ? 'bg-green-100 text-green-800 border border-green-200 hover:bg-green-200' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
                 >
-                    <CheckBadgeIcon className="w-4 h-4" />
+                    <CheckBadgeIcon className="w-5 h-5" />
                     {isShoppingMode ? t('shoppingList.mode.done') : t('shoppingList.mode.startShopping')}
                 </button>
             </div>
 
-            {!isShoppingMode && (
-                <div className="p-4 pb-0">
-                    <SmartAddInput onAdd={onSmartAdd} isLoading={isSmartAddLoading} />
-                </div>
-            )}
-
             {/* List Content with Safe Area Bottom */}
-            <div className="flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] space-y-6 scroll-smooth">
+            <div className="flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] space-y-6 scroll-smooth bg-gray-50/50 dark:bg-black/20">
                 {listData.length === 0 ? (
                     <div className="text-center text-gray-500 dark:text-gray-400 py-10">
                         <ShoppingBagIcon className="w-16 h-16 mx-auto mb-4 opacity-20" />
@@ -521,7 +534,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                     </div>
 
                                     {/* Categories inside Store */}
-                                    <div className="space-y-4 pl-2 border-l-2 border-gray-100 dark:border-gray-800 ml-3">
+                                    <div className="space-y-4 pl-2 border-l-2 border-gray-200 dark:border-gray-800 ml-3">
                                         {CATEGORY_ORDER.map(cat => {
                                             const items = categoriesInStore[cat];
                                             if (!items || items.length === 0) return null;
@@ -531,7 +544,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                                 <div key={cat} className="space-y-2">
                                                     <div className={`flex items-center gap-2 py-1`}>
                                                         <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${catColorStyle.replace('border', 'border-0')}`}>{t(`category.${cat}`)}</span>
-                                                        <span className="text-xs text-gray-400 font-normal ml-auto bg-gray-100 dark:bg-gray-800 px-2 rounded-full">{items.length}</span>
+                                                        <span className="text-xs text-gray-400 font-normal ml-auto bg-gray-200 dark:bg-gray-800 px-2 rounded-full">{items.length}</span>
                                                     </div>
                                                     <div className="space-y-2">
                                                         {items.map(item => (
@@ -586,7 +599,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
 
                         {/* 2. Completed Items Section */}
                         {completedItems.length > 0 && (
-                            <div className="pt-6 mt-6 border-t-2 border-dashed border-gray-200 dark:border-gray-700">
+                            <div className="pt-6 mt-6 border-t-2 border-dashed border-gray-300 dark:border-gray-700">
                                 <button 
                                     onClick={() => setIsCompletedCollapsed(!isCompletedCollapsed)}
                                     className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
