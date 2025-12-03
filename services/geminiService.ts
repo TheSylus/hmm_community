@@ -16,15 +16,14 @@ export function getAiClient() {
 }
 
 // QUALITY GATE: Image Optimization
-// Gemini charges based on image tiles (512x512). 
-// 1. 'main' mode (product detection): Resize to 768px. 
-//    - 512px is too small for reliable text reading (OCR) of product names.
-//    - 768px ensures text legibility while staying efficient (approx 770 tokens).
-// 2. 'text' mode (ingredients): Resize to 1024px to keep fine print legible.
+// Strategy Shift: "Precision First".
+// Previous optimization (768px/0.6q) caused poor bounding box detection.
+// New setting: 1024px / 0.85q. This consumes more tokens (approx 1000-1200) but ensures the model
+// can clearly distinguish object edges from the background.
 const resizeImage = (base64Str: string, mode: 'main' | 'text' = 'main'): Promise<string> => {
     // Settings based on mode
-    const maxWidth = mode === 'main' ? 768 : 1024;
-    const quality = mode === 'main' ? 0.6 : 0.6; // Keep compression high to save bandwidth
+    const maxWidth = mode === 'main' ? 1024 : 1024; // Increased to 1024px for main detection
+    const quality = mode === 'main' ? 0.85 : 0.6; // Increased quality to reduce artifacts
 
     return new Promise((resolve) => {
         const img = new Image();
@@ -43,7 +42,6 @@ const resizeImage = (base64Str: string, mode: 'main' | 'text' = 'main'): Promise
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             if (ctx) {
-                // Optimization: Use medium quality for standard photos to save bandwidth/tokens
                 ctx.drawImage(img, 0, 0, width, height);
                 resolve(canvas.toDataURL('image/jpeg', quality));
             } else {
@@ -96,7 +94,7 @@ export interface BoundingBox {
 }
 
 export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; tags: string[]; nutriScore?: NutriScore; boundingBox?: BoundingBox; itemType?: 'product' | 'drugstore' | 'dish'; category?: GroceryCategory; image: string }> => {
-  // QUALITY GATE: Resize for balance between OCR accuracy and Token cost.
+  // QUALITY GATE: High Resolution for Edge Detection
   const resizedImage = await resizeImage(base64Image, 'main');
 
   const match = resizedImage.match(/^data:(image\/[a-z]+);base64,(.*)$/);
@@ -116,18 +114,18 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
       },
     };
 
-    // Prompt Optimization: 
-    // Explicitly requesting "EXACT text from packaging" forces the model to perform OCR.
-    // "BoundingBox: tight crop around main product only" fixes the coordinate mismatch issue.
+    // Prompt Optimization: Precision Focus
+    // We emphasize finding the "single main object" and ignoring background clutter.
+    // Asking for "EXACT PIXEL BOUNDARIES" helps the model focus on edge detection.
     const textPart = {
-      text: "Identify item. Name: Extract EXACT brand + product text from packaging (OCR). Type: 'product' (grocery), 'drugstore' (non-food), 'dish' (meal). Category: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, other. Tags: max 5 keywords. Nutri-Score (A-E) if visible. BoundingBox: tight crop encompassing ONLY the main product packaging, ignore background.",
+      text: "Identify item. Name: Extract EXACT brand + product text from packaging (OCR). Type: 'product' (grocery), 'drugstore' (non-food), 'dish' (meal). Category: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, other. Tags: max 5 keywords. Nutri-Score (A-E) if visible. BoundingBox: DETECT EXACT PIXEL BOUNDARIES of the single main product object. Exclude background/table. Be precise.",
     };
 
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash",
       contents: { parts: [imagePart, textPart] },
       config: {
-        temperature: 0.1, // QUALITY GATE: Low temp for factual image recognition
+        temperature: 0.1, // Low temp for factual consistency
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -149,12 +147,12 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
             boundingBox: {
               type: Type.OBJECT,
               properties: {
-                  x: { type: Type.NUMBER, description: "X coordinate in pixels" },
-                  y: { type: Type.NUMBER, description: "Y coordinate in pixels" },
-                  width: { type: Type.NUMBER, description: "Width in pixels" },
-                  height: { type: Type.NUMBER, description: "Height in pixels" },
+                  ymin: { type: Type.NUMBER, description: "Top coordinate (0-1000 scale)" },
+                  xmin: { type: Type.NUMBER, description: "Left coordinate (0-1000 scale)" },
+                  ymax: { type: Type.NUMBER, description: "Bottom coordinate (0-1000 scale)" },
+                  xmax: { type: Type.NUMBER, description: "Right coordinate (0-1000 scale)" },
               },
-              required: ["x", "y", "width", "height"]
+              required: ["ymin", "xmin", "ymax", "xmax"]
             }
           },
           required: ["name", "tags", "itemType", "category"],
@@ -169,9 +167,35 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
       result.nutriScore = null;
     }
     
-    // CRITICAL FIX: Return the RESIZED image. 
-    // The UI must display this specific image for the coordinates to be valid.
-    return { ...result, image: resizedImage };
+    // Coordinate Mapping: 0-1000 scale -> Pixel Coordinates
+    // The model returns normalized coordinates (0-1000). We must map them to the resized image dimensions.
+    // We need the dimensions of the RESIZED image to calculate this correctly.
+    let boundingBox: BoundingBox | undefined;
+    
+    if (result.boundingBox) {
+        // Load image to get actual dimensions of the blob we sent
+        const img = new Image();
+        img.src = resizedImage;
+        await new Promise(r => { img.onload = r; }); // Wait for load to get dims
+        
+        const w = img.width;
+        const h = img.height;
+        
+        // Convert 1000-scale to pixels
+        const ymin = (result.boundingBox.ymin / 1000) * h;
+        const xmin = (result.boundingBox.xmin / 1000) * w;
+        const ymax = (result.boundingBox.ymax / 1000) * h;
+        const xmax = (result.boundingBox.xmax / 1000) * w;
+        
+        boundingBox = {
+            x: xmin,
+            y: ymin,
+            width: xmax - xmin,
+            height: ymax - ymin
+        };
+    }
+    
+    return { ...result, boundingBox, image: resizedImage };
 
   } catch (error) {
     console.error("Error analyzing food image:", error);
@@ -184,8 +208,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
 
 
 export const analyzeIngredientsImage = async (base64Image: string): Promise<{ ingredients: string[]; allergens: string[]; isLactoseFree: boolean; isVegan: boolean; isGlutenFree: boolean; }> => {
-    // QUALITY GATE: Text Mode. 
-    // Needs 1024px for legibility, but we increase compression (0.6) to save size.
+    // Text Mode: 1024px is usually enough for text, medium compression fine for contrasty text.
     const resizedImage = await resizeImage(base64Image, 'text');
     
     const match = resizedImage.match(/^data:(image\/[a-z]+);base64,(.*)$/);
@@ -213,7 +236,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
         model: "gemini-2.5-flash",
         contents: { parts: [imagePart, textPart] },
         config: {
-          temperature: 0, // QUALITY GATE: 0 for pure OCR/Extraction
+          temperature: 0,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -287,7 +310,6 @@ export const performConversationalSearch = async (query: string, items: FoodItem
   }
 
   // QUALITY GATE: Aggressive Minification
-  // We strip keys that have null values and use short key names to save Input Tokens.
   const optimizedItems = items.map(item => {
       const compact: any = {
           id: item.id,
@@ -313,7 +335,7 @@ export const performConversationalSearch = async (query: string, items: FoodItem
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash",
       config: {
-        temperature: 0.2, // Low temp for search accuracy
+        temperature: 0.2,
         systemInstruction: "You are a search engine. Return IDs of items that match the user query semantically. Use the minified keys: n=name, nt=notes, tg=tags, rn=restaurant.",
         responseMimeType: "application/json",
         responseSchema: {
@@ -352,7 +374,7 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
             model: "gemini-2.5-flash",
             contents: { parts: [{ text: `Extract items from this shopping list text: "${input}". Return JSON.` }] },
             config: {
-                temperature: 0, // QUALITY GATE: 0 for deterministic parsing
+                temperature: 0,
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
