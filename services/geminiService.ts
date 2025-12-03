@@ -15,9 +15,17 @@ export function getAiClient() {
     return ai;
 }
 
-// Helper to resize images before sending to AI to save bandwidth and ensure faster processing.
-// While Gemini Image tokens are often fixed, smaller payloads reduce latency and parsing overhead.
-const resizeImage = (base64Str: string, maxWidth: number = 800, quality: number = 0.8): Promise<string> => {
+// QUALITY GATE: Image Optimization
+// Gemini charges based on image tiles (512x512). 
+// 1. 'main' mode (product detection): Resize to 768px. 
+//    - 512px is too small for reliable text reading (OCR) of product names.
+//    - 768px ensures text legibility while staying efficient (approx 770 tokens).
+// 2. 'text' mode (ingredients): Resize to 1024px to keep fine print legible.
+const resizeImage = (base64Str: string, mode: 'main' | 'text' = 'main'): Promise<string> => {
+    // Settings based on mode
+    const maxWidth = mode === 'main' ? 768 : 1024;
+    const quality = mode === 'main' ? 0.6 : 0.6; // Keep compression high to save bandwidth
+
     return new Promise((resolve) => {
         const img = new Image();
         img.src = base64Str;
@@ -35,37 +43,29 @@ const resizeImage = (base64Str: string, maxWidth: number = 800, quality: number 
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             if (ctx) {
+                // Optimization: Use medium quality for standard photos to save bandwidth/tokens
                 ctx.drawImage(img, 0, 0, width, height);
                 resolve(canvas.toDataURL('image/jpeg', quality));
             } else {
-                resolve(base64Str); // Fallback if canvas fails
+                resolve(base64Str); // Fallback
             }
         };
         img.onerror = () => {
-            resolve(base64Str); // Fallback if image fails to load
+            resolve(base64Str); // Fallback
         };
     });
 };
 
 
-// FIX: Replaced brittle JSON parsing with a more robust implementation.
-// This version can extract a JSON object from within a markdown code block,
-// making it more resilient to variations in the AI's response format,
-// especially when using grounding tools which may return additional text.
 const parseJsonFromString = (text: string) => {
-    // Attempt to extract JSON from a markdown code block
     const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
     if (jsonMatch && jsonMatch[1]) {
         return JSON.parse(jsonMatch[1]);
     }
 
-    // Fallback for cases where the entire string is a JSON object
     try {
         return JSON.parse(text);
     } catch (e) {
-        // If parsing fails, the text itself might be the intended (non-JSON) response
-        // This is common with grounding tools that might return natural language.
-        // We will attempt to find a JSON-like structure within the text.
         const arrayMatch = text.match(/(\[[\s\S]*\])/);
         if (arrayMatch && arrayMatch[1]) {
             try {
@@ -84,8 +84,6 @@ const parseJsonFromString = (text: string) => {
             }
         }
     }
-    // If all parsing fails, which can happen with grounding, we can't process it as JSON.
-    // The calling function must handle this case. Here we throw to indicate failure.
     throw new Error("Could not parse JSON from the AI response.");
 };
 
@@ -98,9 +96,8 @@ export interface BoundingBox {
 }
 
 export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; tags: string[]; nutriScore?: NutriScore; boundingBox?: BoundingBox; itemType?: 'product' | 'drugstore' | 'dish'; category?: GroceryCategory }> => {
-  // Optimization: Resize image to max 800px width. High resolution is rarely needed for general object detection
-  // and this significantly reduces the payload size.
-  const resizedImage = await resizeImage(base64Image, 800);
+  // QUALITY GATE: Resize for balance between OCR accuracy and Token cost.
+  const resizedImage = await resizeImage(base64Image, 'main');
 
   const match = resizedImage.match(/^data:(image\/[a-z]+);base64,(.*)$/);
   if (!match) {
@@ -119,8 +116,11 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
       },
     };
 
+    // Prompt Optimization: 
+    // Explicitly requesting "EXACT text from packaging" forces the model to perform OCR 
+    // rather than guessing a generic name like "Orange Juice".
     const textPart = {
-      text: "Analyze this image. Classify the item into one of three types: 'product' (packaged food/drink items from a grocery store), 'drugstore' (cosmetics, hygiene, cleaning products), or 'dish' (prepared food, plated meal, restaurant food). Identify the full name (or dish name). Categorize it into one of the following supermarket categories if applicable (for dishes use 'restaurant_food', otherwise match the aisle): produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, other. Provide up to 5 relevant tags. If it is a packaged food product, find the Nutri-Score (A-E). Identify the primary object and return its bounding box (normalized 0.0-1.0). Return a single JSON object.",
+      text: "Identify item. Name: Extract EXACT brand + product text from packaging (OCR). Type: 'product' (grocery), 'drugstore' (non-food), 'dish' (meal). Category: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, other. Tags: max 5 keywords. Nutri-Score (A-E) if visible. BoundingBox of item.",
     };
 
     const response = await gemini.models.generateContent({
@@ -131,32 +131,22 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            name: {
-              type: Type.STRING,
-              description: "The full name of the product or the name of the dish.",
-            },
+            name: { type: Type.STRING },
             itemType: {
               type: Type.STRING,
-              enum: ['product', 'drugstore', 'dish'],
-              description: "Classify as 'product' for packaged food, 'drugstore' for non-food items, or 'dish' for prepared meals.",
+              enum: ['product', 'drugstore', 'dish']
             },
             category: {
                 type: Type.STRING,
-                enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'restaurant_food', 'other'],
-                description: "The supermarket category/aisle for this item.",
+                enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'restaurant_food', 'other']
             },
             tags: {
               type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "A list of relevant tags.",
+              items: { type: Type.STRING }
             },
-            nutriScore: {
-              type: Type.STRING,
-              description: "The Nutri-Score rating (A, B, C, D, or E) if visible and it is a food product. Null otherwise.",
-            },
+            nutriScore: { type: Type.STRING },
             boundingBox: {
               type: Type.OBJECT,
-              description: "Normalized bounding box of the main object.",
               properties: {
                   x: { type: Type.NUMBER },
                   y: { type: Type.NUMBER },
@@ -170,10 +160,8 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
       },
     });
     
-    // Use the robust parser instead of direct JSON.parse
     const result = parseJsonFromString(response.text);
     
-    // Validate Nutri-Score before returning
     const validScores: NutriScore[] = ['A', 'B', 'C', 'D', 'E'];
     if (result.nutriScore && !validScores.includes(result.nutriScore.toUpperCase())) {
       result.nutriScore = null;
@@ -192,8 +180,9 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
 
 
 export const analyzeIngredientsImage = async (base64Image: string): Promise<{ ingredients: string[]; allergens: string[]; isLactoseFree: boolean; isVegan: boolean; isGlutenFree: boolean; }> => {
-    // Optimization: Resize image to max 1024px. We need slightly more resolution for text reading than object detection.
-    const resizedImage = await resizeImage(base64Image, 1024);
+    // QUALITY GATE: Text Mode. 
+    // Needs 1024px for legibility, but we increase compression (0.6) to save size.
+    const resizedImage = await resizeImage(base64Image, 'text');
     
     const match = resizedImage.match(/^data:(image\/[a-z]+);base64,(.*)$/);
     if (!match) {
@@ -213,7 +202,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
       };
   
       const textPart = {
-        text: "Analyze this image of a product's ingredient list (Food or Cosmetic). Extract the full list of ingredients (or INCI for cosmetics). Identify common allergens if applicable. Determine if the product is lactose-free, vegan, and/or gluten-free based on the ingredients. Return a single JSON object.",
+        text: "Extract ingredients/INCI. List allergens. Boolean checks: isLactoseFree, isVegan, isGlutenFree.",
       };
   
       const response = await gemini.models.generateContent({
@@ -224,28 +213,11 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              ingredients: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-                description: "An array of strings, where each string is a single ingredient or INCI name.",
-              },
-               allergens: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-                description: "An array of strings, where each string is a potential allergen found in the ingredients list.",
-              },
-              isLactoseFree: {
-                type: Type.BOOLEAN,
-                description: "True if the product is lactose-free based on its ingredients, false otherwise.",
-              },
-              isVegan: {
-                type: Type.BOOLEAN,
-                description: "True if the product is vegan based on its ingredients, false otherwise.",
-              },
-              isGlutenFree: {
-                type: Type.BOOLEAN,
-                description: "True if the product is gluten-free based on its ingredients, false otherwise.",
-              },
+              ingredients: { type: Type.ARRAY, items: { type: Type.STRING } },
+               allergens: { type: Type.ARRAY, items: { type: Type.STRING } },
+              isLactoseFree: { type: Type.BOOLEAN },
+              isVegan: { type: Type.BOOLEAN },
+              isGlutenFree: { type: Type.BOOLEAN },
             },
             required: ["ingredients", "allergens", "isLactoseFree", "isVegan", "isGlutenFree"],
           },
@@ -277,8 +249,7 @@ export const findNearbyRestaurants = async (latitude: number, longitude: number)
 
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash",
-      // FIX: Updated prompt to be more robust for JSON extraction.
-      contents: { parts: [{ text: "List up to 10 restaurants near the provided location. For each, provide its name and main cuisine type. If cuisine is unknown, omit it. Format the response as a JSON array of objects, where each object has a 'name' and optional 'cuisine' key. The entire response should be a JSON array inside a markdown code block." }] },
+      contents: { parts: [{ text: "Find nearby restaurants. Return JSON array: [{name, cuisine}]." }] },
       config: {
         tools: [{googleMaps: {}}],
         toolConfig: {
@@ -292,7 +263,6 @@ export const findNearbyRestaurants = async (latitude: number, longitude: number)
       }
     });
     
-    // FIX: Using robust JSON parsing to handle potential markdown wrappers from grounding tool responses.
     const result = parseJsonFromString(response.text);
     return Array.isArray(result) ? result : [];
 
@@ -310,36 +280,21 @@ export const performConversationalSearch = async (query: string, items: FoodItem
     return [];
   }
 
-  // TOKEN OPTIMIZATION:
-  // Instead of sending the full object structure with potentially empty fields,
-  // we reconstruct a minimal object containing only the data present.
-  // This significantly reduces the input token count for large lists.
   const optimizedItems = items.map(item => {
       const compact: any = {
           id: item.id,
           name: item.name,
           type: item.itemType,
-          category: item.category // Include category in search context
+          cat: item.category 
       };
       
-      // Only add fields if they exist and are not empty
-      if (item.rating) compact.rating = item.rating;
-      if (item.notes && item.notes.trim()) compact.notes = item.notes;
-      if (item.tags && item.tags.length > 0) compact.tags = item.tags;
+      if (item.rating) compact.rtg = item.rating;
+      if (item.notes) compact.nts = item.notes;
+      if (item.tags) compact.tgs = item.tags;
       
-      // Add specific fields only for dishes
       if (item.itemType === 'dish') {
-          if (item.restaurantName) compact.restaurant = item.restaurantName;
-          if (item.cuisineType) compact.cuisine = item.cuisineType;
-      }
-      
-      // Add specific fields only for products
-      if (item.itemType === 'product') {
-           if (item.nutriScore) compact.nutriScore = item.nutriScore;
-           // Only send dietary info if it's explicitly true (relevant)
-           if (item.isLactoseFree) compact.lactoseFree = true;
-           if (item.isVegan) compact.vegan = true;
-           if (item.isGlutenFree) compact.glutenFree = true;
+          if (item.restaurantName) compact.rst = item.restaurantName;
+          if (item.cuisineType) compact.csn = item.cuisineType;
       }
       
       return compact;
@@ -350,14 +305,13 @@ export const performConversationalSearch = async (query: string, items: FoodItem
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash",
       config: {
-        systemInstruction: "You are a smart search assistant. Analyze the user's query and the provided food items. Return a JSON array containing only the `id` strings of the items that match the query. Match by name, semantic meaning of tags/notes/cuisine/category. If no items match, return an empty array.",
+        systemInstruction: "Search items matching query. Return matching IDs.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
             matchingIds: {
               type: Type.ARRAY,
-              description: "An array of `id` strings for the food items that match the user's query.",
               items: { type: Type.STRING },
             },
           },
@@ -365,7 +319,7 @@ export const performConversationalSearch = async (query: string, items: FoodItem
         },
       },
       contents: {
-        parts: [{ text: `User Query: "${query}"\n\nItems: ${JSON.stringify(optimizedItems)}` }]
+        parts: [{ text: `Query: "${query}"\nItems: ${JSON.stringify(optimizedItems)}` }]
       },
     });
 
@@ -387,7 +341,7 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
         const gemini = getAiClient();
         const response = await gemini.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: { parts: [{ text: `Parse this shopping list string: "${input}". Extract items with their quantities. If no quantity is specified, default to 1. Assign one of the following categories to each item: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, other.` }] },
+            contents: { parts: [{ text: `Parse shopping list: "${input}". Return items with qty & category (produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, other).` }] },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
@@ -398,12 +352,11 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
                             items: {
                                 type: Type.OBJECT,
                                 properties: {
-                                    name: { type: Type.STRING, description: "Name of the item" },
-                                    quantity: { type: Type.NUMBER, description: "Quantity of the item" },
+                                    name: { type: Type.STRING },
+                                    quantity: { type: Type.NUMBER },
                                     category: { 
                                         type: Type.STRING, 
-                                        enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'restaurant_food', 'other'],
-                                        description: "Category of the item"
+                                        enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'restaurant_food', 'other']
                                     }
                                 },
                                 required: ["name", "quantity", "category"]
