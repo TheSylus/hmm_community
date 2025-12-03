@@ -84,7 +84,9 @@ const processBatch = async () => {
             const response = await gemini.models.generateContent({
                 model: "gemini-2.5-flash",
                 config: {
-                    // We ask for a simple object mapping input -> output
+                    // QUALITY GATE: Temperature 0 ensures deterministic translations.
+                    // This is crucial so "Apple" is ALWAYS "Apfel" (cache hit) and never "Ein Apfel" (cache miss).
+                    temperature: 0, 
                     responseMimeType: "application/json",
                     responseSchema: {
                         type: Type.OBJECT,
@@ -105,9 +107,8 @@ const processBatch = async () => {
                 },
                 contents: {
                     parts: [{
-                        text: `Translate the following array of English terms to ${langName}. Return a JSON array where each object has 'original' and 'translated' keys. Maintain casing.
-                        
-                        Input Array: ${JSON.stringify(textsToFetch)}`
+                        text: `Translate array to ${langName}. Preserve casing.` +
+                        `\nInput: ${JSON.stringify(textsToFetch)}`
                     }]
                 },
             });

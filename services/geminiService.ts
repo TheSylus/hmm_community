@@ -127,6 +127,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
       model: "gemini-2.5-flash",
       contents: { parts: [imagePart, textPart] },
       config: {
+        temperature: 0.1, // QUALITY GATE: Low temp for factual image recognition
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -209,6 +210,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
         model: "gemini-2.5-flash",
         contents: { parts: [imagePart, textPart] },
         config: {
+          temperature: 0, // QUALITY GATE: 0 for pure OCR/Extraction
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -249,8 +251,9 @@ export const findNearbyRestaurants = async (latitude: number, longitude: number)
 
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: { parts: [{ text: "Find nearby restaurants. Return JSON array: [{name, cuisine}]." }] },
+      contents: { parts: [{ text: "Find 5 nearby restaurants. Return JSON array: [{name, cuisine}]." }] },
       config: {
+        temperature: 0.1,
         tools: [{googleMaps: {}}],
         toolConfig: {
           retrievalConfig: {
@@ -280,21 +283,23 @@ export const performConversationalSearch = async (query: string, items: FoodItem
     return [];
   }
 
+  // QUALITY GATE: Aggressive Minification
+  // We strip keys that have null values and use short key names to save Input Tokens.
   const optimizedItems = items.map(item => {
       const compact: any = {
           id: item.id,
-          name: item.name,
-          type: item.itemType,
-          cat: item.category 
+          n: item.name, // Name
+          t: item.itemType, // Type
+          c: item.category // Category
       };
       
-      if (item.rating) compact.rtg = item.rating;
-      if (item.notes) compact.nts = item.notes;
-      if (item.tags) compact.tgs = item.tags;
+      if (item.rating) compact.r = item.rating;
+      if (item.notes) compact.nt = item.notes; // Notes
+      if (item.tags && item.tags.length > 0) compact.tg = item.tags; // Tags
       
       if (item.itemType === 'dish') {
-          if (item.restaurantName) compact.rst = item.restaurantName;
-          if (item.cuisineType) compact.csn = item.cuisineType;
+          if (item.restaurantName) compact.rn = item.restaurantName;
+          if (item.cuisineType) compact.ct = item.cuisineType;
       }
       
       return compact;
@@ -305,7 +310,8 @@ export const performConversationalSearch = async (query: string, items: FoodItem
     const response = await gemini.models.generateContent({
       model: "gemini-2.5-flash",
       config: {
-        systemInstruction: "Search items matching query. Return matching IDs.",
+        temperature: 0.2, // Low temp for search accuracy
+        systemInstruction: "You are a search engine. Return IDs of items that match the user query semantically. Use the minified keys: n=name, nt=notes, tg=tags, rn=restaurant.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -319,7 +325,7 @@ export const performConversationalSearch = async (query: string, items: FoodItem
         },
       },
       contents: {
-        parts: [{ text: `Query: "${query}"\nItems: ${JSON.stringify(optimizedItems)}` }]
+        parts: [{ text: `Query: "${query}"\nData: ${JSON.stringify(optimizedItems)}` }]
       },
     });
 
@@ -341,8 +347,9 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
         const gemini = getAiClient();
         const response = await gemini.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: { parts: [{ text: `Parse shopping list: "${input}". Return items with qty & category (produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, other).` }] },
+            contents: { parts: [{ text: `Extract items from this shopping list text: "${input}". Return JSON.` }] },
             config: {
+                temperature: 0, // QUALITY GATE: 0 for deterministic parsing
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
