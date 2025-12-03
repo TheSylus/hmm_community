@@ -60,18 +60,18 @@ const CATEGORY_ORDER: GroceryCategory[] = [
 ];
 
 const CategoryColorMap: Record<GroceryCategory, string> = {
-    'produce': 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
-    'bakery': 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
-    'meat_fish': 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
-    'dairy_eggs': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300',
-    'pantry': 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
-    'frozen': 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300',
-    'snacks': 'bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300',
-    'beverages': 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
-    'household': 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-    'personal_care': 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
-    'restaurant_food': 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300',
-    'other': 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+    'produce': 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 border-green-200 dark:border-green-800',
+    'bakery': 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+    'meat_fish': 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 border-red-200 dark:border-red-800',
+    'dairy_eggs': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800',
+    'pantry': 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300 border-orange-200 dark:border-orange-800',
+    'frozen': 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300 border-sky-200 dark:border-sky-800',
+    'snacks': 'bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300 border-pink-200 dark:border-pink-800',
+    'beverages': 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+    'household': 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600',
+    'personal_care': 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+    'restaurant_food': 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300 border-teal-200 dark:border-teal-800',
+    'other': 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700',
 };
 
 const SmartAddInput: React.FC<{ onAdd: (input: string) => void, isLoading: boolean }> = ({ onAdd, isLoading }) => {
@@ -173,25 +173,25 @@ const ShoppingListItem: React.FC<{
   };
 
   const handleToggle = () => {
-      triggerHaptic('light');
+      triggerHaptic('success');
       onToggleChecked(displayItem.shoppingListItemId, !displayItem.checked);
   };
 
   return (
-    <li className="bg-gray-50 dark:bg-gray-700/50 rounded-lg transition-all duration-200 shadow-sm border border-transparent hover:border-gray-200 dark:hover:border-gray-600 overflow-hidden">
-        <div className="flex items-center justify-between p-2 sm:p-3">
+    <li className={`bg-white dark:bg-gray-800 rounded-lg transition-all duration-300 shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden ${displayItem.checked ? 'opacity-60 bg-gray-50 dark:bg-gray-800/50' : ''}`}>
+        <div className="flex items-center justify-between p-3">
             <div className="flex items-center overflow-hidden flex-1">
                 <input
                     id={inputId}
                     type="checkbox"
                     checked={displayItem.checked}
                     onChange={handleToggle}
-                    className={`${checkboxSize} rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0 transition-transform active:scale-90`}
+                    className={`${checkboxSize} rounded-full border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0 transition-transform active:scale-95`}
                 />
                 
                 {/* Thumbnail in Shopping Mode */}
                 {isShoppingMode && displayItem.image && (
-                    <div className="ml-3 w-10 h-10 flex-shrink-0 rounded-md overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600">
+                    <div className="ml-3 w-10 h-10 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
                         <img src={displayItem.image} alt="" className="w-full h-full object-cover" />
                     </div>
                 )}
@@ -199,7 +199,7 @@ const ShoppingListItem: React.FC<{
                 <div className={`${textContainerMargin} flex-1 overflow-hidden cursor-pointer flex items-center gap-2`} onClick={() => onExpand(displayItem.id)}>
                     {/* Category Icon Badge - Hide in shopping mode if image is present to save space, or keep generic if no image */}
                     {(!isShoppingMode || !displayItem.image) && (
-                        <div className={`flex-shrink-0 p-1 rounded-md ${catColor}`} title={t(`category.${category}`)}>
+                        <div className={`flex-shrink-0 p-1 rounded-md bg-opacity-20 ${catColor.split(' ')[0]} ${catColor.split(' ')[1]}`} title={t(`category.${category}`)}>
                             <CatIcon className="w-4 h-4" />
                         </div>
                     )}
@@ -212,25 +212,25 @@ const ShoppingListItem: React.FC<{
 
             <div className="flex items-center gap-2 pl-2">
                 {/* Intuitive Quantity Control */}
-                {!isShoppingMode ? (
-                    <div className="flex items-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full h-8 shadow-sm">
+                {!isShoppingMode && !displayItem.checked ? (
+                    <div className="flex items-center bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-full h-8 shadow-sm">
                         <button 
                             onClick={(e) => handleQuantityClick(e, -1)} 
-                            className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-l-full transition-colors"
+                            className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-l-full transition-colors"
                         >
                             -
                         </button>
                         <span className="w-6 text-center text-sm font-semibold text-gray-800 dark:text-gray-200">{displayItem.quantity}</span>
                         <button 
                             onClick={(e) => handleQuantityClick(e, 1)} 
-                            className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-r-full transition-colors"
+                            className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-green-500 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-r-full transition-colors"
                         >
                             +
                         </button>
                     </div>
                 ) : (
-                    <div className="bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded-md">
-                        <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{displayItem.quantity}x</span>
+                    <div className="bg-gray-100 dark:bg-gray-700/50 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-600">
+                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{displayItem.quantity}x</span>
                     </div>
                 )}
 
@@ -241,16 +241,16 @@ const ShoppingListItem: React.FC<{
                             triggerHaptic('warning');
                             onRemove(displayItem.shoppingListItemId);
                         }}
-                        className="p-1.5 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        className="p-1.5 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
                         aria-label={t('shoppingList.removeAria', { name: displayItem.name })}
                     >
                         <TrashIcon className="w-5 h-5" />
                     </button>
                 )}
-                {!isShoppingMode && (
+                {!isShoppingMode && !displayItem.checked && (
                     <button
                         onClick={() => onExpand(displayItem.id)}
-                        className="p-1.5 rounded-full text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        className="p-1.5 rounded-full text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
                         aria-label={t('shoppingList.toggleDetailsAria')}
                     >
                         <ChevronDownIcon className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -258,7 +258,7 @@ const ShoppingListItem: React.FC<{
                 )}
             </div>
         </div>
-        {isExpanded && !isShoppingMode && (
+        {isExpanded && !isShoppingMode && !displayItem.checked && (
             <div className="px-3 pb-3 pt-1 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 animate-fade-in-down space-y-3">
                 <div className="flex justify-between items-center text-xs text-gray-500 pl-1">
                     <ActivityLog action="added" userId={displayItem.added_by_user_id} members={members} currentUser={currentUser} />
@@ -324,6 +324,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
   const [isCreatingList, setIsCreatingList] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [isShoppingMode, setIsShoppingMode] = useState(false);
+  const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(false);
 
   const toggleExpand = (id: string) => {
       setExpandedItems(prev => {
@@ -351,21 +352,23 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
       }
   };
 
-  // Sort/Group logic
-  // Group by category, but unchecked first? Or just category.
-  // Let's stick to Category grouping like Dashboard for consistency
-  const groupedItems = useMemo(() => {
+  // Logic Upgrade: Split Active vs Completed
+  // 1. Filter
+  const activeItems = useMemo(() => listData.filter(i => !i.checked), [listData]);
+  const completedItems = useMemo(() => listData.filter(i => i.checked), [listData]);
+
+  // 2. Group Active Items by Category
+  const groupedActiveItems = useMemo(() => {
       const groups: Record<string, HydratedShoppingListItem[]> = {};
-      listData.forEach(item => {
+      activeItems.forEach(item => {
           const cat = item.category || 'other';
           if (!groups[cat]) groups[cat] = [];
           groups[cat].push(item);
       });
       return groups;
-  }, [listData]);
+  }, [activeItems]);
 
   const activeList = allLists.find(l => l.id === activeListId);
-  const completedCount = listData.filter(i => i.checked).length;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in" role="dialog" aria-modal="true" onClick={onClose}>
@@ -428,13 +431,15 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                 </button>
             </div>
 
-            {/* Smart Add Input */}
-            <div className="p-4 pb-0">
-                <SmartAddInput onAdd={onSmartAdd} isLoading={isSmartAddLoading} />
-            </div>
+            {/* Smart Add Input (Only show if not in shopping mode to save space) */}
+            {!isShoppingMode && (
+                <div className="p-4 pb-0">
+                    <SmartAddInput onAdd={onSmartAdd} isLoading={isSmartAddLoading} />
+                </div>
+            )}
 
             {/* List Content */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 space-y-6 scroll-smooth">
                 {listData.length === 0 ? (
                     <div className="text-center text-gray-500 dark:text-gray-400 py-10">
                         <ShoppingBagIcon className="w-16 h-16 mx-auto mb-4 opacity-20" />
@@ -442,19 +447,22 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                     </div>
                 ) : (
                     <>
+                        {/* 1. Active Items Grouped by Category */}
                         {CATEGORY_ORDER.map(cat => {
-                            const items = groupedItems[cat];
+                            const items = groupedActiveItems[cat];
                             if (!items || items.length === 0) return null;
                             const CatIcon = CategoryIconMap[cat];
+                            const catColorStyle = CategoryColorMap[cat];
                             
                             return (
-                                <div key={cat} className="space-y-2">
-                                    {!isShoppingMode && (
-                                        <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 pb-1 mb-2">
+                                <div key={cat} className="space-y-2 animate-slide-in-up">
+                                    <div className={`sticky top-0 z-10 flex items-center gap-2 py-2 backdrop-blur-md bg-white/90 dark:bg-gray-900/90 border-b ${catColorStyle.split(' ').filter(c => c.startsWith('border')).join(' ')}`}>
+                                        <div className={`p-1 rounded-md ${catColorStyle}`}>
                                             <CatIcon className="w-4 h-4" />
-                                            <span className="text-xs font-bold uppercase tracking-wider">{t(`category.${cat}`)}</span>
                                         </div>
-                                    )}
+                                        <span className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t(`category.${cat}`)}</span>
+                                        <span className="text-xs text-gray-400 font-normal ml-auto">{items.length}</span>
+                                    </div>
                                     <div className="space-y-2">
                                         {items.map(item => (
                                             <ShoppingListItem
@@ -477,13 +485,13 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                         })}
                         
                         {/* Fallback for items with unknown category */}
-                        {Object.keys(groupedItems).filter(cat => !CATEGORY_ORDER.includes(cat as GroceryCategory)).map(cat => (
+                        {Object.keys(groupedActiveItems).filter(cat => !CATEGORY_ORDER.includes(cat as GroceryCategory)).map(cat => (
                              <div key={cat} className="space-y-2">
-                                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 pb-1 mb-2">
-                                    <span className="text-xs font-bold uppercase tracking-wider">{cat}</span>
+                                <div className="sticky top-0 z-10 flex items-center gap-2 py-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500">{cat}</span>
                                 </div>
                                 <div className="space-y-2">
-                                    {groupedItems[cat].map(item => (
+                                    {groupedActiveItems[cat].map(item => (
                                         <ShoppingListItem
                                             key={item.shoppingListItemId}
                                             item={item}
@@ -501,23 +509,62 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                 </div>
                              </div>
                         ))}
+
+                        {/* 2. Completed Items Section (Collapsible) */}
+                        {completedItems.length > 0 && (
+                            <div className="pt-6 mt-6 border-t-2 border-dashed border-gray-200 dark:border-gray-700">
+                                <button 
+                                    onClick={() => setIsCompletedCollapsed(!isCompletedCollapsed)}
+                                    className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors group"
+                                >
+                                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                                        <CheckCircleIcon className="w-5 h-5 text-green-500" />
+                                        <span className="font-semibold text-sm uppercase tracking-wide">
+                                            {t('shoppingList.mode.completed')} ({completedItems.length})
+                                        </span>
+                                    </div>
+                                    <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform ${isCompletedCollapsed ? '-rotate-90' : ''}`} />
+                                </button>
+                                
+                                {!isCompletedCollapsed && (
+                                    <div className="mt-3 space-y-2 animate-fade-in">
+                                        {completedItems.map(item => (
+                                            <ShoppingListItem
+                                                key={item.shoppingListItemId}
+                                                item={item}
+                                                onRemove={onRemove}
+                                                onToggleChecked={onToggleChecked}
+                                                onUpdateQuantity={onUpdateQuantity}
+                                                isExpanded={expandedItems.has(item.id)}
+                                                onExpand={toggleExpand}
+                                                members={householdMembers}
+                                                currentUser={currentUser}
+                                                isShoppingMode={isShoppingMode}
+                                                groupPrefix="completed"
+                                            />
+                                        ))}
+                                        
+                                        <div className="pt-4 flex justify-center">
+                                            <button 
+                                                onClick={onClear}
+                                                className="flex items-center gap-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs font-bold uppercase tracking-wider py-2 px-4 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                            >
+                                                <TrashIcon className="w-4 h-4" />
+                                                {t('shoppingList.mode.clearCompleted', { count: completedItems.length })}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </>
                 )}
             </div>
-
-            {/* Footer */}
-            {completedCount > 0 && (
-                <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                    <button 
-                        onClick={onClear}
-                        className="w-full py-2 flex items-center justify-center gap-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-sm font-semibold"
-                    >
-                        <TrashIcon className="w-4 h-4" />
-                        {t('shoppingList.mode.clearCompleted', { count: completedCount })}
-                    </button>
-                </div>
-            )}
         </div>
+        <style>{`
+            @keyframes slideInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+            .animate-slide-in-up { animation: slideInUp 0.3s ease-out forwards; }
+        `}</style>
     </div>
   );
 };

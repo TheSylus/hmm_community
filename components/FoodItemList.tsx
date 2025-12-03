@@ -8,7 +8,7 @@ import {
     CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, 
     CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, 
     CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon,
-    CategoryRestaurantIcon, ChevronDownIcon
+    CategoryRestaurantIcon, ChevronDownIcon, MagnifyingGlassIcon
 } from './Icons';
 
 interface FoodItemListProps {
@@ -24,20 +24,10 @@ interface FoodItemListProps {
   onToggleFamilyStatus: (item: FoodItem) => void;
 }
 
-// Updated order
 const CATEGORY_ORDER: GroceryCategory[] = [
-    'produce',
-    'bakery',
-    'meat_fish',
-    'dairy_eggs',
-    'pantry',
-    'snacks',
-    'beverages',
-    'frozen',
-    'household',
-    'personal_care',
-    'restaurant_food',
-    'other'
+    'produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 
+    'snacks', 'beverages', 'frozen', 'household', 'personal_care', 
+    'restaurant_food', 'other'
 ];
 
 const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>> = {
@@ -75,7 +65,6 @@ const CategorySection: React.FC<{
     items: FoodItem[];
     onToggle: (cat: string) => void;
     isCollapsed: boolean;
-    // Props passed down
     onDelete: (id: string) => void;
     onEdit: (id: string) => void;
     onViewDetails: (item: FoodItem) => void;
@@ -90,27 +79,25 @@ const CategorySection: React.FC<{
     if (items.length === 0) return null;
 
     return (
-        <div className="mb-4 last:mb-0">
-            {/* Sticky Header: Adjusted top to match the new Toolbar Header height + offset + Safe Area */}
+        <div className="mb-6 last:mb-0">
             <button 
                 onClick={() => onToggle(category)}
-                className={`w-full flex items-center justify-between p-2 sm:p-3 rounded-lg mb-2 transition-all duration-200 border sticky top-[calc(130px+env(safe-area-inset-top,0px))] sm:top-[calc(130px+env(safe-area-inset-top,0px))] z-10 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}
+                className={`w-full flex items-center justify-between p-3 rounded-xl mb-3 transition-all duration-200 border sticky top-[calc(130px+env(safe-area-inset-top,0px))] z-10 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}
             >
                 <div className="flex items-center gap-3">
-                    <div className="p-1 bg-white dark:bg-black/20 rounded-full">
-                        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <div className="p-1.5 bg-white dark:bg-black/20 rounded-full shadow-sm">
+                        <Icon className="w-5 h-5" />
                     </div>
-                    <span className="font-bold text-sm sm:text-base">{t(`category.${category}`)}</span>
-                    <span className="bg-white/50 dark:bg-black/20 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold">
+                    <span className="font-bold text-base">{t(`category.${category}`)}</span>
+                    <span className="bg-white/50 dark:bg-black/20 px-2.5 py-0.5 rounded-full text-xs font-bold">
                         {items.length}
                     </span>
                 </div>
-                <ChevronDownIcon className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 ${isCollapsed ? '-rotate-90' : ''}`} />
+                <ChevronDownIcon className={`w-5 h-5 transition-transform duration-300 ${isCollapsed ? '-rotate-90' : ''}`} />
             </button>
 
             {!isCollapsed && (
-                // FIX: Minimal indentation (pl-2) and NO left border lines.
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 animate-slide-down mt-2 pl-2">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 animate-slide-down px-1">
                     {items.map(item => (
                         <FoodItemCard 
                             key={item.id} 
@@ -136,10 +123,8 @@ const CategorySection: React.FC<{
 export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, onDelete, onEdit, onViewDetails, onAddToShoppingList, shoppingListFoodIds, collapsedCategories, onToggleCategory, onToggleFamilyStatus }) => {
   const { t } = useTranslation();
 
-  // Group items by category (Quality Gate: Robust grouping with fallback)
   const groupedItems = useMemo(() => {
       const groups: Record<string, FoodItem[]> = {};
-      
       items.forEach(item => {
           const cat = item.category || 'other';
           if (!groups[cat]) groups[cat] = [];
@@ -150,24 +135,27 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, on
 
   if (isLoading) {
       return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 px-1">
             {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
         </div>
       );
   }
 
+  // Quality Update: Helpful Empty State
   if (items.length === 0) {
     return (
-        <div className="text-center py-10 px-4">
-            <h2 className="text-2xl font-semibold text-gray-600 dark:text-gray-400">{t('list.empty.title')}</h2>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">{t('list.empty.description')}</p>
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-full mb-4">
+                <MagnifyingGlassIcon className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">{t('list.empty.title')}</h2>
+            <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-xs">{t('list.empty.description')}</p>
         </div>
     );
   }
 
   return (
-    <div className="pb-20">
-        {/* Render defined categories in order */}
+    <div className="pb-24">
         {CATEGORY_ORDER.map(category => (
             <CategorySection
                 key={category}
@@ -184,7 +172,6 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, on
             />
         ))}
 
-        {/* Render any items that somehow have a category not in the standard list (fail-safe) */}
         {Object.keys(groupedItems)
             .filter(cat => !CATEGORY_ORDER.includes(cat as GroceryCategory))
             .map(category => (

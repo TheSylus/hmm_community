@@ -7,7 +7,7 @@ import { CameraCapture } from './CameraCapture';
 import { BarcodeScanner } from './BarcodeScanner';
 import { SpeechInputModal } from './SpeechInputModal';
 import { ImageCropper } from './ImageCropper';
-import { ChevronDownIcon } from './Icons';
+import { ChevronDownIcon, XMarkIcon } from './Icons';
 
 // Sub-components
 import { ImageCaptureSection } from './form/ImageCaptureSection';
@@ -40,23 +40,19 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
     fileInputRef
   } = useFoodFormLogic({ initialData, initialItemType, onSaveItem, onCancel, startMode });
 
-  // Auto-focus name field ONLY if adding manually (no scanner started) and not analyzing
   useEffect(() => {
       if (!isEditing && startMode === 'none' && !uiState.isLoading && nameInputRef.current) {
           setTimeout(() => nameInputRef.current?.focus(), 100);
       }
   }, [isEditing, startMode, uiState.isLoading]);
 
-  // Handler to switch from Camera to Manual input immediately
   const handleSwitchToManual = () => {
       uiSetters.setIsCameraOpen(false);
-      // Slight delay to ensure modal closes before focus
       setTimeout(() => {
           nameInputRef.current?.focus();
       }, 300);
   };
 
-  // Handler to switch from Camera to Barcode scanner immediately
   const handleSwitchToBarcode = () => {
       uiSetters.setIsCameraOpen(false);
       uiSetters.setIsBarcodeScannerOpen(true);
@@ -86,20 +82,23 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
         details[open] summary ~ * { animation: sweep .3s ease-in-out; }
         @keyframes sweep { 0% { opacity: 0; transform: translateY(-10px); } 100% { opacity: 1; transform: translateY(0); } }
       `}</style>
-      <form onSubmit={actions.handleSubmit} className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow-lg mb-8 relative">
+      
+      {/* 
+        UX Improvement: Sticky Footer Structure 
+        The form has extra bottom padding (pb-32) to ensure content isn't hidden behind the fixed footer.
+      */}
+      <form onSubmit={actions.handleSubmit} className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-lg mb-8 relative pb-32">
          {/* Top Close Button */}
-         <button type="button" onClick={onCancel} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+         <button type="button" onClick={onCancel} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
              <span className="sr-only">{t('form.button.cancel')}</span>
-             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-             </svg>
+             <XMarkIcon className="w-6 h-6" />
          </button>
 
-         <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-4">
+         <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-6">
             {isEditing ? t('form.editTitle') : t('form.addNewButton')}
         </h2>
 
-        <div className="space-y-6">
+        <div className="space-y-8">
             {/* 1. Image Capture & Preview */}
             <ImageCaptureSection 
                 formState={formState} 
@@ -110,7 +109,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                 itemType={formState.itemType} 
             />
 
-            {/* 2. Main Info - Contains the UNIQUE Name Input */}
+            {/* 2. Main Info */}
             <MainInfoSection 
                 formState={formState}
                 formSetters={formSetters}
@@ -119,9 +118,8 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                 nameInputRef={nameInputRef}
             />
 
-            {/* 3. Category Selection & Dynamic Sections */}
-            {/* The Category Selector is now the driver for the item type */}
-            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-4">
+            {/* 3. Category & Type Context */}
+            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-4">
                 <ProductMetadataSection 
                     formState={formState}
                     formSetters={formSetters}
@@ -129,7 +127,6 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                     itemType={formState.itemType}
                 />
 
-                {/* If it's a dish (restaurant food), show restaurant details */}
                 {formState.itemType === 'dish' && (
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                         <DishDetailsSection 
@@ -142,11 +139,11 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
                 )}
             </div>
 
-            {/* 4. Collapsible Ingredients/Dietary (Only for Products/Drugstore) */}
+            {/* 4. Collapsible Ingredients/Dietary */}
             {formState.itemType !== 'dish' && (
-                <details className="group bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden" open={uiState.autoExpandDetails}>
-                    <summary className="flex items-center justify-between p-3 cursor-pointer select-none bg-gray-100 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                        <span className="font-semibold text-gray-700 dark:text-gray-300 text-sm">
+                <details className="group bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-all" open={uiState.autoExpandDetails}>
+                    <summary className="flex items-center justify-between p-4 cursor-pointer select-none bg-gray-100 dark:bg-gray-800/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                        <span className="font-semibold text-gray-700 dark:text-gray-300 text-sm flex items-center gap-2">
                             {t('form.ingredients.title')}
                         </span>
                         <ChevronDownIcon className="w-5 h-5 text-gray-500 transition-transform group-open:rotate-180" />
@@ -165,45 +162,48 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
 
             {/* 5. Household Sharing */}
             {householdId && (
-                <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-md border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-800/30">
                     <input
                         type="checkbox"
                         id="familyFavorite"
                         checked={formState.isFamilyFavorite}
                         onChange={(e) => formSetters.setIsFamilyFavorite(e.target.checked)}
-                        className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        className="h-5 w-5 text-amber-600 focus:ring-amber-500 border-gray-300 rounded cursor-pointer"
                     />
-                    <div>
-                        <label htmlFor="familyFavorite" className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('form.familyFavorite.title')}</label>
+                    <div className="cursor-pointer" onClick={() => formSetters.setIsFamilyFavorite(!formState.isFamilyFavorite)}>
+                        <label htmlFor="familyFavorite" className="text-sm font-bold text-gray-800 dark:text-gray-200 cursor-pointer">{t('form.familyFavorite.title')}</label>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{t('form.familyFavorite.description')}</p>
                     </div>
                 </div>
             )}
             
             {uiState.error && (
-                <div className="text-red-500 text-sm text-center bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-200 dark:border-red-800">
+                <div className="text-red-500 text-sm text-center bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800 animate-pulse">
                     {uiState.error}
                 </div>
             )}
         </div>
 
-        <div className="flex justify-end gap-4 mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <button
-                type="button"
-                onClick={onCancel}
-                className="px-6 py-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white rounded-md font-semibold transition-colors"
-            >
-                {t('form.button.cancel')}
-            </button>
-            <button
-                type="submit"
-                className="px-8 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-semibold transition-colors shadow-md"
-            >
-                {isEditing ? t('form.button.update') : t('form.button.save')}
-            </button>
+        {/* Sticky Action Footer */}
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/95 dark:bg-gray-900/95 border-t border-gray-200 dark:border-gray-800 backdrop-blur-md z-40 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+            <div className="container mx-auto max-w-4xl flex gap-3">
+                <button
+                    type="button"
+                    onClick={onCancel}
+                    className="flex-1 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-xl font-bold transition-colors"
+                >
+                    {t('form.button.cancel')}
+                </button>
+                <button
+                    type="submit"
+                    className="flex-[2] py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md transition-all active:scale-95"
+                >
+                    {isEditing ? t('form.button.update') : t('form.button.save')}
+                </button>
+            </div>
         </div>
 
-        {/* Global Modals/Overlays */}
+        {/* Global Modals */}
         {uiState.isCameraOpen && (
             <CameraCapture 
                 onCapture={actions.handleImageFromCamera} 

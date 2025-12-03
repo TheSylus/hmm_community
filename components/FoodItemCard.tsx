@@ -1,7 +1,7 @@
+
 import React from 'react';
 import { FoodItem, NutriScore } from '../types';
 import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, UserGroupIcon, LockClosedIcon, ShoppingCartIcon, BeakerIcon } from './Icons';
-import { AllergenDisplay } from './AllergenDisplay';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { StoreLogo } from './StoreLogo';
@@ -55,7 +55,7 @@ const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   const displayItem = useTranslatedItem(item);
 
   if (!displayItem) {
-    return null; // Render nothing if the item is not available
+    return null;
   }
   
   const hasDietaryOrAllergens = displayItem.itemType === 'product' && (displayItem.isLactoseFree || displayItem.isVegan || displayItem.isGlutenFree || (displayItem.allergens && displayItem.allergens.length > 0));
@@ -69,209 +69,189 @@ const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   // Visual indicator for item type on the image
   const getPlaceholderIcon = () => {
       switch(displayItem.itemType) {
-          case 'dish': return <BuildingStorefrontIcon className="w-8 h-8"/>;
-          case 'drugstore': return <BeakerIcon className="w-8 h-8"/>;
-          default: return <ShoppingBagIcon className="w-8 h-8"/>; // Still show placeholder if no image
+          case 'dish': return <BuildingStorefrontIcon className="w-8 h-8 text-gray-400/50"/>;
+          case 'drugstore': return <BeakerIcon className="w-8 h-8 text-gray-400/50"/>;
+          default: return <ShoppingBagIcon className="w-8 h-8 text-gray-400/50"/>;
       }
   };
 
   const getStatusIcon = () => {
       switch(displayItem.itemType) {
-          case 'dish': return <BuildingStorefrontIcon className="w-3.5 h-3.5" />;
-          case 'drugstore': return <BeakerIcon className="w-3.5 h-3.5" />;
-          default: return null; // Don't show generic product icon overlay
+          case 'dish': return <BuildingStorefrontIcon className="w-3 h-3" />;
+          case 'drugstore': return <BeakerIcon className="w-3 h-3" />;
+          default: return null;
       }
   };
 
   const statusIcon = getStatusIcon();
 
-  // Dynamic Border/Ring Color Logic
-  let borderClass = 'border-gray-100 dark:border-gray-700/50';
+  // Dynamic Border/Ring Color Logic (Subtler for Premium Feel)
+  let borderClass = 'border-gray-100 dark:border-gray-700';
   let ringClass = '';
 
   if (isFamilyShared) {
-      borderClass = 'border-amber-400 dark:border-amber-500/50';
-      ringClass = 'ring-1 ring-amber-300 dark:ring-amber-600/30';
-  } else if (isDrugstore) {
-      borderClass = 'border-purple-300 dark:border-purple-500/50';
-      // Subtle purple glow for drugstore
-      ringClass = 'ring-1 ring-purple-100 dark:ring-purple-900/30';
+      borderClass = 'border-amber-200 dark:border-amber-800';
+      ringClass = 'ring-1 ring-amber-100 dark:ring-amber-900/30';
   }
 
   return (
     <div 
-        className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden transition-all duration-300 hover:shadow-md relative ${isClickable ? 'cursor-pointer' : ''} ${borderClass} ${ringClass}`}
+        className={`group bg-white dark:bg-gray-800 rounded-2xl shadow-sm border overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 relative flex flex-row h-32 sm:h-36 ${isClickable ? 'cursor-pointer' : ''} ${borderClass} ${ringClass}`}
         onClick={() => isClickable && onViewDetails(item)}
     >
-        <div className="flex flex-row h-full">
-            {/* Left Side: Image & Status Overlays */}
-            <div className="relative w-28 sm:w-32 shrink-0 bg-gray-100 dark:bg-gray-700">
-                {displayItem.image ? (
-                    <img src={displayItem.image} alt={displayItem.name} className="w-full h-full object-cover absolute inset-0" />
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-600">
-                        {getPlaceholderIcon()}
-                    </div>
-                )}
-                
-                {/* Overlay Icons (Item Type & Share Status) */}
-                <div className="absolute top-1 left-1 flex flex-col gap-1">
-                    {/* Only render this if there is a status icon (non-product) */}
-                    {statusIcon && (
-                        <div className="bg-black/60 backdrop-blur-sm p-1 rounded-full text-white shadow-sm">
-                            {statusIcon}
-                        </div>
-                    )}
-                    {/* Family Status Indicator */}
-                    <button
-                        type="button" 
-                        className={`backdrop-blur-sm p-1 rounded-full shadow-sm transition-all duration-200 ${isFamilyShared ? 'bg-amber-500 text-white' : 'bg-black/60 text-gray-300'} ${isOwner && !isPreview ? 'cursor-pointer hover:scale-110 active:scale-95' : ''}`}
-                        onClick={(e) => {
-                            if (isOwner && !isPreview && onToggleFamilyStatus) {
-                                e.stopPropagation();
-                                onToggleFamilyStatus(item);
-                            }
-                        }}
-                        title={isOwner ? t('card.toggleFamilyStatus') : (isFamilyShared ? t('card.familyFavoriteTooltip') : t('card.privateTooltip'))}
-                        aria-label={t('card.toggleFamilyStatus')}
-                        disabled={!isOwner || isPreview}
-                    >
-                        {isFamilyShared ? (
-                            <UserGroupIcon className="w-3.5 h-3.5" />
-                        ) : (
-                            <LockClosedIcon className="w-3.5 h-3.5" />
-                        )}
-                    </button>
+        {/* Left Side: Image (Strict Aspect Ratio) */}
+        <div className="relative aspect-square h-full shrink-0 bg-gray-50 dark:bg-gray-700/50 overflow-hidden">
+            {displayItem.image ? (
+                <img 
+                    src={displayItem.image} 
+                    alt={displayItem.name} 
+                    loading="lazy"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                />
+            ) : (
+                <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-700/50">
+                    {getPlaceholderIcon()}
                 </div>
-                
-                {/* NutriScore Overlay (Bottom Right of Image) */}
-                {displayItem.itemType === 'product' && displayItem.nutriScore && (
-                    <div className={`absolute bottom-1 right-1 text-[10px] w-5 h-5 rounded-full text-white font-bold flex items-center justify-center shadow-sm ${nutriScoreColors[displayItem.nutriScore]}`}>
-                        {displayItem.nutriScore}
+            )}
+            
+            {/* Top Left Status Overlay */}
+            <div className="absolute top-1.5 left-1.5 flex flex-col gap-1.5">
+                {/* Type Icon */}
+                {statusIcon && (
+                    <div className="bg-white/90 dark:bg-black/60 backdrop-blur-md p-1 rounded-full text-gray-700 dark:text-gray-200 shadow-sm border border-black/5 dark:border-white/10">
+                        {statusIcon}
                     </div>
                 )}
+                
+                {/* Family/Private Toggle */}
+                <button
+                    type="button" 
+                    className={`backdrop-blur-md p-1 rounded-full shadow-sm transition-all duration-200 border border-black/5 dark:border-white/10 ${isFamilyShared ? 'bg-amber-100/90 text-amber-700 dark:bg-amber-900/80 dark:text-amber-300' : 'bg-white/90 text-gray-400 dark:bg-black/60 dark:text-gray-400'} ${isOwner && !isPreview ? 'cursor-pointer hover:scale-110 active:scale-95' : ''}`}
+                    onClick={(e) => {
+                        if (isOwner && !isPreview && onToggleFamilyStatus) {
+                            e.stopPropagation();
+                            onToggleFamilyStatus(item);
+                        }
+                    }}
+                    title={isOwner ? t('card.toggleFamilyStatus') : (isFamilyShared ? t('card.familyFavoriteTooltip') : t('card.privateTooltip'))}
+                    disabled={!isOwner || isPreview}
+                >
+                    {isFamilyShared ? <UserGroupIcon className="w-3 h-3" /> : <LockClosedIcon className="w-3 h-3" />}
+                </button>
             </div>
+            
+            {/* NutriScore (Bottom Right) */}
+            {displayItem.itemType === 'product' && displayItem.nutriScore && (
+                <div className={`absolute bottom-1.5 right-1.5 text-[10px] w-5 h-5 rounded-full text-white font-bold flex items-center justify-center shadow-sm border border-white/20 ${nutriScoreColors[displayItem.nutriScore]}`}>
+                    {displayItem.nutriScore}
+                </div>
+            )}
+        </div>
 
-            {/* Right Side: Content */}
-            <div className="flex-1 flex flex-col justify-between p-3 min-w-0">
-                <div>
-                    <div className="flex justify-between items-start gap-2">
-                        <h3 className={`text-base font-bold truncate leading-tight ${isFamilyShared ? 'text-amber-700 dark:text-amber-400' : (isDrugstore ? 'text-purple-800 dark:text-purple-300' : 'text-gray-900 dark:text-white')}`} title={displayItem.name}>
-                            {displayItem.name}
-                        </h3>
-                        
-                        {!isPreview && (
-                            <div className="flex items-center -mr-1 -mt-1 shrink-0">
-                                {displayItem.itemType !== 'dish' && (
-                                    <button
+        {/* Right Side: Content */}
+        <div className="flex-1 flex flex-col justify-between p-3 min-w-0 relative">
+            
+            {/* Header Section */}
+            <div>
+                <div className="flex justify-between items-start gap-2">
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white truncate leading-tight tracking-tight" title={displayItem.name}>
+                        {displayItem.name}
+                    </h3>
+                    
+                    {!isPreview && (
+                        <div className="flex items-center gap-1 -mr-1 -mt-1 shrink-0">
+                            {displayItem.itemType !== 'dish' && (
+                                <button
                                     onClick={(e) => { e.stopPropagation(); onAddToShoppingList(item); }}
                                     className={`p-1.5 rounded-full transition-all duration-200 ${
                                         isInShoppingList 
-                                        ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md' 
-                                        : 'text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-100 dark:hover:bg-gray-700/50'
+                                        ? 'bg-indigo-600 text-white shadow-md' 
+                                        : 'text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-300'
                                     }`}
-                                    aria-label={isInShoppingList ? t('shoppingList.removeAria', { name: displayItem.name }) : t('shoppingList.addAria', { name: displayItem.name })}
-                                    title={isInShoppingList ? t('shoppingList.removeAria', { name: displayItem.name }) : t('shoppingList.addAria', { name: displayItem.name })}
-                                    >
-                                    {isInShoppingList ? (
-                                        <ShoppingCartIcon className="w-4 h-4" />
-                                    ) : (
-                                        <ShoppingBagIcon className="w-4 h-4" />
-                                    )}
+                                >
+                                    {isInShoppingList ? <ShoppingCartIcon className="w-4 h-4" /> : <ShoppingBagIcon className="w-4 h-4" />}
                                 </button>
-                                )}
-                                <button
+                            )}
+                            <button
                                 onClick={(e) => { e.stopPropagation(); onEdit(item.id); }}
-                                className="text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
-                                aria-label={t('card.editAria', { name: displayItem.name })}
-                                >
+                                className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors"
+                            >
                                 <PencilIcon className="w-4 h-4" />
-                                </button>
-                                <button
+                            </button>
+                            <button
                                 onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                                className="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
-                                aria-label={t('card.deleteAria', { name: displayItem.name })}
-                                >
+                                className="p-1.5 rounded-full text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors"
+                            >
                                 <TrashIcon className="w-4 h-4" />
-                                </button>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex items-center gap-1 mt-1">
-                        <div className="flex">
-                            {[1, 2, 3, 4, 5].map(star => (
-                                <StarIcon key={star} className={`w-3.5 h-3.5 ${displayItem.rating >= star ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} filled={displayItem.rating >= star} />
-                            ))}
+                            </button>
                         </div>
-                    </div>
-
-                    {/* Location / Restaurant Line */}
-                    <div className="mt-1.5 min-h-[1.25rem]">
-                        {displayItem.itemType === 'dish' && displayItem.restaurantName && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate italic flex items-center gap-1">
-                                <BuildingStorefrontIcon className="w-3 h-3"/> {displayItem.restaurantName}
-                            </p>
-                        )}
-
-                        {(displayItem.itemType === 'product' || displayItem.itemType === 'drugstore') && displayItem.purchaseLocation && displayItem.purchaseLocation.length > 0 && (
-                            <div className="flex items-center gap-1 overflow-hidden">
-                                {displayItem.purchaseLocation.slice(0, 3).map((loc, idx) => (
-                                    <StoreLogo key={idx} name={loc} size="sm" showName={false} className="w-5 h-5" />
-                                ))}
-                                {displayItem.purchaseLocation.length > 3 && (
-                                    <span className="text-[10px] text-gray-400">+{displayItem.purchaseLocation.length - 3}</span>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                    )}
                 </div>
-                
-                {/* Bottom Row: Tags & Dietary */}
-                <div className="mt-2 flex items-center justify-between gap-2 overflow-hidden h-6">
-                    {hasTags ? (
-                        <div className="flex gap-1 overflow-x-auto scrollbar-hide py-0.5 mask-linear-fade">
-                            {displayItem.tags!.map(tag => (
-                            <span key={tag} className="flex-shrink-0 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 text-[10px] font-medium px-1.5 py-0.5 rounded">
-                                {tag}
-                            </span>
-                            ))}
-                        </div>
-                    ) : <div />}
 
-                    {hasDietaryOrAllergens && (
-                         <div className="flex items-center gap-1 flex-shrink-0 pl-1 bg-white dark:bg-gray-800 shadow-[-4px_0_4px_rgba(255,255,255,0.8)] dark:shadow-[-4px_0_4px_rgba(31,41,55,0.8)]">
-                            {displayItem.isLactoseFree && <DietaryIcon type="lactoseFree" className="w-4 h-4" />}
-                            {displayItem.isVegan && <DietaryIcon type="vegan" className="w-4 h-4" />}
-                            {displayItem.isGlutenFree && <DietaryIcon type="glutenFree" className="w-4 h-4" />}
-                            {/* Show just a generic allergen warning icon if allergens exist but no room for specific icons */}
-                            {displayItem.allergens && displayItem.allergens.length > 0 && !displayItem.isVegan && !displayItem.isGlutenFree && (
-                                <span className="text-[10px] font-bold text-orange-500 border border-orange-200 rounded px-1">!</span>
+                {/* Rating Stars */}
+                <div className="flex items-center gap-0.5 mt-1">
+                    {[1, 2, 3, 4, 5].map(star => (
+                        <StarIcon key={star} className={`w-3.5 h-3.5 ${displayItem.rating >= star ? 'text-yellow-400 fill-current' : 'text-gray-200 dark:text-gray-700'}`} filled={displayItem.rating >= star} />
+                    ))}
+                </div>
+
+                {/* Metadata Line (Restaurant / Store) */}
+                <div className="mt-2 min-h-[1.25rem]">
+                    {displayItem.itemType === 'dish' && displayItem.restaurantName && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate italic flex items-center gap-1">
+                            <BuildingStorefrontIcon className="w-3 h-3"/> {displayItem.restaurantName}
+                        </p>
+                    )}
+
+                    {(displayItem.itemType === 'product' || displayItem.itemType === 'drugstore') && displayItem.purchaseLocation && displayItem.purchaseLocation.length > 0 && (
+                        <div className="flex items-center gap-1 overflow-hidden">
+                            {displayItem.purchaseLocation.slice(0, 3).map((loc, idx) => (
+                                <StoreLogo key={idx} name={loc} size="sm" showName={false} className="w-4 h-4 opacity-80 grayscale-[0.3]" />
+                            ))}
+                            {displayItem.purchaseLocation.length > 3 && (
+                                <span className="text-[10px] text-gray-400">+{displayItem.purchaseLocation.length - 3}</span>
                             )}
                         </div>
                     )}
                 </div>
             </div>
+            
+            {/* Footer Row: Tags & Dietary Badges */}
+            <div className="flex items-end justify-between gap-2 overflow-hidden h-6 mt-1">
+                {hasTags ? (
+                    <div className="flex gap-1 overflow-x-auto scrollbar-hide py-0.5 mask-linear-fade w-full">
+                        {displayItem.tags!.map(tag => (
+                        <span key={tag} className="flex-shrink-0 bg-gray-50 text-gray-500 dark:bg-gray-700/50 dark:text-gray-400 text-[10px] font-medium px-2 py-0.5 rounded-full border border-gray-100 dark:border-gray-700 whitespace-nowrap">
+                            {tag}
+                        </span>
+                        ))}
+                    </div>
+                ) : <div />}
+
+                {/* Dietary Icons stuck to the right */}
+                {hasDietaryOrAllergens && (
+                     <div className="flex items-center gap-1 flex-shrink-0 pl-2 bg-gradient-to-l from-white via-white to-transparent dark:from-gray-800 dark:via-gray-800">
+                        {displayItem.isLactoseFree && <DietaryIcon type="lactoseFree" className="w-4 h-4" />}
+                        {displayItem.isVegan && <DietaryIcon type="vegan" className="w-4 h-4" />}
+                        {displayItem.isGlutenFree && <DietaryIcon type="glutenFree" className="w-4 h-4" />}
+                        {displayItem.allergens && displayItem.allergens.length > 0 && !displayItem.isVegan && !displayItem.isGlutenFree && (
+                            <span className="text-[10px] font-bold text-orange-500 border border-orange-200 dark:border-orange-800 rounded px-1" title="Allergens">!</span>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
 
-      {/* Custom scrollbar styling & line clamp */}
       <style>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .mask-linear-fade {
-            mask-image: linear-gradient(to right, black 90%, transparent 100%);
-            -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
+            mask-image: linear-gradient(to right, black 85%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
         }
       `}</style>
     </div>
   );
 };
 
-// Memoized export to prevent re-renders when parent list updates but card data remains same.
-// This prevents the translation hook from firing unnecessarily.
 export const FoodItemCard = React.memo(FoodItemCardContent);
