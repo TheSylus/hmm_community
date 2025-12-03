@@ -354,19 +354,20 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
       const groups: Record<string, Record<string, HydratedShoppingListItem[]>> = {};
       
       activeItems.forEach(item => {
-          // Determine Store (use first location or 'Other')
-          let storeName = 'Other Stores';
-          if (item.purchaseLocation && item.purchaseLocation.length > 0) {
-              storeName = item.purchaseLocation[0]; // Use first store for grouping
-          }
+          // Determine Stores. If empty, default to "Other Stores"
+          let locations = item.purchaseLocation && item.purchaseLocation.length > 0
+              ? item.purchaseLocation
+              : ['Other Stores'];
           
-          if (!groups[storeName]) groups[storeName] = {};
-          
-          // Determine Category
-          const cat = item.category || 'other';
-          if (!groups[storeName][cat]) groups[storeName][cat] = [];
-          
-          groups[storeName][cat].push(item);
+          locations.forEach(storeName => {
+              if (!groups[storeName]) groups[storeName] = {};
+              
+              // Determine Category
+              const cat = item.category || 'other';
+              if (!groups[storeName][cat]) groups[storeName][cat] = [];
+              
+              groups[storeName][cat].push(item);
+          });
       });
       return groups;
   }, [activeItems]);
@@ -497,7 +498,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                                     <div className="space-y-2">
                                                         {items.map(item => (
                                                             <ShoppingListItem
-                                                                key={item.shoppingListItemId}
+                                                                key={`${storeName}-${item.shoppingListItemId}`}
                                                                 item={item}
                                                                 onRemove={onRemove}
                                                                 onToggleChecked={onToggleChecked}
@@ -524,7 +525,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                                 <div className="space-y-2">
                                                     {categoriesInStore[cat].map(item => (
                                                         <ShoppingListItem
-                                                            key={item.shoppingListItemId}
+                                                            key={`${storeName}-${item.shoppingListItemId}`}
                                                             item={item}
                                                             onRemove={onRemove}
                                                             onToggleChecked={onToggleChecked}
