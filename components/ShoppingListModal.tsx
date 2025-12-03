@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from '../i18n/index';
 import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, CheckBadgeIcon, UserGroupIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon, SparklesIcon, CategoryRestaurantIcon, MapPinIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
@@ -150,15 +150,17 @@ const ShoppingListItem: React.FC<{
 }> = ({ item, onRemove, onToggleChecked, onUpdateQuantity, isExpanded, onExpand, members, currentUser, isShoppingMode = false, groupPrefix }) => {
   const { t } = useTranslation();
   const displayItem = useTranslatedItem(item);
+  
+  // Swipe State
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchOffset, setTouchOffset] = useState(0);
+  const swipeThreshold = 80; // pixels to trigger delete
 
   if (!displayItem) return null;
 
   const checkboxSize = isShoppingMode ? 'h-7 w-7' : 'h-5 w-5';
   const itemTextSize = isShoppingMode ? 'text-lg' : 'text-md';
-  
-  // Logic: In planning mode, we hide the checkbox. In shopping mode, we show it.
-  const showCheckbox = isShoppingMode || displayItem.checked; // Always show check if already checked (in done list)
-
+  const showCheckbox = isShoppingMode || displayItem.checked; 
   const inputId = `item-${displayItem.shoppingListItemId}-${groupPrefix || 'default'}`;
 
   const handleQuantityClick = (e: React.MouseEvent, change: number) => {
@@ -173,6 +175,7 @@ const ShoppingListItem: React.FC<{
   };
 
   const handleRowClick = () => {
+      if (Math.abs(touchOffset) > 10) return; // Prevent click if swiping
       if (!isShoppingMode && !displayItem.checked) {
           onExpand(displayItem.id);
       } else if (isShoppingMode) {
@@ -180,120 +183,167 @@ const ShoppingListItem: React.FC<{
       }
   };
 
+  // Touch Handlers for Swipe-to-Delete
+  const onTouchStart = (e: React.TouchEvent) => {
+      setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+      if (touchStart === null) return;
+      const currentTouch = e.targetTouches[0].clientX;
+      const diff = currentTouch - touchStart;
+      
+      // Only allow dragging left (negative diff) and cap at -150px
+      if (diff < 0 && diff > -150) {
+          setTouchOffset(diff);
+      }
+  };
+
+  const onTouchEnd = () => {
+      if (touchStart === null) return;
+      
+      if (touchOffset < -swipeThreshold) {
+          // Trigger Delete
+          triggerHaptic('warning');
+          onRemove(displayItem.shoppingListItemId);
+          // Don't snap back immediately to give visual cue of deletion
+      } else {
+          // Snap Back
+          setTouchOffset(0);
+      }
+      setTouchStart(null);
+  };
+
   return (
-    <li className={`bg-white dark:bg-gray-800 rounded-lg transition-all duration-300 shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden ${displayItem.checked ? 'opacity-60 bg-gray-50 dark:bg-gray-800/50' : ''}`}>
-        <div className="flex items-center justify-between p-3" onClick={handleRowClick}>
-            <div className={`flex items-center overflow-hidden flex-1 ${!isShoppingMode ? 'cursor-pointer' : ''}`}>
-                
-                {/* Checkbox: Only visible in shopping mode or if item is completed */}
-                {showCheckbox && (
-                    <input
-                        id={inputId}
-                        type="checkbox"
-                        checked={displayItem.checked}
-                        onChange={handleToggle}
-                        onClick={(e) => e.stopPropagation()}
-                        className={`${checkboxSize} rounded-full border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0 transition-transform active:scale-95 mr-3`}
-                    />
-                )}
-                
-                {isShoppingMode && displayItem.image && (
-                    <div className="mr-3 w-10 h-10 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
-                        <img src={displayItem.image} alt="" className="w-full h-full object-cover" />
-                    </div>
-                )}
-
-                <div className={`flex-1 overflow-hidden flex items-center gap-2`}>
-                    <label 
-                        htmlFor={inputId} 
-                        className={`${itemTextSize} font-medium text-gray-800 dark:text-gray-200 truncate transition-colors select-none ${displayItem.checked ? 'line-through text-gray-400 dark:text-gray-500' : ''} ${!isShoppingMode ? 'cursor-pointer' : ''}`}
-                        onClick={(e) => {
-                            if(!isShoppingMode) {
-                                e.preventDefault(); // Prevent standard label click behavior if in planning mode
-                            }
-                        }}
-                    >
-                        {displayItem.name}
-                    </label>
-                </div>
-            </div>
-
-            <div className="flex items-center gap-2 pl-2" onClick={(e) => e.stopPropagation()}>
-                {!isShoppingMode && !displayItem.checked ? (
-                    <div className="flex items-center bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-full h-8 shadow-sm">
-                        <button 
-                            onClick={(e) => handleQuantityClick(e, -1)} 
-                            className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-l-full transition-colors"
-                        >
-                            -
-                        </button>
-                        <span className="w-6 text-center text-sm font-semibold text-gray-800 dark:text-gray-200">{displayItem.quantity}</span>
-                        <button 
-                            onClick={(e) => handleQuantityClick(e, 1)} 
-                            className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-green-500 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-r-full transition-colors"
-                        >
-                            +
-                        </button>
-                    </div>
-                ) : (
-                    <div className="bg-gray-100 dark:bg-gray-700/50 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-600">
-                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{displayItem.quantity}x</span>
-                    </div>
-                )}
-
-                {!isShoppingMode && (
-                    <button
-                        onClick={() => {
-                            triggerHaptic('warning');
-                            onRemove(displayItem.shoppingListItemId);
-                        }}
-                        className="p-1.5 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors ml-1"
-                        aria-label={t('shoppingList.removeAria', { name: displayItem.name })}
-                    >
-                        <TrashIcon className="w-5 h-5" />
-                    </button>
-                )}
-            </div>
+    <li className="relative overflow-hidden rounded-lg mb-2 touch-pan-y">
+        {/* Background Action Layer (Red Trash) */}
+        <div 
+            className="absolute inset-0 bg-red-500 flex items-center justify-end pr-6 rounded-lg transition-opacity duration-200"
+            style={{ opacity: Math.abs(touchOffset) > 10 ? 1 : 0 }}
+        >
+            <TrashIcon className="w-6 h-6 text-white" />
         </div>
-        {isExpanded && !isShoppingMode && !displayItem.checked && (
-            <div className="px-3 pb-3 pt-1 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 animate-fade-in-down space-y-3">
-                <div className="flex justify-between items-center text-xs text-gray-500 pl-1">
-                    <ActivityLog action="added" userId={displayItem.added_by_user_id} members={members} currentUser={currentUser} />
-                    {displayItem.checked && (
-                        <ActivityLog action="checked" userId={displayItem.checked_by_user_id} members={members} currentUser={currentUser} />
+
+        {/* Foreground Content Layer */}
+        <div 
+            className={`relative bg-white dark:bg-gray-800 rounded-lg transition-transform duration-200 shadow-sm border border-gray-100 dark:border-gray-700/50 ${displayItem.checked ? 'opacity-60 bg-gray-50 dark:bg-gray-800/50' : ''}`}
+            style={{ transform: `translateX(${touchOffset}px)` }}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+        >
+            <div className="flex items-center justify-between p-3" onClick={handleRowClick}>
+                <div className={`flex items-center overflow-hidden flex-1 ${!isShoppingMode ? 'cursor-pointer' : ''}`}>
+                    
+                    {showCheckbox && (
+                        <input
+                            id={inputId}
+                            type="checkbox"
+                            checked={displayItem.checked}
+                            onChange={handleToggle}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`${checkboxSize} rounded-full border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0 transition-transform active:scale-95 mr-3`}
+                        />
+                    )}
+                    
+                    {isShoppingMode && displayItem.image && (
+                        <div className="mr-3 w-10 h-10 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+                            <img src={displayItem.image} alt="" className="w-full h-full object-cover" />
+                        </div>
+                    )}
+
+                    <div className={`flex-1 overflow-hidden flex items-center gap-2`}>
+                        <label 
+                            htmlFor={inputId} 
+                            className={`${itemTextSize} font-medium text-gray-800 dark:text-gray-200 truncate transition-colors select-none ${displayItem.checked ? 'line-through text-gray-400 dark:text-gray-500' : ''} ${!isShoppingMode ? 'cursor-pointer' : ''}`}
+                            onClick={(e) => {
+                                if(!isShoppingMode) {
+                                    e.preventDefault(); 
+                                }
+                            }}
+                        >
+                            {displayItem.name}
+                        </label>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 pl-2" onClick={(e) => e.stopPropagation()}>
+                    {!isShoppingMode && !displayItem.checked ? (
+                        <div className="flex items-center bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-full h-8 shadow-sm">
+                            <button 
+                                onClick={(e) => handleQuantityClick(e, -1)} 
+                                className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-l-full transition-colors"
+                            >
+                                -
+                            </button>
+                            <span className="w-6 text-center text-sm font-semibold text-gray-800 dark:text-gray-200">{displayItem.quantity}</span>
+                            <button 
+                                onClick={(e) => handleQuantityClick(e, 1)} 
+                                className="w-8 h-full flex items-center justify-center text-gray-500 hover:text-green-500 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-r-full transition-colors"
+                            >
+                                +
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="bg-gray-100 dark:bg-gray-700/50 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-600">
+                            <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{displayItem.quantity}x</span>
+                        </div>
+                    )}
+
+                    {!isShoppingMode && (
+                        <button
+                            onClick={() => {
+                                triggerHaptic('warning');
+                                onRemove(displayItem.shoppingListItemId);
+                            }}
+                            className="p-1.5 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors ml-1"
+                            aria-label={t('shoppingList.removeAria', { name: displayItem.name })}
+                        >
+                            <TrashIcon className="w-5 h-5" />
+                        </button>
                     )}
                 </div>
-                
-                {displayItem.image && (
-                    <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                        <img src={displayItem.image} alt={displayItem.name} className="w-full h-40 object-contain bg-white dark:bg-gray-900" />
-                    </div>
-                )}
-                
-                {(displayItem.notes || (displayItem.tags && displayItem.tags.length > 0)) && (
-                    <div className="bg-white dark:bg-gray-900 p-3 rounded-md border border-gray-100 dark:border-gray-700/50">
-                        {displayItem.notes && (
-                            <div className="mb-2">
-                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{t('detail.notesTitle')}</h4>
-                                <p className="text-sm text-gray-700 dark:text-gray-300">{displayItem.notes}</p>
-                            </div>
-                        )}
-                        {displayItem.tags && displayItem.tags.length > 0 && (
-                            <div>
-                                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{t('detail.tagsTitle')}</h4>
-                                <div className="flex flex-wrap gap-1">
-                                    {displayItem.tags.map(tag => (
-                                        <span key={tag} className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-800">
-                                            {tag}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
             </div>
-        )}
+            {isExpanded && !isShoppingMode && !displayItem.checked && (
+                <div className="px-3 pb-3 pt-1 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 animate-fade-in-down space-y-3">
+                    <div className="flex justify-between items-center text-xs text-gray-500 pl-1">
+                        <ActivityLog action="added" userId={displayItem.added_by_user_id} members={members} currentUser={currentUser} />
+                        {displayItem.checked && (
+                            <ActivityLog action="checked" userId={displayItem.checked_by_user_id} members={members} currentUser={currentUser} />
+                        )}
+                    </div>
+                    
+                    {displayItem.image && (
+                        <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                            <img src={displayItem.image} alt={displayItem.name} className="w-full h-40 object-contain bg-white dark:bg-gray-900" />
+                        </div>
+                    )}
+                    
+                    {(displayItem.notes || (displayItem.tags && displayItem.tags.length > 0)) && (
+                        <div className="bg-white dark:bg-gray-900 p-3 rounded-md border border-gray-100 dark:border-gray-700/50">
+                            {displayItem.notes && (
+                                <div className="mb-2">
+                                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">{t('detail.notesTitle')}</h4>
+                                    <p className="text-sm text-gray-700 dark:text-gray-300">{displayItem.notes}</p>
+                                </div>
+                            )}
+                            {displayItem.tags && displayItem.tags.length > 0 && (
+                                <div>
+                                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{t('detail.tagsTitle')}</h4>
+                                    <div className="flex flex-wrap gap-1">
+                                        {displayItem.tags.map(tag => (
+                                            <span key={tag} className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-800">
+                                                {tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
     </li>
   );
 };
