@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import { BoundingBox } from '../services/geminiService';
@@ -60,14 +61,15 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ imageUrl, suggestedC
     const { width, height } = e.currentTarget;
     let initialCrop: Crop;
 
-    if (suggestedCrop) {
-      // AI suggestion is available, convert normalized coordinates to percentages
+    // Quality Gate: Only use suggested crop if dimensions are valid (non-zero)
+    if (suggestedCrop && suggestedCrop.width > 0 && suggestedCrop.height > 0) {
+      // Use pixel values directly as they now match the optimized image
       initialCrop = {
-        unit: '%',
-        x: suggestedCrop.x * 100,
-        y: suggestedCrop.y * 100,
-        width: suggestedCrop.width * 100,
-        height: suggestedCrop.height * 100,
+        unit: 'px',
+        x: suggestedCrop.x,
+        y: suggestedCrop.y,
+        width: suggestedCrop.width,
+        height: suggestedCrop.height,
       };
     } else {
       // Fallback: center a 1:1 aspect ratio crop
@@ -115,7 +117,8 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ imageUrl, suggestedC
                 crop={crop}
                 onChange={(_, percentCrop) => setCrop(percentCrop)}
                 onComplete={(c) => setCompletedCrop(c)}
-                aspect={1}
+                // Disabled enforced aspect ratio for better flexibility with AI boxes
+                // aspect={1} 
                 className="max-h-full"
             >
                 <img

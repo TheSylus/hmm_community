@@ -386,6 +386,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
             setAnalysisProgress(prev => ({ ...prev, message: progressMessages[messageIndex] }));
         }, 1500);
 
+        // API Call now returns the optimized image alongside data
         const aiResult = await analyzeFoodImage(imageDataUrl);
         
         if(progressInterval) clearInterval(progressInterval);
@@ -456,7 +457,8 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
         
         if (mergedData.nutriScore || mergedData.tags.length > 0) setAutoExpandDetails(true);
 
-        setUncroppedImage(imageDataUrl);
+        // FIX: Use the optimized image for the cropper to ensure coordinates align
+        setUncroppedImage(aiResult.image || imageDataUrl);
         setSuggestedCrop(aiResult.boundingBox);
         setIsCropperOpen(true);
         setIsLoading(false);

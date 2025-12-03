@@ -95,7 +95,7 @@ export interface BoundingBox {
     height: number;
 }
 
-export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; tags: string[]; nutriScore?: NutriScore; boundingBox?: BoundingBox; itemType?: 'product' | 'drugstore' | 'dish'; category?: GroceryCategory }> => {
+export const analyzeFoodImage = async (base64Image: string): Promise<{ name: string; tags: string[]; nutriScore?: NutriScore; boundingBox?: BoundingBox; itemType?: 'product' | 'drugstore' | 'dish'; category?: GroceryCategory; image: string }> => {
   // QUALITY GATE: Resize for balance between OCR accuracy and Token cost.
   const resizedImage = await resizeImage(base64Image, 'main');
 
@@ -117,10 +117,10 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
     };
 
     // Prompt Optimization: 
-    // Explicitly requesting "EXACT text from packaging" forces the model to perform OCR 
-    // rather than guessing a generic name like "Orange Juice".
+    // Explicitly requesting "EXACT text from packaging" forces the model to perform OCR.
+    // "BoundingBox: tight crop around main product only" fixes the coordinate mismatch issue.
     const textPart = {
-      text: "Identify item. Name: Extract EXACT brand + product text from packaging (OCR). Type: 'product' (grocery), 'drugstore' (non-food), 'dish' (meal). Category: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, other. Tags: max 5 keywords. Nutri-Score (A-E) if visible. BoundingBox of item.",
+      text: "Identify item. Name: Extract EXACT brand + product text from packaging (OCR). Type: 'product' (grocery), 'drugstore' (non-food), 'dish' (meal). Category: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, other. Tags: max 5 keywords. Nutri-Score (A-E) if visible. BoundingBox: tight crop encompassing ONLY the main product packaging, ignore background.",
     };
 
     const response = await gemini.models.generateContent({
@@ -149,11 +149,12 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
             boundingBox: {
               type: Type.OBJECT,
               properties: {
-                  x: { type: Type.NUMBER },
-                  y: { type: Type.NUMBER },
-                  width: { type: Type.NUMBER },
-                  height: { type: Type.NUMBER },
-              }
+                  x: { type: Type.NUMBER, description: "X coordinate in pixels" },
+                  y: { type: Type.NUMBER, description: "Y coordinate in pixels" },
+                  width: { type: Type.NUMBER, description: "Width in pixels" },
+                  height: { type: Type.NUMBER, description: "Height in pixels" },
+              },
+              required: ["x", "y", "width", "height"]
             }
           },
           required: ["name", "tags", "itemType", "category"],
@@ -168,7 +169,9 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
       result.nutriScore = null;
     }
     
-    return result;
+    // CRITICAL FIX: Return the RESIZED image. 
+    // The UI must display this specific image for the coordinates to be valid.
+    return { ...result, image: resizedImage };
 
   } catch (error) {
     console.error("Error analyzing food image:", error);
