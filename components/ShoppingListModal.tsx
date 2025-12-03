@@ -289,19 +289,6 @@ const ShoppingListItem: React.FC<{
                             <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{displayItem.quantity}x</span>
                         </div>
                     )}
-
-                    {!isShoppingMode && (
-                        <button
-                            onClick={() => {
-                                triggerHaptic('warning');
-                                onRemove(displayItem.shoppingListItemId);
-                            }}
-                            className="p-1.5 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors ml-1"
-                            aria-label={t('shoppingList.removeAria', { name: displayItem.name })}
-                        >
-                            <TrashIcon className="w-5 h-5" />
-                        </button>
-                    )}
                 </div>
             </div>
             {isExpanded && !isShoppingMode && !displayItem.checked && (
