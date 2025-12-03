@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, CameraIcon, PlusCircleIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, EllipsisVerticalIcon, UserPlusIcon, CheckBadgeIcon, UserGroupIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon, MapPinIcon, SparklesIcon, CategoryRestaurantIcon } from './Icons';
+import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, CheckBadgeIcon, UserGroupIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon, SparklesIcon, CategoryRestaurantIcon, MapPinIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
 import { ShoppingList, UserProfile, Household, GroceryCategory } from '../types';
@@ -43,7 +43,6 @@ const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>>
     'other': CategoryOtherIcon,
 };
 
-// Define logical supermarket route order
 const CATEGORY_ORDER: GroceryCategory[] = [
     'produce',
     'bakery',
@@ -158,12 +157,10 @@ const ShoppingListItem: React.FC<{
   const textContainerMargin = isShoppingMode ? 'ml-3' : 'ml-3';
   const itemTextSize = isShoppingMode ? 'text-lg' : 'text-md';
   
-  // Determine Category Icon
   const category = displayItem.category || 'other';
   const CatIcon = CategoryIconMap[category];
   const catColor = CategoryColorMap[category];
 
-  // Ensure unique ID for the input in case the item is rendered in multiple groups
   const inputId = `item-${displayItem.shoppingListItemId}-${groupPrefix || 'default'}`;
 
   const handleQuantityClick = (e: React.MouseEvent, change: number) => {
@@ -189,7 +186,6 @@ const ShoppingListItem: React.FC<{
                     className={`${checkboxSize} rounded-full border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0 transition-transform active:scale-95`}
                 />
                 
-                {/* Thumbnail in Shopping Mode */}
                 {isShoppingMode && displayItem.image && (
                     <div className="ml-3 w-10 h-10 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
                         <img src={displayItem.image} alt="" className="w-full h-full object-cover" />
@@ -197,7 +193,6 @@ const ShoppingListItem: React.FC<{
                 )}
 
                 <div className={`${textContainerMargin} flex-1 overflow-hidden cursor-pointer flex items-center gap-2`} onClick={() => onExpand(displayItem.id)}>
-                    {/* Category Icon Badge - Hide in shopping mode if image is present to save space, or keep generic if no image */}
                     {(!isShoppingMode || !displayItem.image) && (
                         <div className={`flex-shrink-0 p-1 rounded-md bg-opacity-20 ${catColor.split(' ')[0]} ${catColor.split(' ')[1]}`} title={t(`category.${category}`)}>
                             <CatIcon className="w-4 h-4" />
@@ -211,7 +206,6 @@ const ShoppingListItem: React.FC<{
             </div>
 
             <div className="flex items-center gap-2 pl-2">
-                {/* Intuitive Quantity Control */}
                 {!isShoppingMode && !displayItem.checked ? (
                     <div className="flex items-center bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-full h-8 shadow-sm">
                         <button 
@@ -234,7 +228,6 @@ const ShoppingListItem: React.FC<{
                     </div>
                 )}
 
-                {/* Actions */}
                 {!isShoppingMode && (
                     <button
                         onClick={() => {
@@ -352,23 +345,40 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
       }
   };
 
-  // Logic Upgrade: Split Active vs Completed
-  // 1. Filter
+  // Logic Upgrade: Split Active vs Completed, THEN Group by Store, THEN by Category
   const activeItems = useMemo(() => listData.filter(i => !i.checked), [listData]);
   const completedItems = useMemo(() => listData.filter(i => i.checked), [listData]);
 
-  // 2. Group Active Items by Category
-  const groupedActiveItems = useMemo(() => {
-      const groups: Record<string, HydratedShoppingListItem[]> = {};
+  // Group by Store -> Category
+  const groupedActiveItemsByStore = useMemo(() => {
+      const groups: Record<string, Record<string, HydratedShoppingListItem[]>> = {};
+      
       activeItems.forEach(item => {
+          // Determine Store (use first location or 'Other')
+          let storeName = 'Other Stores';
+          if (item.purchaseLocation && item.purchaseLocation.length > 0) {
+              storeName = item.purchaseLocation[0]; // Use first store for grouping
+          }
+          
+          if (!groups[storeName]) groups[storeName] = {};
+          
+          // Determine Category
           const cat = item.category || 'other';
-          if (!groups[cat]) groups[cat] = [];
-          groups[cat].push(item);
+          if (!groups[storeName][cat]) groups[storeName][cat] = [];
+          
+          groups[storeName][cat].push(item);
       });
       return groups;
   }, [activeItems]);
 
   const activeList = allLists.find(l => l.id === activeListId);
+  const sortedStoreNames = useMemo(() => {
+      return Object.keys(groupedActiveItemsByStore).sort((a, b) => {
+          if (a === 'Other Stores') return 1; // Always last
+          if (b === 'Other Stores') return -1;
+          return a.localeCompare(b);
+      });
+  }, [groupedActiveItemsByStore]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 animate-fade-in" role="dialog" aria-modal="true" onClick={onClose}>
@@ -384,7 +394,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                 </button>
             </div>
 
-            {/* Toolbar: List Selector & Mode Toggle */}
+            {/* Toolbar */}
             <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-3 items-center justify-between">
                 {allLists.length > 1 || household ? (
                     <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -431,7 +441,6 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                 </button>
             </div>
 
-            {/* Smart Add Input (Only show if not in shopping mode to save space) */}
             {!isShoppingMode && (
                 <div className="p-4 pb-0">
                     <SmartAddInput onAdd={onSmartAdd} isLoading={isSmartAddLoading} />
@@ -447,70 +456,96 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                     </div>
                 ) : (
                     <>
-                        {/* 1. Active Items Grouped by Category */}
-                        {CATEGORY_ORDER.map(cat => {
-                            const items = groupedActiveItems[cat];
-                            if (!items || items.length === 0) return null;
-                            const CatIcon = CategoryIconMap[cat];
-                            const catColorStyle = CategoryColorMap[cat];
+                        {/* 1. Grouped by Store */}
+                        {sortedStoreNames.map(storeName => {
+                            const categoriesInStore = groupedActiveItemsByStore[storeName];
                             
+                            // Determine if we have unknown categories to render at the end
+                            const unknownCategories = Object.keys(categoriesInStore).filter(cat => !CATEGORY_ORDER.includes(cat as GroceryCategory));
+
                             return (
-                                <div key={cat} className="space-y-2 animate-slide-in-up">
-                                    <div className={`sticky top-0 z-10 flex items-center gap-2 py-2 backdrop-blur-md bg-white/90 dark:bg-gray-900/90 border-b ${catColorStyle.split(' ').filter(c => c.startsWith('border')).join(' ')}`}>
-                                        <div className={`p-1 rounded-md ${catColorStyle}`}>
-                                            <CatIcon className="w-4 h-4" />
-                                        </div>
-                                        <span className="text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-300">{t(`category.${cat}`)}</span>
-                                        <span className="text-xs text-gray-400 font-normal ml-auto">{items.length}</span>
+                                <div key={storeName} className="mb-6 animate-slide-in-up">
+                                    {/* Store Header */}
+                                    <div className="flex items-center gap-2 mb-3 pb-1 border-b border-gray-300 dark:border-gray-600">
+                                        {storeName !== 'Other Stores' ? (
+                                            <StoreLogo name={storeName} size="md" />
+                                        ) : (
+                                            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                                <MapPinIcon className="w-4 h-4 text-gray-500" />
+                                            </div>
+                                        )}
+                                        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{storeName === 'Other Stores' ? t('shoppingList.uncategorized') : storeName}</h3>
                                     </div>
-                                    <div className="space-y-2">
-                                        {items.map(item => (
-                                            <ShoppingListItem
-                                                key={item.shoppingListItemId}
-                                                item={item}
-                                                onRemove={onRemove}
-                                                onToggleChecked={onToggleChecked}
-                                                onUpdateQuantity={onUpdateQuantity}
-                                                isExpanded={expandedItems.has(item.id)}
-                                                onExpand={toggleExpand}
-                                                members={householdMembers}
-                                                currentUser={currentUser}
-                                                isShoppingMode={isShoppingMode}
-                                                groupPrefix={cat}
-                                            />
+
+                                    {/* Categories inside Store */}
+                                    <div className="space-y-4 pl-2 border-l-2 border-gray-100 dark:border-gray-800 ml-3">
+                                        {CATEGORY_ORDER.map(cat => {
+                                            const items = categoriesInStore[cat];
+                                            if (!items || items.length === 0) return null;
+                                            const CatIcon = CategoryIconMap[cat];
+                                            const catColorStyle = CategoryColorMap[cat];
+
+                                            return (
+                                                <div key={cat} className="space-y-2">
+                                                    <div className={`flex items-center gap-2 py-1`}>
+                                                        <div className={`p-1 rounded-md ${catColorStyle}`}>
+                                                            <CatIcon className="w-3.5 h-3.5" />
+                                                        </div>
+                                                        <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t(`category.${cat}`)}</span>
+                                                        <span className="text-xs text-gray-400 font-normal ml-auto bg-gray-100 dark:bg-gray-800 px-2 rounded-full">{items.length}</span>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        {items.map(item => (
+                                                            <ShoppingListItem
+                                                                key={item.shoppingListItemId}
+                                                                item={item}
+                                                                onRemove={onRemove}
+                                                                onToggleChecked={onToggleChecked}
+                                                                onUpdateQuantity={onUpdateQuantity}
+                                                                isExpanded={expandedItems.has(item.id)}
+                                                                onExpand={toggleExpand}
+                                                                members={householdMembers}
+                                                                currentUser={currentUser}
+                                                                isShoppingMode={isShoppingMode}
+                                                                groupPrefix={`${storeName}-${cat}`}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {/* Unknown Categories fallback */}
+                                        {unknownCategories.map(cat => (
+                                            <div key={cat} className="space-y-2">
+                                                <div className="flex items-center gap-2 py-1">
+                                                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500">{cat}</span>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {categoriesInStore[cat].map(item => (
+                                                        <ShoppingListItem
+                                                            key={item.shoppingListItemId}
+                                                            item={item}
+                                                            onRemove={onRemove}
+                                                            onToggleChecked={onToggleChecked}
+                                                            onUpdateQuantity={onUpdateQuantity}
+                                                            isExpanded={expandedItems.has(item.id)}
+                                                            onExpand={toggleExpand}
+                                                            members={householdMembers}
+                                                            currentUser={currentUser}
+                                                            isShoppingMode={isShoppingMode}
+                                                            groupPrefix={`${storeName}-${cat}`}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
                             );
                         })}
-                        
-                        {/* Fallback for items with unknown category */}
-                        {Object.keys(groupedActiveItems).filter(cat => !CATEGORY_ORDER.includes(cat as GroceryCategory)).map(cat => (
-                             <div key={cat} className="space-y-2">
-                                <div className="sticky top-0 z-10 flex items-center gap-2 py-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700">
-                                    <span className="text-xs font-bold uppercase tracking-wider text-gray-500">{cat}</span>
-                                </div>
-                                <div className="space-y-2">
-                                    {groupedActiveItems[cat].map(item => (
-                                        <ShoppingListItem
-                                            key={item.shoppingListItemId}
-                                            item={item}
-                                            onRemove={onRemove}
-                                            onToggleChecked={onToggleChecked}
-                                            onUpdateQuantity={onUpdateQuantity}
-                                            isExpanded={expandedItems.has(item.id)}
-                                            onExpand={toggleExpand}
-                                            members={householdMembers}
-                                            currentUser={currentUser}
-                                            isShoppingMode={isShoppingMode}
-                                            groupPrefix={cat}
-                                        />
-                                    ))}
-                                </div>
-                             </div>
-                        ))}
 
-                        {/* 2. Completed Items Section (Collapsible) */}
+                        {/* 2. Completed Items Section */}
                         {completedItems.length > 0 && (
                             <div className="pt-6 mt-6 border-t-2 border-dashed border-gray-200 dark:border-gray-700">
                                 <button 
