@@ -154,12 +154,10 @@ const ShoppingListItem: React.FC<{
   if (!displayItem) return null;
 
   const checkboxSize = isShoppingMode ? 'h-7 w-7' : 'h-5 w-5';
-  const textContainerMargin = isShoppingMode ? 'ml-3' : 'ml-3';
   const itemTextSize = isShoppingMode ? 'text-lg' : 'text-md';
   
-  const category = displayItem.category || 'other';
-  const CatIcon = CategoryIconMap[category];
-  const catColor = CategoryColorMap[category];
+  // Logic: In planning mode, we hide the checkbox. In shopping mode, we show it.
+  const showCheckbox = isShoppingMode || displayItem.checked; // Always show check if already checked (in done list)
 
   const inputId = `item-${displayItem.shoppingListItemId}-${groupPrefix || 'default'}`;
 
@@ -174,38 +172,53 @@ const ShoppingListItem: React.FC<{
       onToggleChecked(displayItem.shoppingListItemId, !displayItem.checked);
   };
 
+  const handleRowClick = () => {
+      if (!isShoppingMode && !displayItem.checked) {
+          onExpand(displayItem.id);
+      } else if (isShoppingMode) {
+          handleToggle();
+      }
+  };
+
   return (
     <li className={`bg-white dark:bg-gray-800 rounded-lg transition-all duration-300 shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden ${displayItem.checked ? 'opacity-60 bg-gray-50 dark:bg-gray-800/50' : ''}`}>
-        <div className="flex items-center justify-between p-3">
-            <div className="flex items-center overflow-hidden flex-1">
-                <input
-                    id={inputId}
-                    type="checkbox"
-                    checked={displayItem.checked}
-                    onChange={handleToggle}
-                    className={`${checkboxSize} rounded-full border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0 transition-transform active:scale-95`}
-                />
+        <div className="flex items-center justify-between p-3" onClick={handleRowClick}>
+            <div className={`flex items-center overflow-hidden flex-1 ${!isShoppingMode ? 'cursor-pointer' : ''}`}>
+                
+                {/* Checkbox: Only visible in shopping mode or if item is completed */}
+                {showCheckbox && (
+                    <input
+                        id={inputId}
+                        type="checkbox"
+                        checked={displayItem.checked}
+                        onChange={handleToggle}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`${checkboxSize} rounded-full border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer flex-shrink-0 transition-transform active:scale-95 mr-3`}
+                    />
+                )}
                 
                 {isShoppingMode && displayItem.image && (
-                    <div className="ml-3 w-10 h-10 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+                    <div className="mr-3 w-10 h-10 flex-shrink-0 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
                         <img src={displayItem.image} alt="" className="w-full h-full object-cover" />
                     </div>
                 )}
 
-                <div className={`${textContainerMargin} flex-1 overflow-hidden cursor-pointer flex items-center gap-2`} onClick={() => onExpand(displayItem.id)}>
-                    {(!isShoppingMode || !displayItem.image) && (
-                        <div className={`flex-shrink-0 p-1 rounded-md bg-opacity-20 ${catColor.split(' ')[0]} ${catColor.split(' ')[1]}`} title={t(`category.${category}`)}>
-                            <CatIcon className="w-4 h-4" />
-                        </div>
-                    )}
-                    
-                    <label htmlFor={inputId} className={`${itemTextSize} font-medium text-gray-800 dark:text-gray-200 truncate transition-colors cursor-pointer select-none ${displayItem.checked ? 'line-through text-gray-400 dark:text-gray-500' : ''}`}>
+                <div className={`flex-1 overflow-hidden flex items-center gap-2`}>
+                    <label 
+                        htmlFor={inputId} 
+                        className={`${itemTextSize} font-medium text-gray-800 dark:text-gray-200 truncate transition-colors select-none ${displayItem.checked ? 'line-through text-gray-400 dark:text-gray-500' : ''} ${!isShoppingMode ? 'cursor-pointer' : ''}`}
+                        onClick={(e) => {
+                            if(!isShoppingMode) {
+                                e.preventDefault(); // Prevent standard label click behavior if in planning mode
+                            }
+                        }}
+                    >
                         {displayItem.name}
                     </label>
                 </div>
             </div>
 
-            <div className="flex items-center gap-2 pl-2">
+            <div className="flex items-center gap-2 pl-2" onClick={(e) => e.stopPropagation()}>
                 {!isShoppingMode && !displayItem.checked ? (
                     <div className="flex items-center bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-full h-8 shadow-sm">
                         <button 
@@ -234,19 +247,10 @@ const ShoppingListItem: React.FC<{
                             triggerHaptic('warning');
                             onRemove(displayItem.shoppingListItemId);
                         }}
-                        className="p-1.5 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                        className="p-1.5 rounded-full text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors ml-1"
                         aria-label={t('shoppingList.removeAria', { name: displayItem.name })}
                     >
                         <TrashIcon className="w-5 h-5" />
-                    </button>
-                )}
-                {!isShoppingMode && !displayItem.checked && (
-                    <button
-                        onClick={() => onExpand(displayItem.id)}
-                        className="p-1.5 rounded-full text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
-                        aria-label={t('shoppingList.toggleDetailsAria')}
-                    >
-                        <ChevronDownIcon className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                     </button>
                 )}
             </div>
@@ -483,16 +487,12 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                         {CATEGORY_ORDER.map(cat => {
                                             const items = categoriesInStore[cat];
                                             if (!items || items.length === 0) return null;
-                                            const CatIcon = CategoryIconMap[cat];
                                             const catColorStyle = CategoryColorMap[cat];
 
                                             return (
                                                 <div key={cat} className="space-y-2">
                                                     <div className={`flex items-center gap-2 py-1`}>
-                                                        <div className={`p-1 rounded-md ${catColorStyle}`}>
-                                                            <CatIcon className="w-3.5 h-3.5" />
-                                                        </div>
-                                                        <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t(`category.${cat}`)}</span>
+                                                        <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${catColorStyle.replace('border', 'border-0')}`}>{t(`category.${cat}`)}</span>
                                                         <span className="text-xs text-gray-400 font-normal ml-auto bg-gray-100 dark:bg-gray-800 px-2 rounded-full">{items.length}</span>
                                                     </div>
                                                     <div className="space-y-2">
