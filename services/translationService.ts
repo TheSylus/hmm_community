@@ -1,9 +1,11 @@
+
 import { Type } from "@google/genai";
 import { getAiClient, hasValidApiKey } from './geminiService';
 
 // Constants
 const CACHE_KEY = 'food_tracker_translation_cache';
 const SOURCE_LANGUAGE = 'en';
+const BATCH_DELAY_MS = 100; // Wait 100ms to collect requests
 
 // Helper to load cache from localStorage
 const loadCache = (): Record<string, Record<string, string>> => {
@@ -28,6 +30,128 @@ const saveCache = (cache: Record<string, Record<string, string>>) => {
 // Initialize in-memory cache from storage
 const memoryCache: Record<string, Record<string, string>> = loadCache();
 
+// --- Batching State ---
+interface PendingRequest {
+    text: string;
+    targetLang: 'de'; // Currently strictly 'de' as source is 'en', but extensible
+    resolve: (translated: string) => void;
+    reject: (error: any) => void;
+}
+
+let pendingQueue: PendingRequest[] = [];
+let batchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+// The actual API caller processing the batch
+const processBatch = async () => {
+    if (pendingQueue.length === 0) return;
+
+    // 1. Take snapshot of current queue and clear global
+    const currentBatch = [...pendingQueue];
+    pendingQueue = [];
+    batchTimeout = null;
+
+    // 2. Group by language (though we primarily support en->de now)
+    const requestsByLang: Record<string, PendingRequest[]> = {};
+    currentBatch.forEach(req => {
+        if (!requestsByLang[req.targetLang]) requestsByLang[req.targetLang] = [];
+        requestsByLang[req.targetLang].push(req);
+    });
+
+    // 3. Process per language
+    for (const [lang, requests] of Object.entries(requestsByLang)) {
+        // Deduplicate texts to save tokens
+        const uniqueTexts = Array.from(new Set(requests.map(r => r.text)));
+        
+        // Filter out what might have been cached in the meantime
+        const textsToFetch = uniqueTexts.filter(text => {
+            return !memoryCache[lang]?.[text];
+        });
+
+        if (textsToFetch.length === 0) {
+            // Everything is in cache, just resolve
+            requests.forEach(req => {
+                const cached = memoryCache[lang]?.[req.text] || req.text;
+                req.resolve(cached);
+            });
+            continue;
+        }
+
+        try {
+            const gemini = getAiClient();
+            const langName = lang === 'de' ? 'German' : 'English';
+
+            // Send ONE request for ALL texts
+            const response = await gemini.models.generateContent({
+                model: "gemini-2.5-flash",
+                config: {
+                    // We ask for a simple object mapping input -> output
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            translations: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        original: { type: Type.STRING },
+                                        translated: { type: Type.STRING }
+                                    },
+                                    required: ["original", "translated"]
+                                }
+                            }
+                        }
+                    }
+                },
+                contents: {
+                    parts: [{
+                        text: `Translate the following array of English terms to ${langName}. Return a JSON array where each object has 'original' and 'translated' keys. Maintain casing.
+                        
+                        Input Array: ${JSON.stringify(textsToFetch)}`
+                    }]
+                },
+            });
+
+            // Parse Response
+            const json = JSON.parse(response.text);
+            const mapping: Record<string, string> = {};
+            
+            if (json.translations && Array.isArray(json.translations)) {
+                json.translations.forEach((t: any) => {
+                    if (t.original && t.translated) {
+                        mapping[t.original] = t.translated;
+                    }
+                });
+            }
+
+            // Update Cache
+            if (!memoryCache[lang]) memoryCache[lang] = {};
+            let cacheUpdated = false;
+            
+            textsToFetch.forEach(text => {
+                // If API missed it, fallback to original
+                const result = mapping[text] || text;
+                memoryCache[lang][text] = result;
+                cacheUpdated = true;
+            });
+
+            if (cacheUpdated) saveCache(memoryCache);
+
+            // Resolve all promises
+            requests.forEach(req => {
+                const result = memoryCache[lang][req.text] || req.text;
+                req.resolve(result);
+            });
+
+        } catch (error) {
+            console.error("Batch translation failed:", error);
+            // Fallback: Resolve with original text instead of crashing app
+            requests.forEach(req => req.resolve(req.text));
+        }
+    }
+};
+
+
 export const translateTexts = async (texts: (string | undefined | null)[], targetLang: 'en' | 'de'): Promise<string[]> => {
     // 1. Optimization: If target is source language, return immediately.
     if (targetLang === SOURCE_LANGUAGE) {
@@ -48,100 +172,49 @@ export const translateTexts = async (texts: (string | undefined | null)[], targe
         memoryCache[targetLang] = {};
     }
 
-    const result: string[] = new Array(texts.length);
-    const textsToTranslate: string[] = [];
-    const indicesToTranslate: number[] = [];
+    // Prepare result array
+    const results: string[] = new Array(texts.length);
+    const promises: Promise<void>[] = [];
 
-    // 3. Optimization: Check cache first
     texts.forEach((text, index) => {
         const trimmedText = typeof text === 'string' ? text.trim() : '';
+        
         if (!trimmedText) {
-            result[index] = '';
-        } else if (memoryCache[targetLang][trimmedText]) {
-            // HIT: Use cached value
-            result[index] = memoryCache[targetLang][trimmedText];
-        } else {
-            // MISS: Queue for translation
-            textsToTranslate.push(trimmedText);
-            indicesToTranslate.push(index);
+            results[index] = '';
+            return;
         }
+
+        // Check Cache Immediately
+        if (memoryCache[targetLang][trimmedText]) {
+            results[index] = memoryCache[targetLang][trimmedText];
+            return;
+        }
+
+        // If not in cache, add to Batch Queue
+        // We create a promise for THIS specific text item
+        const p = new Promise<string>((resolve, reject) => {
+            pendingQueue.push({
+                text: trimmedText,
+                targetLang: targetLang as 'de', // casting for now
+                resolve,
+                reject
+            });
+        }).then(translated => {
+            results[index] = translated;
+        });
+
+        promises.push(p);
     });
 
-    // If everything was in cache or empty, return immediately (0 API calls)
-    if (textsToTranslate.length === 0) {
-        return result;
+    // Start Timer if not running
+    if (pendingQueue.length > 0 && !batchTimeout) {
+        batchTimeout = setTimeout(processBatch, BATCH_DELAY_MS);
     }
 
-    try {
-        const gemini = getAiClient();
-        const langName = targetLang === 'de' ? 'German' : 'English';
-        
-        const response = await gemini.models.generateContent({
-            model: "gemini-2.5-flash",
-            config: {
-                systemInstruction: `You are a translation expert. Translate the given English terms to the specified language. Maintain the original meaning and casing where appropriate. Return ONLY the JSON object.`,
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        translations: {
-                            type: Type.ARRAY,
-                            description: `An array of translated strings, in the exact same order as the input array.`,
-                            items: { type: Type.STRING },
-                        },
-                    },
-                    required: ["translations"],
-                },
-            },
-            contents: {
-                parts: [{
-                    text: `Translate the following English terms to ${langName}.
-Input: ${JSON.stringify(textsToTranslate)}`
-                }]
-            },
-        });
-
-        const jsonString = response.text;
-        const translatedResult = JSON.parse(jsonString);
-        const newTranslations: string[] = translatedResult.translations || [];
-
-        if (newTranslations.length !== textsToTranslate.length) {
-            console.error('Translation length mismatch:', { input: textsToTranslate, output: newTranslations });
-            // Fallback for length mismatch: use original text
-            indicesToTranslate.forEach((originalIndex, i) => {
-                result[originalIndex] = textsToTranslate[i];
-            });
-            return result;
-        }
-
-        // Fill results and update cache
-        let cacheUpdated = false;
-        newTranslations.forEach((translatedText, i) => {
-            const originalIndex = indicesToTranslate[i];
-            const originalText = textsToTranslate[i];
-            
-            result[originalIndex] = translatedText;
-            
-            if (originalText && translatedText) {
-                memoryCache[targetLang][originalText] = translatedText;
-                cacheUpdated = true;
-            }
-        });
-
-        // Persist cache if we added new items
-        if (cacheUpdated) {
-            saveCache(memoryCache);
-        }
-
-        return result;
-
-    } catch (error) {
-        console.error("Error translating texts:", error);
-        
-        // Fallback for any error: use original text
-        indicesToTranslate.forEach((originalIndex, i) => {
-            result[originalIndex] = textsToTranslate[i];
-        });
-        return result;
+    // Wait for all queued items to be resolved by the batch processor
+    if (promises.length > 0) {
+        await Promise.all(promises);
     }
+
+    return results;
 };

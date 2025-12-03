@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { FoodItem } from '../types';
 import { useTranslation } from '../i18n/index';
@@ -26,6 +27,7 @@ export const useTranslatedItem = <T extends FoodItem>(item: T | null): T | null 
             }
             
             // Set initial state to the original item to prevent UI jumps on language change
+            // We do this immediately so the user sees something while the batch processor runs
             if (isMounted) setTranslatedItem(item);
 
             const name = item.name || '';
@@ -33,9 +35,11 @@ export const useTranslatedItem = <T extends FoodItem>(item: T | null): T | null 
             
             const textsToTranslate = [name, ...tags];
             
+            // If everything is empty, stop.
             if (textsToTranslate.every(text => !text)) return;
 
             try {
+                // The service now handles batching. We just await the result.
                 const translatedTexts = await translateTexts(textsToTranslate, language);
                 
                 if (!isMounted || translatedTexts.length !== textsToTranslate.length) return;
@@ -50,7 +54,7 @@ export const useTranslatedItem = <T extends FoodItem>(item: T | null): T | null 
                     currentIndex += tags.length;
                 }
 
-                setTranslatedItem(newTranslatedItem);
+                if (isMounted) setTranslatedItem(newTranslatedItem);
             } catch (error) {
                 console.error("Failed to translate item:", error);
                 if (isMounted) setTranslatedItem(item); // Fallback to original item on error
