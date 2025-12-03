@@ -436,28 +436,29 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                 </button>
             </div>
 
-            {/* Toolbar */}
-            <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-3 items-center justify-between">
+            {/* Toolbar - Optimized for Mobile (Single Row) */}
+            <div className="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
+                {/* List Dropdown Area */}
                 {allLists.length > 1 || household ? (
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                         <select 
                             value={activeListId || ''} 
                             onChange={(e) => {
                                 if (e.target.value === 'new') setIsCreatingList(true);
                                 else onSelectList(e.target.value);
                             }}
-                            className="bg-gray-100 dark:bg-gray-700 border-none rounded-lg py-2 pl-3 pr-8 text-sm font-medium focus:ring-2 focus:ring-indigo-500 max-w-[200px]"
+                            className="bg-gray-100 dark:bg-gray-700 border-none rounded-lg py-2 pl-3 pr-8 text-sm font-medium focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto max-w-full sm:max-w-[200px] truncate"
                         >
                             {allLists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                             {household && <option value="new">+ {t('shoppingList.newListButton')}</option>}
                         </select>
                         {activeList && activeList.household_id && (
-                            <button onClick={handleDeleteList} className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 p-2 rounded-full" title={t('shoppingList.delete.button')}>
+                            <button onClick={handleDeleteList} className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 p-2 rounded-full flex-shrink-0" title={t('shoppingList.delete.button')}>
                                 <TrashIcon className="w-4 h-4" />
                             </button>
                         )}
                     </div>
-                ) : null}
+                ) : <div className="flex-1" />}
                 
                 {isCreatingList && (
                     <div className="absolute inset-0 bg-white dark:bg-gray-800 z-10 flex items-center gap-2 p-3 animate-fade-in">
@@ -476,7 +477,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
 
                 <button 
                     onClick={() => setIsShoppingMode(!isShoppingMode)} 
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${isShoppingMode ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`}
+                    className={`flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors ${isShoppingMode ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200'}`}
                 >
                     <CheckBadgeIcon className="w-4 h-4" />
                     {isShoppingMode ? t('shoppingList.mode.done') : t('shoppingList.mode.startShopping')}
