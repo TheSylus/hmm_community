@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { FoodItem, NutriScore } from '../types';
-import { StarIcon, TrashIcon, PencilIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, UserGroupIcon, LockClosedIcon, ShoppingCartIcon, BeakerIcon } from './Icons';
+import { StarIcon, TrashIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, UserGroupIcon, LockClosedIcon, ShoppingCartIcon, BeakerIcon } from './Icons';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { StoreLogo } from './StoreLogo';
@@ -66,7 +66,8 @@ const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   
   const hasDietaryOrAllergens = displayItem.itemType === 'product' && (displayItem.isLactoseFree || displayItem.isVegan || displayItem.isGlutenFree || (displayItem.allergens && displayItem.allergens.length > 0));
   const hasTags = displayItem.tags && displayItem.tags.length > 0;
-  const isClickable = !!onViewDetails;
+  // If not a preview, the card is clickable to Edit
+  const isClickable = !isPreview;
   const isFamilyShared = displayItem.isFamilyFavorite;
   const isOwner = user?.id === displayItem.user_id;
 
@@ -125,7 +126,14 @@ const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
 
   const handleCardClick = () => {
       if (Math.abs(touchOffset) > 5) return;
-      if (isClickable) onViewDetails(item);
+      
+      if (isPreview) {
+          // In preview mode (e.g. Discover or Duplicate check), show details modal if available
+          if (onViewDetails) onViewDetails(item);
+      } else {
+          // In Dashboard, go straight to Edit Form
+          onEdit(item.id);
+      }
   };
 
   return (
@@ -219,12 +227,7 @@ const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                                         {isInShoppingList ? <ShoppingCartIcon className="w-3.5 h-3.5" /> : <ShoppingBagIcon className="w-3.5 h-3.5" />}
                                     </button>
                                 )}
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); onEdit(item.id); }}
-                                    className="p-1 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors"
-                                >
-                                    <PencilIcon className="w-3.5 h-3.5" />
-                                </button>
+                                {/* Pencil Button Removed - Card click handles edit now */}
                             </div>
                         )}
                     </div>
