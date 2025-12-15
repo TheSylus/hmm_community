@@ -193,6 +193,23 @@ export const createFoodItem = async (item: Omit<FoodItem, 'id' | 'user_id' | 'cr
   return mapDbToFoodItem(data);
 };
 
+export const createFoodItemsBulk = async (items: (Omit<FoodItem, 'id' | 'user_id' | 'created_at'>)[], userId: string) => {
+    if (items.length === 0) return [];
+
+    const payloads = items.map(item => mapFoodItemToDbPayload({ ...item, user_id: userId }));
+
+    const { data, error } = await supabase
+        .from('food_items')
+        .insert(payloads)
+        .select();
+
+    if (error) {
+        console.error("Bulk create failed:", error);
+        throw error;
+    }
+    return (data || []).map(mapDbToFoodItem);
+};
+
 export const updateFoodItem = async (id: string, item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>, userId: string, imageUrl?: string) => {
   const payload = mapFoodItemToDbPayload({ ...item, user_id: userId, image_url: imageUrl });
   

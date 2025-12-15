@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { FoodItem } from '../types';
 import { User } from '@supabase/supabase-js';
@@ -148,6 +149,22 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
     }
   }, [user, foodItems, householdId, fetchFamilyData]);
 
+  const saveItemsBulk = useCallback(async (
+      itemsData: (Omit<FoodItem, 'id' | 'user_id' | 'created_at'>)[]
+  ): Promise<boolean> => {
+      if (!user) return false;
+      try {
+          const savedItems = await foodItemService.createFoodItemsBulk(itemsData, user.id);
+          setFoodItems(prev => [...savedItems, ...prev]);
+          if(householdId) fetchFamilyData();
+          return true;
+      } catch (e: any) {
+          console.error("Bulk save error:", e);
+          setError(`Failed to bulk save: ${e.message}`);
+          return false;
+      }
+  }, [user, householdId, fetchFamilyData]);
+
   // Delete Item
   const deleteItem = useCallback(async (id: string) => {
     const originalItems = [...foodItems];
@@ -171,6 +188,7 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
     isLoading,
     error,
     saveItem,
+    saveItemsBulk,
     deleteItem,
     refreshData: fetchPersonalData
   };

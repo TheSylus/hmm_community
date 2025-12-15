@@ -29,6 +29,7 @@ import { BottomNavigation } from './components/BottomNavigation';
 import { FinanceDashboard } from './components/finance/FinanceDashboard';
 import { CameraCapture } from './components/CameraCapture';
 import { ReceiptReviewModal } from './components/finance/ReceiptReviewModal';
+import { ReceiptToInventoryModal } from './components/finance/ReceiptToInventoryModal';
 
 // Helper function to decode from URL-safe Base64 and decompress the data
 const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
@@ -91,6 +92,7 @@ const App: React.FC = () => {
     isLoading: isFoodLoading, 
     error: foodError, 
     saveItem, 
+    saveItemsBulk,
     deleteItem, 
     refreshData: refreshFoodData
   } = useFoodData(user, userProfile?.household_id);
@@ -157,6 +159,7 @@ const App: React.FC = () => {
   const [isReceiptCameraOpen, setIsReceiptCameraOpen] = useState(false);
   const [isProcessingReceipt, setIsProcessingReceipt] = useState(false);
   const [scannedReceiptData, setScannedReceiptData] = useState<(Partial<Receipt> & { items: Partial<ReceiptItem>[] }) | null>(null);
+  const [confirmedReceiptForImport, setConfirmedReceiptForImport] = useState<{receipt: Receipt, items: ReceiptItem[]} | null>(null);
 
   useModalHistory(isFormVisible, () => setIsFormVisible(false));
   useModalHistory(isSettingsOpen, () => setIsSettingsOpen(false));
@@ -165,6 +168,7 @@ const App: React.FC = () => {
   useModalHistory(!!sharedItemToShow, () => setSharedItemToShow(null));
   useModalHistory(isReceiptCameraOpen, () => setIsReceiptCameraOpen(false));
   useModalHistory(!!scannedReceiptData, () => setScannedReceiptData(null));
+  useModalHistory(!!confirmedReceiptForImport, () => setConfirmedReceiptForImport(null));
 
 
   const isAnyFilterActive = useMemo(() => searchTerm.trim() !== '' || ratingFilter !== 'all' || typeFilter !== 'all' || aiSearchQuery !== '' || ownerFilter !== 'all', [searchTerm, ratingFilter, typeFilter, aiSearchQuery, ownerFilter]);
@@ -568,14 +572,37 @@ const App: React.FC = () => {
   const handleSaveReceipt = async (data: Partial<Receipt> & { items: Partial<ReceiptItem>[] }) => {
       if (!user) return;
       try {
-          await createReceipt(data, user.id, userProfile?.household_id || undefined);
+          const savedReceipt = await createReceipt(data, user.id, userProfile?.household_id || undefined);
           setScannedReceiptData(null);
-          setToastMessage("Receipt Saved!");
           refreshReceipts(); // Update dashboard
+          
+          if (savedReceipt && savedReceipt.items && savedReceipt.items.length > 0) {
+              // Trigger the "Import to Inventory" flow
+              // Cast to correct type since we know we just created it
+              setConfirmedReceiptForImport({ 
+                  receipt: savedReceipt as Receipt, 
+                  items: savedReceipt.items as ReceiptItem[] 
+              });
+          } else {
+              setToastMessage("Receipt Saved!");
+          }
       } catch (e) {
           console.error("Save Receipt Failed", e);
           setToastMessage("Failed to save receipt.");
       }
+  };
+
+  const handleImportReceiptItems = async (selectedItems: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>[]) => {
+      if (selectedItems.length > 0) {
+          const success = await saveItemsBulk(selectedItems);
+          if (success) {
+              triggerHaptic('success');
+              setToastMessage(`Imported ${selectedItems.length} items to inventory.`);
+          } else {
+              setToastMessage("Failed to import items.");
+          }
+      }
+      setConfirmedReceiptForImport(null);
   };
 
 
@@ -697,6 +724,15 @@ const App: React.FC = () => {
                         receiptData={scannedReceiptData}
                         onSave={handleSaveReceipt}
                         onClose={() => setScannedReceiptData(null)}
+                    />
+                )}
+
+                {confirmedReceiptForImport && (
+                    <ReceiptToInventoryModal 
+                        receipt={confirmedReceiptForImport.receipt}
+                        items={confirmedReceiptForImport.items}
+                        onConfirm={handleImportReceiptItems}
+                        onClose={() => setConfirmedReceiptForImport(null)}
                     />
                 )}
             </>
