@@ -4,7 +4,7 @@ import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList, UserProfile, Ho
 import { FoodItemForm } from './components/FoodItemForm';
 import { FoodItemList } from './components/FoodItemList';
 import { Dashboard } from './components/Dashboard';
-import { ShoppingListModal } from './components/ShoppingListModal';
+import { ShoppingListView } from './components/ShoppingListView'; // Use View instead of Modal
 import { FilterPanel } from './components/FilterPanel';
 import { DuplicateConfirmationModal } from './components/DuplicateConfirmationModal';
 import { ImageModal } from './components/ImageModal';
@@ -23,6 +23,8 @@ import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, B
 import { useModalHistory } from './hooks/useModalHistory';
 import { triggerHaptic } from './utils/haptics';
 import { useAppSettings } from './contexts/AppSettingsContext';
+import { BottomNavigation } from './components/BottomNavigation';
+import { FinanceDashboard } from './components/finance/FinanceDashboard';
 
 // Helper function to decode from URL-safe Base64 and decompress the data
 const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
@@ -39,9 +41,8 @@ const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
 export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
 export type RatingFilter = 'liked' | 'disliked' | 'all';
 export type TypeFilter = 'all' | 'product' | 'dish' | 'drugstore';
-export type OwnerFilter = 'all' | 'mine' | 'family'; // New Filter
+export type OwnerFilter = 'all' | 'mine' | 'family'; 
 
-// A version of FoodItem that includes its status on the shopping list
 export type HydratedShoppingListItem = FoodItem & {
   shoppingListItemId: string;
   checked: boolean;
@@ -67,7 +68,6 @@ const App: React.FC = () => {
 
   // --- Hook Integration ---
   
-  // 1. Household Management
   const { 
     userProfile, 
     household, 
@@ -81,7 +81,6 @@ const App: React.FC = () => {
     refreshHousehold
   } = useHousehold(user);
 
-  // 2. Food Data Management
   const { 
     foodItems, 
     familyFoodItems, 
@@ -92,7 +91,6 @@ const App: React.FC = () => {
     refreshData: refreshFoodData
   } = useFoodData(user, userProfile?.household_id);
 
-  // 3. Shopping List Management
   const {
     shoppingLists,
     activeShoppingListId,
@@ -111,6 +109,9 @@ const App: React.FC = () => {
 
   // --- Local UI State ---
   
+  // Navigation State
+  const [activeTab, setActiveTab] = useState<'inventory' | 'shopping' | 'finance'>('inventory');
+
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<FoodItem | null>(null);
   
@@ -120,10 +121,9 @@ const App: React.FC = () => {
   const [aiSearchResults, setAiSearchResults] = useState<{ ids: string[] | null, error: string | null, isLoading: boolean }>({ ids: null, error: null, isLoading: false });
   const [ratingFilter, setRatingFilter] = useState<RatingFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
-  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all'); // New unified filter state
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('all'); 
   const [sortBy, setSortBy] = useState<SortKey>('date_desc');
   
-  // View State (Collapsed Categories)
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
   // Modal & Overlay State
@@ -133,20 +133,15 @@ const App: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<FoodItem | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isShoppingListOpen, setIsShoppingListOpen] = useState(false);
+  // Removed isShoppingListOpen as it is now a tab
   const [sharedItemToShow, setSharedItemToShow] = useState<Omit<FoodItem, 'id' | 'user_id' | 'created_at'> | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSmartAddLoading, setIsSmartAddLoading] = useState(false);
   
-  // New State for Quick Actions
   const [formStartMode, setFormStartMode] = useState<'barcode' | 'camera' | 'none'>('none');
-  
-  // Offline State
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // --- Browser History Integration ---
   useModalHistory(isFormVisible, () => setIsFormVisible(false));
-  useModalHistory(isShoppingListOpen, () => setIsShoppingListOpen(false));
   useModalHistory(isSettingsOpen, () => setIsSettingsOpen(false));
   useModalHistory(!!detailItem, () => setDetailItem(null));
   useModalHistory(isFilterPanelVisible, () => setIsFilterPanelVisible(false));
@@ -155,37 +150,27 @@ const App: React.FC = () => {
 
   const isAnyFilterActive = useMemo(() => searchTerm.trim() !== '' || ratingFilter !== 'all' || typeFilter !== 'all' || aiSearchQuery !== '' || ownerFilter !== 'all', [searchTerm, ratingFilter, typeFilter, aiSearchQuery, ownerFilter]);
   
-  // Compute set of food IDs currently in the shopping list to pass down to components
   const shoppingListFoodIds = useMemo(() => {
       return new Set(shoppingListItems.map(item => item.food_item_id));
   }, [shoppingListItems]);
 
-  // --- Pending Invite Logic ---
-  // Capture URL param immediately on mount, even if not logged in
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const householdInvite = params.get('join_household');
     if (householdInvite) {
         localStorage.setItem('pending_household_invite', householdInvite);
-        // Clean URL to look nice
         window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
-  // Process pending invite when User Profile is ready
   useEffect(() => {
     const processPendingInvite = async () => {
-        // Check localStorage for invite preserved across login redirect
         const storedInvite = localStorage.getItem('pending_household_invite');
-        
         if (storedInvite && userProfile) {
             if (!userProfile.household_id) {
                 try {
                     await joinHousehold(storedInvite);
-                    // Clear it so we don't try again
                     localStorage.removeItem('pending_household_invite');
-                    // HARD RELOAD: Critical for updating RLS policies and Hooks dependencies effectively
-                    // giving the user a fresh state with the new household permissions.
                     window.location.reload();
                 } catch (e) {
                     console.error("Failed to join household from pending invite:", e);
@@ -193,19 +178,16 @@ const App: React.FC = () => {
                     localStorage.removeItem('pending_household_invite');
                 }
             } else {
-                // User already has a household, ignore or warn? For now just clear.
                 localStorage.removeItem('pending_household_invite');
             }
         }
     };
-
     if (userProfile) {
         processPendingInvite();
     }
   }, [userProfile, joinHousehold, t]);
 
 
-  // Listen for online/offline status changes
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -217,7 +199,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Listen for service worker sync messages
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
         if (event.data && event.data.type === 'SYNC_COMPLETE') {
@@ -240,7 +221,6 @@ const App: React.FC = () => {
   }, [refreshFoodData, refreshHousehold, user, t]);
 
 
-  // Toast Message Timeout
   useEffect(() => {
     if (toastMessage) {
       const timer = setTimeout(() => setToastMessage(null), 3000);
@@ -254,7 +234,6 @@ const App: React.FC = () => {
       setFormStartMode('none');
   }, []);
 
-  // URL Share Data Handling
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const shareData = params.get('s');
@@ -276,9 +255,7 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Main Action Handlers utilizing Hooks
   const handleSaveFormItem = useCallback(async (itemData: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
-      // Check for duplicates only if adding new item
       if (!editingItem) {
           const duplicates = foodItems.filter(item => item.name.trim().toLowerCase() === itemData.name.trim().toLowerCase());
           if (duplicates.length > 0) {
@@ -314,7 +291,6 @@ const App: React.FC = () => {
   }, [deleteItem]);
 
 
-  // Other Handlers
   const handleConversationalSearch = useCallback(async (query: string) => {
     setAiSearchQuery(query);
     setIsFilterPanelVisible(false);
@@ -341,77 +317,60 @@ const App: React.FC = () => {
     clearAiSearch();
   }, [clearAiSearch]);
   
-  // Toggle Logic: Add if missing, Remove if present
   const handleToggleShoppingList = useCallback((item: FoodItem) => {
-      // Check if item is in the current active list
       const existingItem = shoppingListItems.find(i => i.food_item_id === item.id);
       
       if (existingItem) {
-          // Remove
           removeItem(existingItem.id);
           triggerHaptic('medium');
           setToastMessage(t('shoppingList.removedToast', { name: item.name }));
       } else {
-          // Add
           addItemToList(item.id, 1);
           triggerHaptic('success');
           setToastMessage(t('shoppingList.addedToast', { name: item.name }));
       }
   }, [shoppingListItems, removeItem, addItemToList, t]);
 
-  // Smart Add Logic
   const handleSmartQuickAdd = useCallback(async (input: string) => {
       if (!user) return;
       setIsSmartAddLoading(true);
       try {
-          // 1. Parse input with AI
           const parsedItems = await geminiService.parseShoppingList(input);
-          
           let addedCount = 0;
           const allAvailableItems = [...foodItems, ...familyFoodItems];
 
           for (const parsedItem of parsedItems) {
-              // 2. Try to find existing item by name (case-insensitive)
-              // We prioritize exact match, then includes
               let match = allAvailableItems.find(i => i.name.toLowerCase() === parsedItem.name.toLowerCase());
-              
               let foodItemId = match?.id;
 
-              // 3. If not found, Create new item on the fly
               if (!foodItemId) {
-                  // Create a minimal item
                   const newItemData: Omit<FoodItem, 'id' | 'user_id' | 'created_at'> = {
                       name: parsedItem.name,
-                      rating: 0, // Unrated
-                      itemType: 'product', // Default to product
+                      rating: 0,
+                      itemType: 'product', 
                       category: parsedItem.category,
-                      isFamilyFavorite: !!userProfile?.household_id, // Default to shared if in household
+                      isFamilyFavorite: !!userProfile?.household_id, 
                   };
-                  
                   try {
-                      // We need to import `createFoodItem` from services.
                       const { createFoodItem } = await import('./services/foodItemService');
                       const newItem = await createFoodItem(newItemData, user.id);
                       foodItemId = newItem.id;
-                      refreshFoodData(); // Sync hook state
+                      refreshFoodData();
                   } catch (e) {
                       console.error("Failed to auto-create item", e);
                       continue;
                   }
               }
 
-              // 4. Add to list
               if (foodItemId) {
                   addItemToList(foodItemId, parsedItem.quantity);
                   addedCount++;
               }
           }
-          
           if (addedCount > 0) {
               triggerHaptic('success');
               setToastMessage(t('shoppingList.addedAnotherToast', { name: `${addedCount} items` }));
           }
-
       } catch (e) {
           console.error("Smart Add failed:", e);
           setToastMessage("Could not process list. Please try again.");
@@ -426,7 +385,7 @@ const App: React.FC = () => {
           await createHousehold(name);
           setToastMessage(t('shoppingList.joinSuccess', { householdName: name }));
       } catch (e) {
-          // Error handled in hook, but we might want toast
+          // Error handled in hook
       }
   }, [createHousehold, t]);
   
@@ -453,40 +412,23 @@ const App: React.FC = () => {
     }
   }, [foodItems, familyFoodItems]);
   
-  // NEW: Quick Action Handlers
   const handleQuickCamera = useCallback(() => {
       setEditingItem(null);
       setFormStartMode('camera');
       setIsFormVisible(true);
   }, []);
 
-  const handleManualAdd = useCallback(() => {
-      setEditingItem(null);
-      setFormStartMode('none');
-      setIsFormVisible(true);
-  }, []);
-  
   const handleCancelDuplicateAdd = useCallback(() => {
     setItemToAdd(null);
     setPotentialDuplicates([]);
   }, []);
 
-  // --- Filtering & Sorting Logic (Unified) ---
   const filteredAndSortedItems = useMemo(() => {
-    // 1. Merge and Deduplicate
     const uniqueItemsMap = new Map<string, FoodItem>();
-    
-    // Add Family items first
     familyFoodItems.forEach(item => uniqueItemsMap.set(item.id, item));
-    
-    // Add Personal items (overwriting shared ones if duplicate exists - though likely they are the same object ref if fetched smartly, but this is safe)
-    // Actually, `useFoodData` separates them. If an item is both mine and shared, it appears in both lists.
-    // We prioritize the personal list for "My Items" view, but for unified view, we just need one copy.
     foodItems.forEach(item => uniqueItemsMap.set(item.id, item));
-    
     let items = Array.from(uniqueItemsMap.values());
 
-    // 2. Apply AI Search Filter
     if (aiSearchResults.ids) {
       const idSet = new Set(aiSearchResults.ids);
       items = items.filter(item => idSet.has(item.id));
@@ -494,13 +436,12 @@ const App: React.FC = () => {
 
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     
-    // 3. Apply all filters
     items = items
       .filter(item => typeFilter === 'all' || item.itemType === typeFilter)
       .filter(item => {
-        if (ownerFilter === 'mine') return item.user_id === user?.id; // Only my items
-        if (ownerFilter === 'family') return item.isFamilyFavorite; // Only shared items
-        return true; // 'all' - show everything
+        if (ownerFilter === 'mine') return item.user_id === user?.id; 
+        if (ownerFilter === 'family') return item.isFamilyFavorite; 
+        return true; 
       })
       .filter(item => {
         if (ratingFilter === 'all') return true;
@@ -519,7 +460,6 @@ const App: React.FC = () => {
         )
       );
       
-    // 4. Sort
     return [...items].sort((a, b) => {
       switch (sortBy) {
         case 'date_asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
@@ -533,7 +473,6 @@ const App: React.FC = () => {
     });
   }, [foodItems, familyFoodItems, searchTerm, ratingFilter, typeFilter, ownerFilter, sortBy, aiSearchResults.ids, user?.id]);
   
-  // Collapse Logic
   const toggleCategory = useCallback((category: string) => {
       setCollapsedCategories(prev => {
           const newSet = new Set(prev);
@@ -553,9 +492,9 @@ const App: React.FC = () => {
 
   const toggleAllCategories = useCallback(() => {
       if (isAllCollapsed) {
-          setCollapsedCategories(new Set()); // Expand all
+          setCollapsedCategories(new Set()); 
       } else {
-          setCollapsedCategories(new Set(allVisibleCategories)); // Collapse all
+          setCollapsedCategories(new Set(allVisibleCategories)); 
       }
   }, [isAllCollapsed, allVisibleCategories]);
 
@@ -575,20 +514,12 @@ const App: React.FC = () => {
       return hydratedItems;
   }, [foodItems, familyFoodItems, shoppingListItems]);
 
-  // Handler for Toggling Family Status
   const handleToggleFamilyStatus = useCallback(async (item: FoodItem) => {
       if (!user || item.user_id !== user.id) return;
-
       const newStatus = !item.isFamilyFavorite;
-      
-      // We strip the ID/etc because saveItem takes Omit<FoodItem, ...> and existingId
-      // But we need to construct the payload correctly.
       const { id, user_id, created_at, ...dataToSave } = item;
-      
       const payload = { ...dataToSave, isFamilyFavorite: newStatus };
-      
       const success = await saveItem(payload, id);
-      
       if (success) {
           triggerHaptic('medium');
           setToastMessage(newStatus 
@@ -604,168 +535,198 @@ const App: React.FC = () => {
   }
 
   const renderContent = () => {
-    // Only show full page loader if initial data is missing
-    if (isFoodLoading && foodItems.length === 0) {
-       return (
-           <div className="flex flex-col items-center justify-center pt-20">
-              <SpinnerIcon className="w-12 h-12 text-indigo-500" />
-              <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">Loading...</p>
-           </div>
-       );
-    }
-    
-    if (isFormVisible) {
+    // 1. Inventory View
+    if (activeTab === 'inventory') {
+        if (isFoodLoading && foodItems.length === 0) {
+            return (
+                <div className="flex flex-col items-center justify-center pt-20">
+                    <SpinnerIcon className="w-12 h-12 text-indigo-500" />
+                    <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">Loading...</p>
+                </div>
+            );
+        }
+        
+        // AI Search Banner Logic (only for Inventory)
+        const aiBanner = aiSearchResults.ids !== null ? (
+            <div className="mb-6 p-4 bg-indigo-50 dark:bg-gray-800 rounded-lg flex items-center justify-between border border-indigo-100 dark:border-indigo-900/50">
+                <div>
+                    <h2 className="text-xl font-bold text-indigo-800 dark:text-indigo-200">{t('conversationalSearch.resultsTitle')}</h2>
+                    <p className="text-sm text-indigo-600 dark:text-indigo-300 italic">"{aiSearchQuery}"</p>
+                </div>
+                <button onClick={clearAiSearch} className="flex items-center gap-2 text-sm bg-indigo-200 dark:bg-indigo-600/50 hover:bg-indigo-300 dark:hover:bg-indigo-600/80 text-indigo-800 dark:text-indigo-100 font-semibold py-1.5 px-3 rounded-full transition">
+                    <XMarkIcon className="w-4 h-4" />
+                    {t('conversationalSearch.clear')}
+                </button>
+            </div>
+        ) : null;
+
+        const aiError = aiSearchResults.error ? <p className="text-red-500 dark:text-red-400 text-center my-4">{aiSearchResults.error}</p> : null;
+
         return (
-            <FoodItemForm 
-                onSaveItem={handleSaveFormItem} 
-                onCancel={handleCancelForm}
-                initialData={editingItem}
-                initialItemType={editingItem?.itemType || 'product'}
-                householdId={userProfile?.household_id || null}
-                startMode={formStartMode}
+            <>
+                {aiBanner}
+                {aiError}
+                <Dashboard 
+                    items={filteredAndSortedItems}
+                    isLoading={isFoodLoading}
+                    onAddNew={handleQuickCamera}
+                    onEdit={handleStartEdit}
+                    onDelete={handleDeleteFormItem}
+                    onViewDetails={handleViewDetails}
+                    onAddToShoppingList={handleToggleShoppingList}
+                    onToggleFamilyStatus={handleToggleFamilyStatus}
+                    shoppingListFoodIds={shoppingListFoodIds}
+                    isFiltering={isAnyFilterActive}
+                    collapsedCategories={collapsedCategories}
+                    onToggleCategory={toggleCategory}
+                />
+            </>
+        );
+    } 
+    
+    // 2. Shopping List View
+    else if (activeTab === 'shopping') {
+        return (
+            <ShoppingListView 
+                allLists={shoppingLists}
+                activeListId={activeShoppingListId}
+                listData={hydratedShoppingList} 
+                household={household}
+                householdMembers={householdMembers}
+                currentUser={user}
+                onRemove={removeItem} 
+                onClear={clearCompleted} 
+                onToggleChecked={toggleChecked} 
+                onSelectList={setActiveShoppingListId}
+                onCreateList={createList}
+                onDeleteList={deleteList}
+                onUpdateQuantity={updateQuantity}
+                onSmartAdd={handleSmartQuickAdd}
+                isSmartAddLoading={isSmartAddLoading}
             />
         );
     }
-    
-    // AI Search Result Banner
-    const aiBanner = aiSearchResults.ids !== null ? (
-        <div className="mb-6 p-4 bg-indigo-50 dark:bg-gray-800 rounded-lg flex items-center justify-between border border-indigo-100 dark:border-indigo-900/50">
-            <div>
-                <h2 className="text-xl font-bold text-indigo-800 dark:text-indigo-200">{t('conversationalSearch.resultsTitle')}</h2>
-                <p className="text-sm text-indigo-600 dark:text-indigo-300 italic">"{aiSearchQuery}"</p>
-            </div>
-            <button onClick={clearAiSearch} className="flex items-center gap-2 text-sm bg-indigo-200 dark:bg-indigo-600/50 hover:bg-indigo-300 dark:hover:bg-indigo-600/80 text-indigo-800 dark:text-indigo-100 font-semibold py-1.5 px-3 rounded-full transition">
-                <XMarkIcon className="w-4 h-4" />
-                {t('conversationalSearch.clear')}
-            </button>
-        </div>
-    ) : null;
 
-    const aiError = aiSearchResults.error ? <p className="text-red-500 dark:text-red-400 text-center my-4">{aiSearchResults.error}</p> : null;
-
-    return (
-        <>
-        {aiBanner}
-        {aiError}
-        <Dashboard 
-            items={filteredAndSortedItems}
-            isLoading={isFoodLoading}
-            onAddNew={handleQuickCamera} // Priority: Camera
-            onEdit={handleStartEdit}
-            onDelete={handleDeleteFormItem}
-            onViewDetails={handleViewDetails}
-            onAddToShoppingList={handleToggleShoppingList}
-            onToggleFamilyStatus={handleToggleFamilyStatus}
-            shoppingListFoodIds={shoppingListFoodIds}
-            isFiltering={isAnyFilterActive}
-            collapsedCategories={collapsedCategories}
-            onToggleCategory={toggleCategory}
-        />
-        </>
-    );
+    // 3. Finance View
+    else if (activeTab === 'finance') {
+        return <FinanceDashboard />;
+    }
   }
 
   // Aggregate errors for display
   const displayError = foodError || householdError || shoppingListError;
 
   return (
-    <div className="min-h-[100dvh] bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans transition-colors duration-300 pb-safe-bottom">
-       <header className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow-md dark:shadow-lg sticky top-0 z-20 pt-safe-top">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex justify-between items-center gap-4">
-                <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-green-500 dark:from-indigo-400 dark:to-green-400">
-                    {t('header.title')}
-                </h1>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => setIsShoppingListOpen(true)} className="relative p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label={t('header.shoppingListAria')}>
-                        <ShoppingBagIcon className="w-7 h-7 text-gray-600 dark:text-gray-300" />
-                        {shoppingListItems.length > 0 && <span className="absolute top-0 right-0 block h-4 w-4 rounded-full bg-red-500 text-white text-xs font-bold ring-2 ring-white dark:ring-gray-800">{shoppingListItems.length}</span>}
-                    </button>
-                    <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label={t('settings.title')}>
-                        <SettingsIcon className="w-7 h-7 text-gray-600 dark:text-gray-300" />
-                    </button>
-                </div>
+    <div className="min-h-[100dvh] bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans transition-colors duration-300">
+       
+       {/* Full Screen Form Overlay */}
+       {isFormVisible && (
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-100 dark:bg-gray-900 p-safe-top">
+                <FoodItemForm 
+                    onSaveItem={handleSaveFormItem} 
+                    onCancel={handleCancelForm}
+                    initialData={editingItem}
+                    initialItemType={editingItem?.itemType || 'product'}
+                    householdId={userProfile?.household_id || null}
+                    startMode={formStartMode}
+                />
             </div>
-            {!isFormVisible && (
-                <div className="mt-4 space-y-3">
-                    {/* Search & Filter Controls */}
-                    <div className="flex gap-2 items-center">
-                       <div className="relative flex-1">
-                          <input
-                              type="search"
-                              placeholder={t('header.searchPlaceholder')}
-                              value={searchTerm}
-                              onChange={e => setSearchTerm(e.target.value)}
-                              className="w-full bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-full shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2 pl-10 pr-4 transition"
-                          />
-                          <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                              <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                          </div>
-                       </div>
-                       
-                       <div className="flex items-center gap-1 bg-gray-200 dark:bg-gray-700 rounded-md p-1">
-                          <button 
-                            onClick={() => setIsFilterPanelVisible(true)} 
-                            className="flex items-center justify-center p-2 rounded-md hover:bg-white dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200"
-                            title={t('header.filter.button')}
-                          >
-                              <FunnelIcon className="w-5 h-5" />
-                          </button>
-                          
-                          <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-0.5"></div>
+       )}
 
-                          <button
-                            onClick={toggleAllCategories}
-                            className="flex items-center justify-center p-2 rounded-md hover:bg-white dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200"
-                            title={isAllCollapsed ? "Alles ausklappen" : "Alles einklappen"}
-                          >
-                             {isAllCollapsed ? (
-                                <ArrowsPointingOutIcon className="w-5 h-5" />
-                             ) : (
-                                <ArrowsPointingInIcon className="w-5 h-5" />
-                             )}
-                          </button>
-                       </div>
+       {/* Main App Shell */}
+       {!isFormVisible && (
+           <>
+            <header className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow-md dark:shadow-lg sticky top-0 z-30 pt-safe-top">
+                <div className="container mx-auto px-4 py-4">
+                    <div className="flex justify-between items-center gap-4">
+                        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-green-500 dark:from-indigo-400 dark:to-green-400">
+                            {t('header.title')}
+                        </h1>
+                        <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label={t('settings.title')}>
+                            <SettingsIcon className="w-7 h-7 text-gray-600 dark:text-gray-300" />
+                        </button>
                     </div>
+                    
+                    {/* Filter Bar (Only show in Inventory Tab) */}
+                    {activeTab === 'inventory' && (
+                        <div className="mt-4 space-y-3">
+                            <div className="flex gap-2 items-center">
+                            <div className="relative flex-1">
+                                <input
+                                    type="search"
+                                    placeholder={t('header.searchPlaceholder')}
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    className="w-full bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-full shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2 pl-10 pr-4 transition"
+                                />
+                                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                    <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-1 bg-gray-200 dark:bg-gray-700 rounded-md p-1">
+                                <button 
+                                    onClick={() => setIsFilterPanelVisible(true)} 
+                                    className="flex items-center justify-center p-2 rounded-md hover:bg-white dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200"
+                                    title={t('header.filter.button')}
+                                >
+                                    <FunnelIcon className="w-5 h-5" />
+                                </button>
+                                
+                                <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-0.5"></div>
 
-                    {isAnyFilterActive && (ownerFilter !== 'all' || searchTerm.trim() || typeFilter !== 'all' || ratingFilter !== 'all') && (
-                        <div className="flex items-center gap-2 flex-wrap pt-1">
-                            {ownerFilter !== 'all' && <ActiveFilterPill onDismiss={() => setOwnerFilter('all')}>{t(`header.filter.active.owner.${ownerFilter}`)}</ActiveFilterPill>}
-                            {searchTerm.trim() && <ActiveFilterPill onDismiss={() => setSearchTerm('')}>{t('header.filter.active.search', { term: searchTerm })}</ActiveFilterPill>}
-                            {aiSearchQuery && <ActiveFilterPill onDismiss={clearAiSearch}>{t('header.filter.active.aiSearch', { term: aiSearchQuery })}</ActiveFilterPill>}
-                            {typeFilter !== 'all' && <ActiveFilterPill onDismiss={() => setTypeFilter('all')}>{t(`header.filter.active.type.${typeFilter}`)}</ActiveFilterPill>}
-                            {ratingFilter !== 'all' && <ActiveFilterPill onDismiss={() => setRatingFilter('all')}>{t(`header.filter.active.rating.${ratingFilter}`)}</ActiveFilterPill>}
-                            <button onClick={clearAllFilters} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">{t('header.filter.clearAll')}</button>
+                                <button
+                                    onClick={toggleAllCategories}
+                                    className="flex items-center justify-center p-2 rounded-md hover:bg-white dark:hover:bg-gray-600 transition-colors text-gray-700 dark:text-gray-200"
+                                    title={isAllCollapsed ? "Alles ausklappen" : "Alles einklappen"}
+                                >
+                                    {isAllCollapsed ? <ArrowsPointingOutIcon className="w-5 h-5" /> : <ArrowsPointingInIcon className="w-5 h-5" />}
+                                </button>
+                            </div>
+                            </div>
+
+                            {isAnyFilterActive && (
+                                <div className="flex items-center gap-2 flex-wrap pt-1">
+                                    {ownerFilter !== 'all' && <ActiveFilterPill onDismiss={() => setOwnerFilter('all')}>{t(`header.filter.active.owner.${ownerFilter}`)}</ActiveFilterPill>}
+                                    {searchTerm.trim() && <ActiveFilterPill onDismiss={() => setSearchTerm('')}>{t('header.filter.active.search', { term: searchTerm })}</ActiveFilterPill>}
+                                    {aiSearchQuery && <ActiveFilterPill onDismiss={clearAiSearch}>{t('header.filter.active.aiSearch', { term: aiSearchQuery })}</ActiveFilterPill>}
+                                    {typeFilter !== 'all' && <ActiveFilterPill onDismiss={() => setTypeFilter('all')}>{t(`header.filter.active.type.${typeFilter}`)}</ActiveFilterPill>}
+                                    {ratingFilter !== 'all' && <ActiveFilterPill onDismiss={() => setRatingFilter('all')}>{t(`header.filter.active.rating.${ratingFilter}`)}</ActiveFilterPill>}
+                                    <button onClick={clearAllFilters} className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">{t('header.filter.clearAll')}</button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
+            </header>
+            
+            <OfflineIndicator isOnline={isOnline} />
+
+            <main className="container mx-auto p-4 md:p-8 pb-32">
+                {displayError && isOnline && <div className="bg-red-100 dark:bg-red-900/50 border border-red-400 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg relative mb-6" role="alert">{displayError}</div>}
+                {renderContent()}
+            </main>
+
+            {/* Floating Action Button - Only on Inventory Tab */}
+            {activeTab === 'inventory' && (
+                <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-6 z-30">
+                    <button
+                        onClick={handleQuickCamera}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-xl transition-transform transform hover:scale-105 flex items-center justify-center active:scale-95"
+                        aria-label={t('form.button.takePhoto')}
+                    >
+                        <CameraIcon className="w-8 h-8" />
+                    </button>
+                </div>
             )}
-          </div>
-      </header>
-      
-      <OfflineIndicator isOnline={isOnline} />
 
-      <main className="container mx-auto p-4 md:p-8">
-        {displayError && isOnline && <div className="bg-red-100 dark:bg-red-900/50 border border-red-400 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg relative mb-6" role="alert">{displayError}</div>}
-        {renderContent()}
-      </main>
-
-      {!isFormVisible && (
-        <div className="fixed bottom-[calc(2rem+env(safe-area-inset-bottom,0px))] right-6 z-30">
-            <button
-                onClick={handleQuickCamera}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-xl transition-transform transform hover:scale-105 flex items-center justify-center active:scale-95"
-                aria-label={t('form.button.takePhoto')}
-            >
-                <CameraIcon className="w-8 h-8" />
-            </button>
-        </div>
-      )}
-      
-      {/* Footer text pushed down by safe area */}
-      <footer className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm mb-safe-bottom">
-        <p>{t('footer.text')}</p>
-      </footer>
+            <BottomNavigation 
+                activeTab={activeTab} 
+                onTabChange={setActiveTab} 
+                shoppingListCount={shoppingListItems.filter(i => !i.checked).length}
+            />
+           </>
+       )}
 
       {toastMessage && (
          <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 text-sm font-semibold py-2 px-4 rounded-full shadow-lg animate-fade-in-out z-50">
@@ -801,26 +762,6 @@ const App: React.FC = () => {
           onHouseholdDelete={deleteHousehold}
           error={householdError} 
       />}
-      {isShoppingListOpen && 
-        <ShoppingListModal 
-            allLists={shoppingLists}
-            activeListId={activeShoppingListId}
-            listData={hydratedShoppingList} 
-            household={household}
-            householdMembers={householdMembers}
-            currentUser={user}
-            onRemove={removeItem} 
-            onClear={clearCompleted} 
-            onToggleChecked={toggleChecked} 
-            onClose={() => setIsShoppingListOpen(false)}
-            onSelectList={setActiveShoppingListId}
-            onCreateList={createList}
-            onDeleteList={deleteList}
-            onUpdateQuantity={updateQuantity}
-            onSmartAdd={handleSmartQuickAdd}
-            isSmartAddLoading={isSmartAddLoading}
-        />
-      }
 
       {potentialDuplicates.length > 0 && itemToAdd && (
         <DuplicateConfirmationModal items={potentialDuplicates} itemName={itemToAdd.name} onConfirm={handleConfirmDuplicateAdd} onCancel={handleCancelDuplicateAdd} />
@@ -839,7 +780,6 @@ const App: React.FC = () => {
             <div className="relative bg-white dark:bg-gray-900 p-6 rounded-lg shadow-2xl max-w-lg w-full flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{t('modal.shared.title')}</h2>
                 <p className="text-gray-600 dark:text-gray-400 mb-4">{t('modal.shared.description')}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-500 italic -mt-2 mb-4">{t('modal.shared.summaryNotice')}</p>
                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex-1 overflow-y-auto">
                     <FoodItemDetailView item={{ ...sharedItemToShow, id: 'shared-item-preview', user_id: '', created_at: new Date().toISOString() }} onImageClick={setSelectedImage} />
                 </div>
