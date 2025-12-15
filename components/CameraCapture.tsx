@@ -7,7 +7,7 @@ import { useAppSettings } from '../contexts/AppSettingsContext';
 interface CameraCaptureProps {
   onCapture: (imageDataUrl: string) => void;
   onClose: () => void;
-  mode?: 'main' | 'ingredients'; // 'main' = square crop (product), 'ingredients' = rectangle (text)
+  mode?: 'main' | 'ingredients' | 'receipt'; // Added 'receipt'
   onSwitchToManual?: () => void;
   onSwitchToBarcode?: () => void;
 }
@@ -100,21 +100,28 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
         let cropW, cropH, startX, startY;
 
         if (mode === 'main') {
-            // Square crop for products (saves tokens, focuses on object)
-            // We take 80% of the smallest dimension to match the UI overlay roughly
+            // Square crop for products
             const cropSize = minDim * 0.8; 
             cropW = cropSize;
             cropH = cropSize;
-        } else {
-            // Taller rectangle for ingredients/receipts
-            // Width 80% of minDim, Height based on 3:4 ratio roughly
+        } else if (mode === 'ingredients') {
+            // Taller rectangle for ingredients
             cropW = minDim * 0.8;
             cropH = cropW * 1.33;
-            
-            // Ensure we don't go out of bounds vertically
             if (cropH > videoH * 0.9) {
                 cropH = videoH * 0.9;
                 cropW = cropH / 1.33;
+            }
+        } else {
+            // Receipt Mode: Very tall rectangle (approx 1:2 ratio)
+            // We want to capture as much height as possible
+            cropH = videoH * 0.9; 
+            cropW = cropH * 0.5; // 1:2 Aspect Ratio
+            
+            // Ensure width doesn't exceed video width
+            if (cropW > videoW * 0.9) {
+                cropW = videoW * 0.9;
+                cropH = cropW * 2;
             }
         }
 
@@ -147,6 +154,24 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
     }
   };
 
+  const getOverlayStyle = () => {
+      switch(mode) {
+          case 'main': return 'aspect-square w-[80vw] max-w-[80vh] rounded-xl';
+          case 'ingredients': return 'aspect-[3/4] w-[70vw] max-w-[60vh] rounded-lg';
+          case 'receipt': return 'aspect-[1/2] h-[80vh] max-w-[90vw] rounded-lg border-dashed';
+          default: return 'aspect-square w-[80vw]';
+      }
+  };
+
+  const getInstructionText = () => {
+      switch(mode) {
+          case 'main': return 'Produkt hier platzieren';
+          case 'ingredients': return 'Zutatenliste hier platzieren';
+          case 'receipt': return 'Kassenbon lang platzieren';
+          default: return '';
+      }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-95 flex flex-col items-center justify-center z-50">
       <div className="absolute top-0 left-0 w-full p-4 z-20 flex justify-between items-center">
@@ -169,26 +194,21 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
             className="absolute inset-0 w-full h-full object-cover"
           />
           
-          {/* Dark Overlay with "Hole" via Clip Path or borders */}
-          {/* Using a simpler border approach for cross-browser reliability visually */}
+          {/* Dark Overlay */}
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
              <div 
-                className={`relative border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] transition-all duration-300 ${
-                    mode === 'main' 
-                    ? 'aspect-square w-[80vw] max-w-[80vh] rounded-xl' 
-                    : 'aspect-[3/4] w-[70vw] max-w-[60vh] rounded-lg'
-                }`}
+                className={`relative border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] transition-all duration-300 ${getOverlayStyle()}`}
              >
-                {/* Corner markers for aesthetics */}
+                {/* Corner markers */}
                 <div className="absolute top-[-2px] left-[-2px] w-6 h-6 border-t-4 border-l-4 border-indigo-500 rounded-tl-xl"></div>
                 <div className="absolute top-[-2px] right-[-2px] w-6 h-6 border-t-4 border-r-4 border-indigo-500 rounded-tr-xl"></div>
                 <div className="absolute bottom-[-2px] left-[-2px] w-6 h-6 border-b-4 border-l-4 border-indigo-500 rounded-bl-xl"></div>
                 <div className="absolute bottom-[-2px] right-[-2px] w-6 h-6 border-b-4 border-r-4 border-indigo-500 rounded-br-xl"></div>
                 
-                {/* Helper text inside the frame */}
+                {/* Helper text */}
                 <div className="absolute bottom-4 left-0 right-0 text-center">
                     <span className="text-white/80 text-xs bg-black/40 px-2 py-1 rounded-full backdrop-blur-sm">
-                        {mode === 'main' ? 'Produkt hier platzieren' : 'Zutatenliste hier platzieren'}
+                        {getInstructionText()}
                     </span>
                 </div>
              </div>
@@ -198,16 +218,14 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
         </div>
       )}
       
-      {/* Footer Controls: Main Capture + Fallback Buttons */}
+      {/* Footer Controls */}
       <div className="absolute bottom-0 left-0 w-full p-8 z-20 flex justify-between items-center bg-gradient-to-t from-black/80 to-transparent">
         
-        {/* Left: Manual Input Fallback */}
         <div className="flex-1 flex justify-start">
             {onSwitchToManual && (
                 <button
                     onClick={onSwitchToManual}
                     className="flex flex-col items-center gap-1 text-white/70 hover:text-white transition-colors p-2"
-                    aria-label={t('form.addNewButton')}
                 >
                     <div className="p-2 bg-white/10 rounded-full backdrop-blur-md">
                         <PencilIcon className="w-6 h-6" />
@@ -217,7 +235,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
             )}
         </div>
 
-        {/* Center: Capture Trigger */}
         <button
           onClick={handleCapture}
           disabled={!isCameraReady || !!error}
@@ -227,13 +244,11 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
             <div className="w-16 h-16 bg-white rounded-full border-2 border-black"></div>
         </button>
 
-        {/* Right: Barcode Fallback */}
         <div className="flex-1 flex justify-end">
             {isBarcodeScannerEnabled && onSwitchToBarcode && (
                 <button
                     onClick={onSwitchToBarcode}
                     className="flex flex-col items-center gap-1 text-white/70 hover:text-white transition-colors p-2"
-                    aria-label={t('form.button.scanBarcode')}
                 >
                     <div className="p-2 bg-white/10 rounded-full backdrop-blur-md">
                         <BarcodeIcon className="w-6 h-6" />

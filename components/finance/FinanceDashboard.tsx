@@ -1,7 +1,16 @@
 
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { TrendingUpIcon, TrendingDownIcon, ReceiptPercentIcon, SparklesIcon, SpinnerIcon, CategoryOtherIcon } from '../Icons';
-import { GroceryCategory } from '../../types';
+import { GroceryCategory, Receipt } from '../../types';
+import { useTranslation } from '../../i18n/index';
+
+interface FinanceDashboardProps {
+    monthlyData: { label: string; value: number; active?: boolean }[];
+    categoryData: { label: string; value: number; color: string }[];
+    totalSpend: number;
+    isLoading: boolean;
+    onScan: () => void;
+}
 
 // Simple SVG Bar Chart Component
 const SimpleBarChart: React.FC<{ data: { label: string; value: number; active?: boolean }[] }> = ({ data }) => {
@@ -90,29 +99,18 @@ const SimpleDonutChart: React.FC<{ data: { label: string; value: number; color: 
     );
 };
 
-export const FinanceDashboard: React.FC = () => {
-    // DUMMY DATA FOR UI DEV
-    const currentMonth = "Mai";
-    const totalSpend = 452.30;
-    const diffPercent = -12; // Negative = Good (spent less)
+export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ monthlyData, categoryData, totalSpend, isLoading, onScan }) => {
+    const { t } = useTranslation();
+    const currentMonth = new Date().toLocaleString('default', { month: 'short' });
     
-    const historyData = [
-        { label: 'Dez', value: 320 },
-        { label: 'Jan', value: 450 },
-        { label: 'Feb', value: 410 },
-        { label: 'Mär', value: 520 },
-        { label: 'Apr', value: 480 },
-        { label: 'Mai', value: 452.3, active: true },
-    ];
+    // Calculate Mock diff for now or implement logic (previous month comparison)
+    // For MVP, just comparing vs average of prev months
+    const avg = monthlyData.length > 1 ? (monthlyData.slice(0, -1).reduce((acc, c) => acc + c.value, 0) / (monthlyData.length - 1)) : totalSpend;
+    const diffPercent = avg > 0 ? Math.round(((totalSpend - avg) / avg) * 100) : 0;
 
-    const categoryData = [
-        { label: 'Obst & Gemüse', value: 120, color: '#4ade80' }, // green-400
-        { label: 'Fleisch', value: 80, color: '#f87171' }, // red-400
-        { label: 'Milchprodukte', value: 60, color: '#facc15' }, // yellow-400
-        { label: 'Vorrat', value: 90, color: '#fb923c' }, // orange-400
-        { label: 'Süßigkeiten', value: 40, color: '#f472b6' }, // pink-400
-        { label: 'Sonstiges', value: 62.3, color: '#94a3b8' }, // slate-400
-    ];
+    if (isLoading && totalSpend === 0) {
+        return <div className="flex justify-center py-20"><SpinnerIcon className="w-8 h-8 text-indigo-500"/></div>;
+    }
 
     return (
         <div className="space-y-6 pb-24 animate-fade-in">
@@ -120,9 +118,7 @@ export const FinanceDashboard: React.FC = () => {
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Finanzen</h2>
                 <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-full px-3 py-1">
-                    <button className="text-gray-500 hover:text-indigo-600">&lt;</button>
-                    <span className="text-sm font-semibold">{currentMonth} 2024</span>
-                    <button className="text-gray-500 hover:text-indigo-600">&gt;</button>
+                    <span className="text-sm font-semibold">{new Date().getFullYear()}</span>
                 </div>
             </div>
 
@@ -130,15 +126,17 @@ export const FinanceDashboard: React.FC = () => {
             <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
                 <div className="absolute -right-10 -top-10 w-40 h-40 bg-white opacity-10 rounded-full blur-2xl"></div>
                 <div className="relative z-10">
-                    <p className="text-indigo-100 text-sm font-medium mb-1">Gesamtausgaben</p>
+                    <p className="text-indigo-100 text-sm font-medium mb-1">Gesamtausgaben ({currentMonth})</p>
                     <h3 className="text-4xl font-extrabold mb-4">{totalSpend.toFixed(2)} €</h3>
                     
                     <div className="flex items-center gap-2">
-                        <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${diffPercent < 0 ? 'bg-green-400/20 text-green-300' : 'bg-red-400/20 text-red-300'}`}>
-                            {diffPercent < 0 ? <TrendingDownIcon className="w-3 h-3" /> : <TrendingUpIcon className="w-3 h-3" />}
-                            <span>{Math.abs(diffPercent)}%</span>
-                        </div>
-                        <span className="text-indigo-200 text-xs">vs. Vormonat</span>
+                        {totalSpend > 0 && (
+                            <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${diffPercent < 0 ? 'bg-green-400/20 text-green-300' : 'bg-white/20 text-white'}`}>
+                                {diffPercent < 0 ? <TrendingDownIcon className="w-3 h-3" /> : <TrendingUpIcon className="w-3 h-3" />}
+                                <span>{Math.abs(diffPercent)}%</span>
+                            </div>
+                        )}
+                        <span className="text-indigo-200 text-xs">vs. Durchschnitt</span>
                     </div>
                 </div>
             </div>
@@ -148,7 +146,7 @@ export const FinanceDashboard: React.FC = () => {
                 {/* Spend History */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
                     <h4 className="font-bold text-gray-700 dark:text-gray-300 mb-4 text-sm">Verlauf (6 Monate)</h4>
-                    <SimpleBarChart data={historyData} />
+                    <SimpleBarChart data={monthlyData} />
                 </div>
 
                 {/* Categories */}
@@ -157,10 +155,10 @@ export const FinanceDashboard: React.FC = () => {
                     <div className="flex flex-col items-center">
                         <SimpleDonutChart data={categoryData} />
                         <div className="mt-6 w-full grid grid-cols-2 gap-2">
-                            {categoryData.map((cat, i) => (
+                            {categoryData.slice(0, 6).map((cat, i) => (
                                 <div key={i} className="flex items-center gap-2 text-xs">
-                                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }}></span>
-                                    <span className="text-gray-600 dark:text-gray-400 truncate flex-1">{cat.label}</span>
+                                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }}></span>
+                                    <span className="text-gray-600 dark:text-gray-400 truncate flex-1">{t(`category.${cat.label}`)}</span>
                                     <span className="font-semibold text-gray-800 dark:text-gray-200">{cat.value.toFixed(0)}€</span>
                                 </div>
                             ))}
@@ -180,7 +178,10 @@ export const FinanceDashboard: React.FC = () => {
                         <p className="text-xs text-gray-500 dark:text-gray-400">Scanne deinen Kassenbon für Details.</p>
                     </div>
                 </div>
-                <button className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-full transition-colors">
+                <button 
+                    onClick={onScan}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-full transition-colors"
+                >
                     Scannen
                 </button>
             </div>

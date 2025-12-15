@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList, UserProfile, Household } from './types';
+import { FoodItem, FoodItemType, ShoppingListItem, ShoppingList, UserProfile, Household, Receipt, ReceiptItem } from './types';
 import { FoodItemForm } from './components/FoodItemForm';
 import { FoodItemList } from './components/FoodItemList';
 import { Dashboard } from './components/Dashboard';
-import { ShoppingListView } from './components/ShoppingListView'; // Use View instead of Modal
+import { ShoppingListView } from './components/ShoppingListView'; 
 import { FilterPanel } from './components/FilterPanel';
 import { DuplicateConfirmationModal } from './components/DuplicateConfirmationModal';
 import { ImageModal } from './components/ImageModal';
@@ -17,7 +17,9 @@ import { useAuth } from './contexts/AuthContext';
 import { useFoodData } from './hooks/useFoodData';
 import { useHousehold } from './hooks/useHousehold';
 import { useShoppingList } from './hooks/useShoppingList';
+import { useReceipts } from './hooks/useReceipts';
 import * as geminiService from './services/geminiService';
+import { createReceipt } from './services/receiptService';
 import { useTranslation } from './i18n/index';
 import { PlusCircleIcon, SettingsIcon, ShoppingBagIcon, FunnelIcon, XMarkIcon, BuildingStorefrontIcon, MagnifyingGlassIcon, SpinnerIcon, UserCircleIcon, UserGroupIcon, BeakerIcon, BarcodeIcon, CameraIcon, PencilIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon } from './components/Icons';
 import { useModalHistory } from './hooks/useModalHistory';
@@ -25,6 +27,8 @@ import { triggerHaptic } from './utils/haptics';
 import { useAppSettings } from './contexts/AppSettingsContext';
 import { BottomNavigation } from './components/BottomNavigation';
 import { FinanceDashboard } from './components/finance/FinanceDashboard';
+import { CameraCapture } from './components/CameraCapture';
+import { ReceiptReviewModal } from './components/finance/ReceiptReviewModal';
 
 // Helper function to decode from URL-safe Base64 and decompress the data
 const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
@@ -106,6 +110,15 @@ const App: React.FC = () => {
     clearCompleted
   } = useShoppingList(user, household);
 
+  // New Hook for Receipts
+  const {
+      receipts,
+      isLoading: isReceiptsLoading,
+      refreshReceipts,
+      getMonthlySpending,
+      getCategoryBreakdown
+  } = useReceipts(user, userProfile?.household_id);
+
 
   // --- Local UI State ---
   
@@ -133,7 +146,6 @@ const App: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [detailItem, setDetailItem] = useState<FoodItem | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  // Removed isShoppingListOpen as it is now a tab
   const [sharedItemToShow, setSharedItemToShow] = useState<Omit<FoodItem, 'id' | 'user_id' | 'created_at'> | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSmartAddLoading, setIsSmartAddLoading] = useState(false);
@@ -141,11 +153,18 @@ const App: React.FC = () => {
   const [formStartMode, setFormStartMode] = useState<'barcode' | 'camera' | 'none'>('none');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  // Receipt States
+  const [isReceiptCameraOpen, setIsReceiptCameraOpen] = useState(false);
+  const [isProcessingReceipt, setIsProcessingReceipt] = useState(false);
+  const [scannedReceiptData, setScannedReceiptData] = useState<(Partial<Receipt> & { items: Partial<ReceiptItem>[] }) | null>(null);
+
   useModalHistory(isFormVisible, () => setIsFormVisible(false));
   useModalHistory(isSettingsOpen, () => setIsSettingsOpen(false));
   useModalHistory(!!detailItem, () => setDetailItem(null));
   useModalHistory(isFilterPanelVisible, () => setIsFilterPanelVisible(false));
   useModalHistory(!!sharedItemToShow, () => setSharedItemToShow(null));
+  useModalHistory(isReceiptCameraOpen, () => setIsReceiptCameraOpen(false));
+  useModalHistory(!!scannedReceiptData, () => setScannedReceiptData(null));
 
 
   const isAnyFilterActive = useMemo(() => searchTerm.trim() !== '' || ratingFilter !== 'all' || typeFilter !== 'all' || aiSearchQuery !== '' || ownerFilter !== 'all', [searchTerm, ratingFilter, typeFilter, aiSearchQuery, ownerFilter]);
@@ -207,6 +226,7 @@ const App: React.FC = () => {
             if(user) {
               refreshFoodData();
               refreshHousehold();
+              refreshReceipts();
             }
         }
     };
@@ -218,7 +238,7 @@ const App: React.FC = () => {
         navigator.serviceWorker.removeEventListener('message', handleMessage);
       }
     };
-  }, [refreshFoodData, refreshHousehold, user, t]);
+  }, [refreshFoodData, refreshHousehold, refreshReceipts, user, t]);
 
 
   useEffect(() => {
@@ -529,6 +549,35 @@ const App: React.FC = () => {
       }
   }, [user, saveItem, t]);
 
+  // --- Receipt Logic ---
+  const handleReceiptCapture = async (imageDataUrl: string) => {
+      setIsReceiptCameraOpen(false);
+      setIsProcessingReceipt(true);
+      try {
+          // Analyze via Gemini
+          const analyzed = await geminiService.analyzeReceiptImage(imageDataUrl);
+          setScannedReceiptData(analyzed);
+      } catch (e) {
+          console.error("Receipt Analysis Failed", e);
+          setToastMessage("Could not scan receipt.");
+      } finally {
+          setIsProcessingReceipt(false);
+      }
+  };
+
+  const handleSaveReceipt = async (data: Partial<Receipt> & { items: Partial<ReceiptItem>[] }) => {
+      if (!user) return;
+      try {
+          await createReceipt(data, user.id, userProfile?.household_id || undefined);
+          setScannedReceiptData(null);
+          setToastMessage("Receipt Saved!");
+          refreshReceipts(); // Update dashboard
+      } catch (e) {
+          console.error("Save Receipt Failed", e);
+          setToastMessage("Failed to save receipt.");
+      }
+  };
+
 
   if (!session) {
     return <Auth />;
@@ -609,7 +658,49 @@ const App: React.FC = () => {
 
     // 3. Finance View
     else if (activeTab === 'finance') {
-        return <FinanceDashboard />;
+        // Calculate Totals for Dashboard
+        const monthlyData = getMonthlySpending();
+        const categoryData = getCategoryBreakdown();
+        // Current Month Total
+        const currentMonthLabel = new Date().toLocaleString('default', { month: 'short' });
+        const currentTotal = monthlyData.find(d => d.label === currentMonthLabel)?.value || 0;
+
+        return (
+            <>
+                <FinanceDashboard 
+                    monthlyData={monthlyData}
+                    categoryData={categoryData}
+                    totalSpend={currentTotal}
+                    isLoading={isReceiptsLoading}
+                    onScan={() => setIsReceiptCameraOpen(true)}
+                />
+                
+                {/* Global Overlays for Finance Flow */}
+                {isReceiptCameraOpen && (
+                    <CameraCapture 
+                        onCapture={handleReceiptCapture}
+                        onClose={() => setIsReceiptCameraOpen(false)}
+                        mode="receipt"
+                    />
+                )}
+
+                {isProcessingReceipt && (
+                    <div className="fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-50 animate-fade-in text-white">
+                        <SpinnerIcon className="w-12 h-12 text-white mb-4" />
+                        <p className="text-lg font-bold">Analyzing Receipt...</p>
+                        <p className="text-sm opacity-70">Detecting items and prices</p>
+                    </div>
+                )}
+
+                {scannedReceiptData && (
+                    <ReceiptReviewModal 
+                        receiptData={scannedReceiptData}
+                        onSave={handleSaveReceipt}
+                        onClose={() => setScannedReceiptData(null)}
+                    />
+                )}
+            </>
+        );
     }
   }
 
