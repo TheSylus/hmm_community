@@ -45,7 +45,7 @@ export interface FoodItem {
   // Dish-specific fields
   restaurantName?: string;
   cuisineType?: string;
-  price?: number;
+  price?: number; // Current/Latest known price
 }
 
 // Represents a household that users can join.
@@ -82,4 +82,30 @@ export interface UserProfile {
   id: string; // Corresponds to auth.users.id
   display_name: string;
   household_id?: string | null;
+}
+
+// --- New Finance & Receipt Types ---
+
+export interface Receipt {
+  id: string;
+  household_id?: string | null;
+  uploader_id: string;
+  merchant_name: string;
+  date: string; // ISO Date string
+  total_amount: number;
+  currency: string;
+  scanned_at: string;
+  image_url?: string;
+  items?: ReceiptItem[]; // Hydrated items
+}
+
+export interface ReceiptItem {
+  id: string;
+  receipt_id: string;
+  food_item_id?: string | null; // Link to existing FoodItem if matched
+  raw_name: string; // The name as it appears on the receipt
+  category: GroceryCategory; // AI categorized
+  price: number;
+  quantity?: number;
+  total_price?: number; // price * quantity
 }

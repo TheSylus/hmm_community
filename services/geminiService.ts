@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { FoodItem, NutriScore, GroceryCategory } from "../types";
+import { FoodItem, NutriScore, GroceryCategory, Receipt, ReceiptItem } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -16,14 +16,27 @@ export function getAiClient() {
 }
 
 // QUALITY GATE: Image Optimization
-// Strategy Shift: "Precision First".
-// Previous optimization (768px/0.6q) caused poor bounding box detection.
-// New setting: 1024px / 0.85q. This consumes more tokens (approx 1000-1200) but ensures the model
-// can clearly distinguish object edges from the background.
-const resizeImage = (base64Str: string, mode: 'main' | 'text' = 'main'): Promise<string> => {
+// Strategy Shift: "Context Aware Resizing".
+// - 'main' (Product): Square crop, high res for text reading on package.
+// - 'text' (Ingredients): High res, no cropping, preserving details.
+// - 'receipt' (Finance): High width, unlimited height to support long receipts.
+const resizeImage = (base64Str: string, mode: 'main' | 'text' | 'receipt' = 'main'): Promise<string> => {
     // Settings based on mode
-    const maxWidth = mode === 'main' ? 1024 : 1024; // Increased to 1024px for main detection
-    const quality = mode === 'main' ? 0.85 : 0.6; // Increased quality to reduce artifacts
+    let maxWidth = 1024;
+    let quality = 0.85;
+    let keepAspectRatio = true;
+
+    if (mode === 'main') {
+        maxWidth = 1024;
+        quality = 0.85;
+        keepAspectRatio = true; // Still keep aspect, but logic below handles dimensions
+    } else if (mode === 'text') {
+        maxWidth = 1200;
+        quality = 0.7; // Text usually has high contrast, lower quality JPEG is fine
+    } else if (mode === 'receipt') {
+        maxWidth = 1536; // Receipts need high width for small thermal printer font
+        quality = 0.8;
+    }
 
     return new Promise((resolve) => {
         const img = new Image();
@@ -37,11 +50,21 @@ const resizeImage = (base64Str: string, mode: 'main' | 'text' = 'main'): Promise
                 width = maxWidth;
             }
 
+            // For receipts, we do NOT want to limit height aggressively, 
+            // but we might want to ensure it doesn't break canvas limits (usually 16k pixels)
+            if (height > 10000) { 
+                // Extreme case safeguard
+                const scale = 10000 / height;
+                height = 10000;
+                width = Math.round(width * scale);
+            }
+
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             if (ctx) {
+                // Optional: Contrast enhancement could be added here for receipts
                 ctx.drawImage(img, 0, 0, width, height);
                 resolve(canvas.toDataURL('image/jpeg', quality));
             } else {
@@ -407,3 +430,79 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
         throw new Error("Could not parse shopping list.");
     }
 };
+
+// --- RECEIPT ANALYSIS FEATURE ---
+
+export const analyzeReceiptImage = async (base64Image: string): Promise<Partial<Receipt> & { items: Partial<ReceiptItem>[] }> => {
+    // 1. Optimize Image for Receipts (Longer, higher resolution)
+    const resizedImage = await resizeImage(base64Image, 'receipt');
+    
+    const match = resizedImage.match(/^data:(image\/[a-z]+);base64,(.*)$/);
+    if (!match) throw new Error("Invalid base64 image string.");
+    const mimeType = match[1];
+    const data = match[2];
+
+    try {
+        const gemini = getAiClient();
+        
+        const response = await gemini.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [
+                    { inlineData: { mimeType, data } },
+                    { text: "Analyze this receipt. Extract merchant, date (YYYY-MM-DD), currency (EUR/USD), total. Extract all line items with name, price, quantity (if available, else 1). Categorize each item strictly into one of: 'produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'restaurant_food', 'other'. Ignore discount lines or subtotal lines." }
+                ]
+            },
+            config: {
+                temperature: 0.1,
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        merchant_name: { type: Type.STRING },
+                        date: { type: Type.STRING },
+                        total_amount: { type: Type.NUMBER },
+                        currency: { type: Type.STRING },
+                        items: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    raw_name: { type: Type.STRING },
+                                    price: { type: Type.NUMBER },
+                                    quantity: { type: Type.NUMBER },
+                                    category: { 
+                                        type: Type.STRING,
+                                        enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'restaurant_food', 'other']
+                                    }
+                                },
+                                required: ["raw_name", "price", "category"]
+                            }
+                        }
+                    },
+                    required: ["merchant_name", "total_amount", "items"]
+                }
+            }
+        });
+
+        const result = parseJsonFromString(response.text);
+        
+        // Ensure date is valid or fallback to today
+        let date = result.date;
+        if (!date || isNaN(Date.parse(date))) {
+            date = new Date().toISOString().split('T')[0];
+        }
+
+        return {
+            merchant_name: result.merchant_name,
+            date: date,
+            total_amount: result.total_amount,
+            currency: result.currency || 'EUR',
+            items: result.items || []
+        };
+
+    } catch (error) {
+        console.error("Error analyzing receipt:", error);
+        throw new Error("Could not analyze receipt.");
+    }
+}
