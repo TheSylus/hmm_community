@@ -75,6 +75,38 @@ export const createReceipt = async (
     return { ...receipt, items: itemsPayload };
 };
 
+export const updateReceipt = async (
+    receiptId: string, 
+    updates: Partial<Receipt>
+): Promise<Receipt> => {
+    // Only allow updating specific header fields to maintain data integrity
+    const safeUpdates = {
+        merchant_name: updates.merchant_name,
+        date: updates.date,
+        total_amount: updates.total_amount,
+        currency: updates.currency
+    };
+
+    const { data, error } = await supabase
+        .from('receipts')
+        .update(safeUpdates)
+        .eq('id', receiptId)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+};
+
+export const deleteReceipt = async (receiptId: string): Promise<void> => {
+    const { error } = await supabase
+        .from('receipts')
+        .delete()
+        .eq('id', receiptId);
+
+    if (error) throw error;
+};
+
 export const fetchReceiptsByHousehold = async (householdId: string) => {
     const { data, error } = await supabase
         .from('receipts')

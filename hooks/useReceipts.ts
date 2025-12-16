@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { Receipt, ReceiptItem, GroceryCategory } from '../types';
 import { User } from '@supabase/supabase-js';
+import { updateReceipt as apiUpdateReceipt, deleteReceipt as apiDeleteReceipt } from '../services/receiptService';
 
 export const useReceipts = (user: User | null, householdId: string | null | undefined) => {
     const [receipts, setReceipts] = useState<Receipt[]>([]);
@@ -39,6 +40,32 @@ export const useReceipts = (user: User | null, householdId: string | null | unde
     useEffect(() => {
         fetchReceipts();
     }, [fetchReceipts]);
+
+    const updateReceipt = useCallback(async (id: string, updates: Partial<Receipt>) => {
+        try {
+            const updated = await apiUpdateReceipt(id, updates);
+            // Optimistic update
+            setReceipts(prev => prev.map(r => r.id === id ? { ...r, ...updated } : r));
+            return true;
+        } catch (e: any) {
+            console.error("Failed to update receipt:", e);
+            setError(e.message);
+            return false;
+        }
+    }, []);
+
+    const deleteReceipt = useCallback(async (id: string) => {
+        try {
+            await apiDeleteReceipt(id);
+            // Optimistic update
+            setReceipts(prev => prev.filter(r => r.id !== id));
+            return true;
+        } catch (e: any) {
+            console.error("Failed to delete receipt:", e);
+            setError(e.message);
+            return false;
+        }
+    }, []);
 
     const getMonthlySpending = useCallback(() => {
         const monthlyData: Record<string, number> = {};
@@ -111,6 +138,8 @@ export const useReceipts = (user: User | null, householdId: string | null | unde
         isLoading,
         error,
         refreshReceipts: fetchReceipts,
+        updateReceipt,
+        deleteReceipt,
         getMonthlySpending,
         getCategoryBreakdown
     };

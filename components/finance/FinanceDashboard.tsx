@@ -1,8 +1,12 @@
 
-import React, { useMemo } from 'react';
-import { TrendingUpIcon, TrendingDownIcon, ReceiptPercentIcon, SparklesIcon, SpinnerIcon, CategoryOtherIcon } from '../Icons';
+import React, { useState } from 'react';
+import { TrendingUpIcon, TrendingDownIcon, ReceiptPercentIcon, SparklesIcon, SpinnerIcon, CategoryOtherIcon, PencilIcon } from '../Icons';
 import { GroceryCategory, Receipt } from '../../types';
 import { useTranslation } from '../../i18n/index';
+import { ReceiptEditModal } from './ReceiptEditModal';
+import { useReceipts } from '../../hooks/useReceipts';
+import { useAuth } from '../../contexts/AuthContext';
+import { useHousehold } from '../../hooks/useHousehold';
 
 interface FinanceDashboardProps {
     monthlyData: { label: string; value: number; active?: boolean }[];
@@ -101,10 +105,15 @@ const SimpleDonutChart: React.FC<{ data: { label: string; value: number; color: 
 
 export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ monthlyData, categoryData, totalSpend, isLoading, onScan }) => {
     const { t } = useTranslation();
+    const { user } = useAuth();
+    const { userProfile } = useHousehold(user);
+    // Re-hook to get list data locally for the list view
+    const { receipts, updateReceipt, deleteReceipt } = useReceipts(user, userProfile?.household_id);
+    const [editingReceipt, setEditingReceipt] = useState<Receipt | null>(null);
+
     const currentMonth = new Date().toLocaleString('default', { month: 'short' });
     
-    // Calculate Mock diff for now or implement logic (previous month comparison)
-    // For MVP, just comparing vs average of prev months
+    // Calculate Mock diff
     const avg = monthlyData.length > 1 ? (monthlyData.slice(0, -1).reduce((acc, c) => acc + c.value, 0) / (monthlyData.length - 1)) : totalSpend;
     const diffPercent = avg > 0 ? Math.round(((totalSpend - avg) / avg) * 100) : 0;
 
@@ -167,6 +176,40 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ monthlyData,
                 </div>
             </div>
 
+            {/* Recent Transactions List (NEW) */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                    <h4 className="font-bold text-gray-700 dark:text-gray-300 text-sm">Letzte Umsätze</h4>
+                </div>
+                <div className="divide-y divide-gray-100 dark:divide-gray-700 max-h-64 overflow-y-auto">
+                    {receipts.length === 0 ? (
+                        <p className="p-4 text-center text-sm text-gray-500">Keine Umsätze gefunden.</p>
+                    ) : (
+                        receipts.map(r => (
+                            <div 
+                                key={r.id} 
+                                onClick={() => setEditingReceipt(r)}
+                                className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors group"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded-full text-gray-500 dark:text-gray-400">
+                                        <ReceiptPercentIcon className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-sm text-gray-900 dark:text-white">{r.merchant_name}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(r.date).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="font-bold text-gray-900 dark:text-white">-{r.total_amount.toFixed(2)} {r.currency}</span>
+                                    <PencilIcon className="w-4 h-4 text-gray-300 group-hover:text-indigo-500 transition-colors" />
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+
             {/* Scan Action Callout */}
             <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4 flex items-center justify-between border border-indigo-100 dark:border-indigo-800/50">
                 <div className="flex items-center gap-3">
@@ -185,6 +228,16 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ monthlyData,
                     Scannen
                 </button>
             </div>
+
+            {/* Edit Modal */}
+            {editingReceipt && (
+                <ReceiptEditModal 
+                    receipt={editingReceipt} 
+                    onSave={updateReceipt} 
+                    onDelete={deleteReceipt} 
+                    onClose={() => setEditingReceipt(null)} 
+                />
+            )}
         </div>
     );
 };
