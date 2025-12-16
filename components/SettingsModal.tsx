@@ -185,17 +185,71 @@ const DatabaseManager: React.FC = () => {
     const { t } = useTranslation();
     const [showSql, setShowSql] = useState(false);
     
-    // SQL to add missing columns safely
+    // Updated SQL to include Receipts tables
     const sqlCode = `
+-- 1. Updates für bestehende Tabellen
 ALTER TABLE food_items ADD COLUMN IF NOT EXISTS category text DEFAULT 'other';
 ALTER TABLE food_items ADD COLUMN IF NOT EXISTS calories integer;
+
+-- 2. Neue Tabelle: Receipts (Belege)
+CREATE TABLE IF NOT EXISTS receipts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  uploader_id UUID REFERENCES auth.users NOT NULL,
+  household_id UUID REFERENCES households(id),
+  merchant_name TEXT NOT NULL,
+  date TIMESTAMPTZ,
+  total_amount NUMERIC DEFAULT 0,
+  currency TEXT DEFAULT 'EUR',
+  scanned_at TIMESTAMPTZ DEFAULT NOW(),
+  image_url TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. Neue Tabelle: Receipt Items (Positionen)
+CREATE TABLE IF NOT EXISTS receipt_items (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  receipt_id UUID REFERENCES receipts(id) ON DELETE CASCADE,
+  food_item_id UUID REFERENCES food_items(id),
+  raw_name TEXT NOT NULL,
+  category TEXT,
+  price NUMERIC DEFAULT 0,
+  quantity NUMERIC DEFAULT 1,
+  total_price NUMERIC DEFAULT 0
+);
+
+-- 4. Sicherheit (RLS) für Receipts
+ALTER TABLE receipts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can insert their own receipts" ON receipts
+  FOR INSERT WITH CHECK (auth.uid() = uploader_id);
+
+CREATE POLICY "Users can view their own receipts" ON receipts
+  FOR SELECT USING (auth.uid() = uploader_id);
+
+CREATE POLICY "Users can view household receipts" ON receipts
+  FOR SELECT USING (
+    household_id IN (SELECT household_id FROM profiles WHERE id = auth.uid())
+  );
+
+-- 5. Sicherheit (RLS) für Receipt Items
+ALTER TABLE receipt_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can insert items for their receipts" ON receipt_items
+  FOR INSERT WITH CHECK (
+    receipt_id IN (SELECT id FROM receipts WHERE uploader_id = auth.uid())
+  );
+
+CREATE POLICY "Users can view items of visible receipts" ON receipt_items
+  FOR SELECT USING (
+    receipt_id IN (SELECT id FROM receipts)
+  );
 `.trim();
 
     return (
         <div>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">{t('settings.troubleshoot.title')}</h3>
             <div className="bg-gray-100 dark:bg-gray-900/50 p-4 rounded-lg space-y-3">
-                <p className="text-sm text-gray-600 dark:text-gray-400">{t('settings.troubleshoot.description_category')}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{t('settings.troubleshoot.description')}</p>
                 
                 {!showSql ? (
                     <button onClick={() => setShowSql(true)} className="text-sm text-indigo-600 dark:text-indigo-400 hover:underline font-medium flex items-center gap-1">
@@ -204,7 +258,7 @@ ALTER TABLE food_items ADD COLUMN IF NOT EXISTS calories integer;
                     </button>
                 ) : (
                     <div className="mt-2">
-                        <code className="block p-3 bg-gray-800 text-gray-200 rounded-md font-mono text-xs select-all overflow-x-auto whitespace-pre">
+                        <code className="block p-3 bg-gray-800 text-gray-200 rounded-md font-mono text-[10px] sm:text-xs select-all overflow-x-auto whitespace-pre h-48 overflow-y-auto">
                             {sqlCode}
                         </code>
                         <p className="text-xs text-gray-500 mt-1">{t('settings.troubleshoot.sqlInstructions')}</p>
