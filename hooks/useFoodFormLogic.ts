@@ -113,6 +113,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       setImage(initialData.image || null);
       setTags(initialData.tags?.join(', ') || '');
       setIsFamilyFavorite(initialData.isFamilyFavorite || false);
+      setPrice(initialData.price ?? '');
       
       // Strict category initialization: Use data from DB if exists, otherwise fallback intelligently
       if (initialData.category) {
@@ -140,7 +141,6 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       } else {
         setRestaurantName(initialData.restaurantName || '');
         setCuisineType(initialData.cuisineType || '');
-        setPrice(initialData.price ?? '');
       }
     } else {
       resetFormState();
@@ -618,6 +618,8 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       // CRITICAL: Force category to be present. If empty string or undefined, use 'other'.
       category: category || 'other', 
       isFamilyFavorite,
+      // Pass price for all types, allowing products to have a price too
+      price: price !== '' ? Number(price) : undefined,
     };
 
     if (itemType === 'product' || itemType === 'drugstore') {
@@ -637,7 +639,6 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
           ...commonData,
           restaurantName: restaurantName || undefined,
           cuisineType: cuisineType || undefined,
-          price: price !== '' ? Number(price) : undefined,
         });
     }
   }, [name, rating, t, notes, image, tags, itemType, category, onSaveItem, nutriScore, calories, purchaseLocation, ingredients, allergens, dietary, restaurantName, cuisineType, price, isFamilyFavorite]);

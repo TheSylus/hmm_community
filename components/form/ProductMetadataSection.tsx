@@ -114,36 +114,39 @@ export const ProductMetadataSection: React.FC<ProductMetadataSectionProps> = ({
 
       {/* Purchase Location */}
       {itemType !== 'dish' && (
-        <div>
-            <input
-            type="text"
-            placeholder={t('form.placeholder.purchaseLocation')}
-            value={formState.purchaseLocation}
-            onChange={e => formSetters.setPurchaseLocation(e.target.value)}
-            className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3"
-            />
-            {savedShops.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-2">
-                {savedShops.map(shop => {
-                const isSelected = isShopSelected(shop);
-                return (
-                    <button
-                    key={shop}
-                    type="button"
-                    onClick={() => toggleShop(shop)}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs border transition-colors ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/50 border-indigo-300 dark:border-indigo-700' : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                    >
-                    <StoreLogo name={shop} size="sm" />
-                    <span className={isSelected ? 'font-semibold text-indigo-800 dark:text-indigo-200' : 'text-gray-600 dark:text-gray-300'}>{shop}</span>
-                    </button>
-                );
-                })}
+        <div className="flex flex-col gap-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Einkaufsort</label>
+                <input
+                type="text"
+                placeholder={t('form.placeholder.purchaseLocation')}
+                value={formState.purchaseLocation}
+                onChange={e => formSetters.setPurchaseLocation(e.target.value)}
+                className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3"
+                />
+                {savedShops.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                    {savedShops.map(shop => {
+                    const isSelected = isShopSelected(shop);
+                    return (
+                        <button
+                        key={shop}
+                        type="button"
+                        onClick={() => toggleShop(shop)}
+                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs border transition-colors ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/50 border-indigo-300 dark:border-indigo-700' : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                        >
+                        <StoreLogo name={shop} size="sm" />
+                        <span className={isSelected ? 'font-semibold text-indigo-800 dark:text-indigo-200' : 'text-gray-600 dark:text-gray-300'}>{shop}</span>
+                        </button>
+                    );
+                    })}
+                </div>
+                )}
             </div>
-            )}
         </div>
       )}
 
-      {/* NutriScore & Calories (Product Only) */}
+      {/* NutriScore, Calories & Price (Product Only) */}
       {itemType === 'product' && (
         <div className="flex flex-col sm:flex-row gap-4">
             {/* NutriScore */}
@@ -182,6 +185,19 @@ export const ProductMetadataSection: React.FC<ProductMetadataSectionProps> = ({
                         <span className="text-orange-500">🔥</span>
                     </div>
                 </div>
+            </div>
+
+            {/* Price (Manual) */}
+            <div className="p-2 rounded-md transition-shadow flex-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Preis (€)</label>
+                <input
+                    type="number"
+                    placeholder="0.00"
+                    step="0.01"
+                    value={formState.price}
+                    onChange={e => formSetters.setPrice(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                    className="w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2"
+                />
             </div>
         </div>
       )}

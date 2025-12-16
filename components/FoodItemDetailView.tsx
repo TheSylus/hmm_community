@@ -131,11 +131,13 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
                   <p className="truncate" title={displayItem.cuisineType}>{displayItem.cuisineType}</p>
                 </div>
               )}
-               {typeof displayItem.price === 'number' && (
-                <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 font-semibold">
-                  <span>{displayItem.price.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: language === 'de' ? 'EUR' : 'USD' })}</span>
-                </div>
-              )}
+            </div>
+          )}
+          
+          {/* Unified Price Display for All Types */}
+          {typeof displayItem.price === 'number' && (
+            <div className="flex items-center gap-1 mt-1 text-sm text-gray-700 dark:text-gray-200 font-bold">
+              <span>{displayItem.price.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: language === 'de' ? 'EUR' : 'USD' })}</span>
             </div>
           )}
 

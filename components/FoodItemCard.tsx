@@ -51,7 +51,7 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
 
 // Internal component for the actual content
 const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, onToggleFamilyStatus, isPreview = false, isInShoppingList = false }) => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { user } = useAuth();
   const displayItem = useTranslatedItem(item);
 
@@ -227,7 +227,6 @@ const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                                         {isInShoppingList ? <ShoppingCartIcon className="w-3.5 h-3.5" /> : <ShoppingBagIcon className="w-3.5 h-3.5" />}
                                     </button>
                                 )}
-                                {/* Pencil Button Removed - Card click handles edit now */}
                             </div>
                         )}
                     </div>
@@ -238,22 +237,31 @@ const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                         ))}
                     </div>
 
-                    <div className="mt-1 min-h-[1rem]">
-                        {displayItem.itemType === 'dish' && displayItem.restaurantName && (
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate italic flex items-center gap-1">
-                                <BuildingStorefrontIcon className="w-2.5 h-2.5"/> {displayItem.restaurantName}
-                            </p>
-                        )}
+                    <div className="mt-1 min-h-[1rem] flex items-center justify-between">
+                        <div className="overflow-hidden flex-1">
+                            {displayItem.itemType === 'dish' && displayItem.restaurantName && (
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate italic flex items-center gap-1">
+                                    <BuildingStorefrontIcon className="w-2.5 h-2.5"/> {displayItem.restaurantName}
+                                </p>
+                            )}
 
-                        {(displayItem.itemType === 'product' || displayItem.itemType === 'drugstore') && displayItem.purchaseLocation && displayItem.purchaseLocation.length > 0 && (
-                            <div className="flex items-center gap-0.5 overflow-hidden">
-                                {displayItem.purchaseLocation.slice(0, 3).map((loc, idx) => (
-                                    <StoreLogo key={idx} name={loc} size="sm" showName={false} className="w-3.5 h-3.5 opacity-80 grayscale-[0.3]" />
-                                ))}
-                                {displayItem.purchaseLocation.length > 3 && (
-                                    <span className="text-[9px] text-gray-400">+{displayItem.purchaseLocation.length - 3}</span>
-                                )}
-                            </div>
+                            {(displayItem.itemType === 'product' || displayItem.itemType === 'drugstore') && displayItem.purchaseLocation && displayItem.purchaseLocation.length > 0 && (
+                                <div className="flex items-center gap-0.5 overflow-hidden">
+                                    {displayItem.purchaseLocation.slice(0, 3).map((loc, idx) => (
+                                        <StoreLogo key={idx} name={loc} size="sm" showName={false} className="w-3.5 h-3.5 opacity-80 grayscale-[0.3]" />
+                                    ))}
+                                    {displayItem.purchaseLocation.length > 3 && (
+                                        <span className="text-[9px] text-gray-400">+{displayItem.purchaseLocation.length - 3}</span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* PRICE BADGE ON CARD */}
+                        {typeof displayItem.price === 'number' && (
+                            <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700/50 px-1.5 py-0.5 rounded ml-1 shrink-0 whitespace-nowrap">
+                                {displayItem.price.toFixed(2)}€
+                            </span>
                         )}
                     </div>
                 </div>
