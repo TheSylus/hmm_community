@@ -15,21 +15,31 @@ export const PriceHistoryChart: React.FC<PriceHistoryChartProps> = ({ history, c
 
     // 1. Data Prep
     const data = useMemo(() => {
-        // If we have a current price from the item itself, add it as the "latest" point if newer
+        // If we have a current price from the item itself, add it as the "latest" point if newer or distinct
         let points = [...history];
-        if (currentPrice) {
-            points.push({
-                date: new Date().toISOString(),
-                price: currentPrice,
-                merchant: 'Current'
-            });
+        
+        // Filter out zero prices which might be errors
+        points = points.filter(p => p.price > 0);
+
+        if (currentPrice && currentPrice > 0) {
+            // Check if last point is same price/date to avoid duplicates
+            const last = points[points.length - 1];
+            const isDuplicate = last && Math.abs(last.price - currentPrice) < 0.01 && new Date().getTime() - new Date(last.date).getTime() < 86400000; // within 24h
+            
+            if (!isDuplicate) {
+                points.push({
+                    date: new Date().toISOString(),
+                    price: currentPrice,
+                    merchant: 'Aktuell'
+                });
+            }
         }
         // Sort by date ensures correct line drawing
         points.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         return points;
     }, [history, currentPrice]);
 
-    // 2. Logic: Need at least 2 points for a line
+    // 2. Logic: Need at least 2 points for a line, but 1 is okay to just show "Last Price"
     if (data.length < 2) {
         return (
             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/50 flex flex-col items-center text-center">
@@ -47,7 +57,6 @@ export const PriceHistoryChart: React.FC<PriceHistoryChartProps> = ({ history, c
     const previousPrice = data[data.length - 2].price;
     const priceDiff = latestPrice - previousPrice;
     const isInflation = priceDiff > 0;
-    const isDeflation = priceDiff < 0;
     const percentChange = previousPrice > 0 ? Math.round((Math.abs(priceDiff) / previousPrice) * 100) : 0;
 
     const minPrice = Math.min(...data.map(d => d.price)) * 0.9; // 10% padding
@@ -141,8 +150,8 @@ export const PriceHistoryChart: React.FC<PriceHistoryChartProps> = ({ history, c
                 
                 {/* Tooltip-ish Overlay for Start/End Dates */}
                 <div className="flex justify-between mt-1 text-[9px] text-gray-400 font-mono">
-                    <span>{new Date(data[0].date).toLocaleDateString()}</span>
-                    <span>{new Date(data[data.length - 1].date).toLocaleDateString()}</span>
+                    <span>{new Date(data[0].date).toLocaleDateString(undefined, { month: 'short', year: '2-digit' })}</span>
+                    <span>{new Date(data[data.length - 1].date).toLocaleDateString(undefined, { month: 'short', year: '2-digit' })}</span>
                 </div>
             </div>
         </div>

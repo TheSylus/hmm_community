@@ -258,8 +258,8 @@ const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                         </div>
                         
                         {/* PRICE BADGE ON CARD */}
-                        {typeof displayItem.price === 'number' && (
-                            <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700/50 px-1.5 py-0.5 rounded ml-1 shrink-0 whitespace-nowrap">
+                        {typeof displayItem.price === 'number' && displayItem.price > 0 && (
+                            <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700/50 px-1.5 py-0.5 rounded ml-1 shrink-0 whitespace-nowrap border border-gray-200 dark:border-gray-600">
                                 {displayItem.price.toFixed(2)}€
                             </span>
                         )}

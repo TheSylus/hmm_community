@@ -58,7 +58,7 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
       const loadHistory = async () => {
           if (!user || !displayItem) return;
           
-          // Only fetch for products, not dishes (dishes have specific price field, but receipts are usually grocery)
+          // Only fetch for products and drugstore, dishes have their own fixed price logic usually
           if (displayItem.itemType !== 'product' && displayItem.itemType !== 'drugstore') return;
 
           setIsHistoryLoading(true);
@@ -73,7 +73,7 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
       };
       loadHistory();
       return () => { isMounted = false; };
-  }, [user, displayItem?.name, displayItem?.itemType]); // Dependency on name is key
+  }, [user, displayItem?.name, displayItem?.itemType]);
 
   if (!displayItem) {
     return null; // Or a loading state
@@ -135,8 +135,8 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
           )}
           
           {/* Unified Price Display for All Types */}
-          {typeof displayItem.price === 'number' && (
-            <div className="flex items-center gap-1 mt-1 text-sm text-gray-700 dark:text-gray-200 font-bold">
+          {typeof displayItem.price === 'number' && displayItem.price > 0 && (
+            <div className="flex items-center gap-1 mt-1 text-lg text-gray-800 dark:text-gray-100 font-bold">
               <span>{displayItem.price.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: language === 'de' ? 'EUR' : 'USD' })}</span>
             </div>
           )}
