@@ -66,7 +66,7 @@ const ActiveFilterPill: React.FC<{onDismiss: () => void, children: React.ReactNo
   </div>
 );
 
-const App: React.FC = () => {
+export const App: React.FC = () => {
   const { t } = useTranslation();
   const { session, user } = useAuth();
   const { isBarcodeScannerEnabled } = useAppSettings();
@@ -586,9 +586,9 @@ const App: React.FC = () => {
           } else {
               setToastMessage("Receipt Saved!");
           }
-      } catch (e) {
+      } catch (e: any) {
           console.error("Save Receipt Failed", e);
-          setToastMessage("Failed to save receipt.");
+          setToastMessage(`Failed to save receipt: ${e.message || 'Unknown error'}`);
       }
   };
 
@@ -931,5 +931,3 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-export default App;

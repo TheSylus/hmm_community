@@ -7,9 +7,9 @@ const mapReceiptToDbPayload = (receipt: Partial<Receipt>, userId: string, househ
     return {
         uploader_id: userId,
         household_id: householdId || null,
-        merchant_name: receipt.merchant_name,
+        merchant_name: receipt.merchant_name || 'Unknown Store', // Fallback
         date: receipt.date || new Date().toISOString(),
-        total_amount: receipt.total_amount,
+        total_amount: typeof receipt.total_amount === 'number' ? receipt.total_amount : 0, // Ensure number
         currency: receipt.currency || 'EUR',
         scanned_at: new Date().toISOString(),
         // image_url handled separately after upload
@@ -37,31 +37,39 @@ export const createReceipt = async (
 
     if (receiptError) {
         console.error("Error saving receipt header:", receiptError);
-        throw receiptError;
+        throw new Error(`Receipt Header Save Failed: ${receiptError.message}`);
     }
 
     if (!receipt) return null;
 
-    // 2. Prepare Items
-    const itemsPayload = receiptData.items.map(item => ({
-        receipt_id: receipt.id,
-        raw_name: item.raw_name,
-        category: item.category || 'other',
-        price: item.price,
-        quantity: item.quantity || 1,
-        total_price: (item.price || 0) * (item.quantity || 1)
-    }));
+    // 2. Prepare Items with strict sanitization
+    // Database strictly expects numbers for price/qty, usually NOT NULL.
+    const itemsPayload = receiptData.items.map(item => {
+        const safePrice = typeof item.price === 'number' ? item.price : 0;
+        const safeQty = typeof item.quantity === 'number' ? item.quantity : 1;
+        
+        return {
+            receipt_id: receipt.id,
+            raw_name: item.raw_name || 'Unknown Item',
+            category: item.category || 'other',
+            price: safePrice,
+            quantity: safeQty,
+            total_price: safePrice * safeQty
+        };
+    });
 
     // 3. Save Items
-    const { error: itemsError } = await supabase
-        .from('receipt_items')
-        .insert(itemsPayload);
+    if (itemsPayload.length > 0) {
+        const { error: itemsError } = await supabase
+            .from('receipt_items')
+            .insert(itemsPayload);
 
-    if (itemsError) {
-        console.error("Error saving receipt items:", itemsError);
-        // We generally don't delete the receipt header if items fail, 
-        // but in a strict transaction we would. Supabase client doesn't support easy transactions yet.
-        throw itemsError;
+        if (itemsError) {
+            console.error("Error saving receipt items:", itemsError);
+            // We generally don't delete the receipt header if items fail, 
+            // but in a strict transaction we would. Supabase client doesn't support easy transactions yet.
+            throw new Error(`Receipt Items Save Failed: ${itemsError.message}`);
+        }
     }
 
     return { ...receipt, items: itemsPayload };
