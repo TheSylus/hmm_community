@@ -5,7 +5,6 @@ import { User } from '@supabase/supabase-js';
 import * as foodItemService from '../services/foodItemService';
 import { supabase } from '../services/supabaseClient';
 
-// Helper function to convert a base64 string to a Blob for uploading
 const base64ToBlob = (base64: string, mimeType: string): Blob => {
   const byteCharacters = atob(base64.split(',')[1]);
   const byteArrays = [];
@@ -25,7 +24,6 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch Personal Data
   const fetchPersonalData = useCallback(async () => {
     if (!user) return;
     try {
@@ -37,7 +35,6 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
     }
   }, [user]);
 
-  // Fetch Family Data
   const fetchFamilyData = useCallback(async () => {
     if (!householdId) {
       setFamilyFoodItems([]);
@@ -48,11 +45,9 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
       setFamilyFoodItems(items);
     } catch (err: any) {
       console.error("Family data fetch error:", err);
-      // We generally don't want to block the whole app if family data fails, just log it
     }
   }, [householdId]);
 
-  // Initial Fetch
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -73,7 +68,6 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
     return () => { mounted = false; };
   }, [user, householdId, fetchPersonalData, fetchFamilyData]);
 
-  // Save Item (Create or Update)
   const saveItem = useCallback(async (
     itemData: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>,
     existingId?: string
@@ -88,7 +82,6 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
     const originalItems = [...foodItems];
     const tempId = existingId || `temp_${Date.now()}`;
 
-    // Optimistic Update
     const optimisticItem: FoodItem = {
       ...itemData,
       id: tempId,
@@ -104,27 +97,23 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
       setFoodItems(prev => [optimisticItem, ...prev]);
     }
 
-    // Image Upload Logic
     if (imageUrl && imageUrl.startsWith('data:image')) {
       try {
         const mimeType = imageUrl.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/jpeg';
         const blob = base64ToBlob(imageUrl, mimeType);
         const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
         const { error: uploadError } = await supabase.storage.from('food-images').upload(fileName, blob, { contentType: mimeType });
-        
         if (uploadError) throw uploadError;
-        
         const { data: urlData } = supabase.storage.from('food-images').getPublicUrl(fileName);
         imageUrl = urlData.publicUrl;
       } catch (uploadErr: any) {
         console.error("Upload error:", uploadErr);
         setError(`Failed to upload image: ${uploadErr.message}`);
-        setFoodItems(originalItems); // Revert
+        setFoodItems(originalItems);
         return false;
       }
     }
 
-    // Database Operation
     try {
       let savedItem: FoodItem;
       if (existingId) {
@@ -134,17 +123,12 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
         savedItem = await foodItemService.createFoodItem(itemData, user.id, imageUrl);
         setFoodItems(prev => prev.map(item => item.id === tempId ? savedItem : item));
       }
-
-      // If it's a family favorite, refresh family items
-      if (itemData.isFamilyFavorite && householdId) {
-        fetchFamilyData();
-      }
-      
+      if (itemData.isFamilyFavorite && householdId) fetchFamilyData();
       return true;
     } catch (dbErr: any) {
       console.error("Database save error:", dbErr);
       setError(`Failed to save item: ${dbErr.message}`);
-      setFoodItems(originalItems); // Revert
+      setFoodItems(originalItems);
       return false;
     }
   }, [user, foodItems, householdId, fetchFamilyData]);
@@ -152,12 +136,15 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
   const saveItemsBulk = useCallback(async (
       itemsData: (Omit<FoodItem, 'id' | 'user_id' | 'created_at'>)[]
   ): Promise<boolean> => {
-      if (!user) return false;
+      if (!user || itemsData.length === 0) return false;
       try {
           const savedItems = await foodItemService.createFoodItemsBulk(itemsData, user.id);
-          setFoodItems(prev => [...savedItems, ...prev]);
-          if(householdId) fetchFamilyData();
-          return true;
+          if (savedItems.length > 0) {
+              setFoodItems(prev => [...savedItems, ...prev]);
+              if(householdId) fetchFamilyData();
+              return true;
+          }
+          return false;
       } catch (e: any) {
           console.error("Bulk save error:", e);
           setError(`Failed to bulk save: ${e.message}`);
@@ -165,20 +152,17 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
       }
   }, [user, householdId, fetchFamilyData]);
 
-  // Delete Item
   const deleteItem = useCallback(async (id: string) => {
     const originalItems = [...foodItems];
     setFoodItems(prev => prev.filter(item => item.id !== id));
     setError(null);
-
     try {
       await foodItemService.deleteFoodItem(id);
-      // If deleted item was in family items, refresh (or simpler: filter it out optimistically too if we wanted)
       if (householdId) fetchFamilyData();
     } catch (err: any) {
       console.error("Delete error:", err);
       setError(`Failed to delete item: ${err.message}`);
-      setFoodItems(originalItems); // Revert
+      setFoodItems(originalItems);
     }
   }, [foodItems, householdId, fetchFamilyData]);
 

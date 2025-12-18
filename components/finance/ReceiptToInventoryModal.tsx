@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../../i18n/index';
 import { Receipt, ReceiptItem, FoodItem, GroceryCategory } from '../../types';
-import { XMarkIcon, CheckCircleIcon, PlusCircleIcon, CategoryOtherIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryRestaurantIcon, CheckBadgeIcon } from '../Icons';
+import { XMarkIcon, CheckCircleIcon, PlusCircleIcon, CategoryOtherIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryRestaurantIcon, CheckBadgeIcon, SpinnerIcon } from '../Icons';
 
 interface ReceiptToInventoryModalProps {
     receipt: Receipt;
@@ -30,17 +30,13 @@ export const ReceiptToInventoryModal: React.FC<ReceiptToInventoryModalProps> = (
     const { t } = useTranslation();
     const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
     const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    // Initial Selection Logic
     useEffect(() => {
         const initialSelection = new Set<number>();
         items.forEach((item, index) => {
-            // Priority 1: Match from Shopping List (Entity already exists)
-            // Priority 2: Exclude household/personal_care by default for inventory import
             if (item.food_item_id) {
-                // If it's already matched, we don't NEED to import it as a new item,
-                // but we might want to check it if the user wants to "refresh" it.
-                // USUALLY: Match means it's tracked. New price is saved to history automatically by DB trigger or service.
+                // Skip already matched
             } else if (item.category !== 'household' && item.category !== 'personal_care') {
                 initialSelection.add(index);
             }
@@ -66,41 +62,63 @@ export const ReceiptToInventoryModal: React.FC<ReceiptToInventoryModalProps> = (
     };
 
     const handleImport = async () => {
-        setIsSaving(true);
-        const foodItemsToCreate: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>[] = [];
-        
-        selectedIndices.forEach(index => {
-            const rItem = items[index];
-            foodItemsToCreate.push({
-                name: rItem.raw_name,
-                rating: 0,
-                itemType: 'product',
-                category: rItem.category,
-                purchaseLocation: [receipt.merchant_name],
-                isFamilyFavorite: false,
-                price: rItem.price
-            });
-        });
+        if (selectedIndices.size === 0) {
+            onClose();
+            return;
+        }
 
-        await onConfirm(foodItemsToCreate);
-        setIsSaving(false);
+        setIsSaving(true);
+        setError(null);
+        
+        try {
+            const foodItemsToCreate: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>[] = [];
+            selectedIndices.forEach(index => {
+                const rItem = items[index];
+                foodItemsToCreate.push({
+                    name: rItem.raw_name,
+                    rating: 0,
+                    itemType: 'product',
+                    category: rItem.category,
+                    purchaseLocation: [receipt.merchant_name],
+                    isFamilyFavorite: false,
+                    price: rItem.price
+                });
+            });
+
+            await onConfirm(foodItemsToCreate);
+            onClose();
+        } catch (e: any) {
+            console.error("Bulk Import UI Error:", e);
+            setError("Einige Artikel konnten nicht importiert werden. Bitte prüfe deine Internetverbindung.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-0 sm:p-4 animate-fade-in">
-            <div className="bg-white dark:bg-gray-900 w-full h-full sm:h-[90vh] sm:max-w-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="bg-white dark:bg-gray-900 w-full h-full sm:h-[90vh] sm:max-w-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden relative">
+                
+                {isSaving && (
+                    <div className="absolute inset-0 bg-white/60 dark:bg-black/60 backdrop-blur-[2px] z-50 flex flex-col items-center justify-center animate-fade-in">
+                        <SpinnerIcon className="w-12 h-12 text-indigo-600 mb-4" />
+                        <p className="text-lg font-bold text-gray-900 dark:text-white">Importiere Artikel...</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Dies kann einen Moment dauern.</p>
+                    </div>
+                )}
+
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 pt-safe-top flex justify-between items-center">
                     <div>
                         <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('modal.import.title')}</h2>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{t('modal.import.description')}</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-gray-500">
+                    <button onClick={onClose} disabled={isSaving} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full text-gray-500 disabled:opacity-30">
                         <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>
 
                 <div className="flex justify-between items-center px-4 py-2 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
-                    <button onClick={toggleAll} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                    <button onClick={toggleAll} disabled={isSaving} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 disabled:opacity-30">
                         {selectedIndices.size === items.length ? t('modal.import.deselectAll') : t('modal.import.selectAll')}
                     </button>
                     <span className="text-xs text-gray-400 font-mono">
@@ -109,6 +127,12 @@ export const ReceiptToInventoryModal: React.FC<ReceiptToInventoryModalProps> = (
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                    {error && (
+                        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm mb-4 animate-shake">
+                            {error}
+                        </div>
+                    )}
+                    
                     {items.map((item, idx) => {
                         const isSelected = selectedIndices.has(idx);
                         const isAlreadyMatched = !!item.food_item_id;
@@ -117,8 +141,8 @@ export const ReceiptToInventoryModal: React.FC<ReceiptToInventoryModalProps> = (
                         return (
                             <div 
                                 key={idx} 
-                                onClick={() => !isAlreadyMatched && toggleItem(idx)}
-                                className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${isAlreadyMatched ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800/50 opacity-80 cursor-default' : isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 cursor-pointer' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 opacity-60 cursor-pointer'}`}
+                                onClick={() => !isAlreadyMatched && !isSaving && toggleItem(idx)}
+                                className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${isAlreadyMatched ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800/50 opacity-80 cursor-default' : isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 cursor-pointer' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 opacity-60 cursor-pointer'} ${isSaving ? 'pointer-events-none' : ''}`}
                             >
                                 <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition-colors ${isAlreadyMatched ? 'bg-green-500 border-green-500' : isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-gray-400 bg-transparent'}`}>
                                     {(isAlreadyMatched || isSelected) && <CheckCircleIcon className="w-4 h-4 text-white" />}
@@ -154,19 +178,28 @@ export const ReceiptToInventoryModal: React.FC<ReceiptToInventoryModalProps> = (
                 <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 pb-safe-bottom flex gap-3">
                     <button 
                         onClick={onClose} 
-                        className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl transition-colors"
+                        disabled={isSaving}
+                        className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-bold rounded-xl transition-colors disabled:opacity-30"
                     >
                         {t('modal.import.button.skip')}
                     </button>
                     <button 
                         onClick={handleImport}
-                        disabled={(selectedIndices.size === 0 && !items.some(i => i.food_item_id)) || isSaving}
+                        disabled={isSaving}
                         className="flex-[2] py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-transform active:scale-95 disabled:bg-indigo-400 flex items-center justify-center gap-2"
                     >
                         {isSaving ? "Importing..." : t('modal.import.button.add', { count: selectedIndices.size })}
                     </button>
                 </div>
             </div>
+            <style>{`
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    25% { transform: translateX(-4px); }
+                    75% { transform: translateX(4px); }
+                }
+                .animate-shake { animation: shake 0.2s ease-in-out 0s 2; }
+            `}</style>
         </div>
     );
 };

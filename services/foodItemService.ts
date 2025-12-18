@@ -28,34 +28,20 @@ interface FoodItemDbPayload {
 
 // --- Mappers ---
 
-/**
- * Konvertiert ein Datenbank-Objekt (Snake Case) in das Frontend-Format (Camel Case).
- */
 export const mapDbToFoodItem = (dbItem: any): FoodItem => {
-  // Handle legacy data where purchase_location might be a string
   let locations: string[] = [];
   if (Array.isArray(dbItem.purchase_location)) {
     locations = dbItem.purchase_location;
   } else if (typeof dbItem.purchase_location === 'string' && dbItem.purchase_location.trim() !== '') {
     let raw = dbItem.purchase_location;
-    
-    // Try to detect JSON array format (e.g. '["Lidl", "Aldi"]')
     if (raw.startsWith('[') && raw.endsWith(']')) {
       try {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          locations = parsed.map(String);
-        }
-      } catch (e) {
-        // Fallback to simple split if JSON parse fails
-      }
+        if (Array.isArray(parsed)) locations = parsed.map(String);
+      } catch (e) {}
     }
-    
-    // Handle Postgres array string format "{A,B}" or simple comma-separated string "A,B"
     if (locations.length === 0) {
-        if (raw.startsWith('{') && raw.endsWith('}')) {
-            raw = raw.slice(1, -1);
-        }
+        if (raw.startsWith('{') && raw.endsWith('}')) raw = raw.slice(1, -1);
         locations = raw.split(',').map((l: string) => l.trim()).filter(Boolean);
     }
   }
@@ -70,11 +56,8 @@ export const mapDbToFoodItem = (dbItem: any): FoodItem => {
     image: dbItem.image_url,
     tags: dbItem.tags,
     itemType: dbItem.item_type,
-    // Provide a safe fallback if category is null in DB
     category: dbItem.category || 'other',
     isFamilyFavorite: dbItem.is_family_favorite,
-
-    // Product specific
     nutriScore: dbItem.nutri_score,
     calories: dbItem.calories,
     ingredients: dbItem.ingredients,
@@ -83,17 +66,12 @@ export const mapDbToFoodItem = (dbItem: any): FoodItem => {
     isVegan: dbItem.is_vegan,
     isGlutenFree: dbItem.is_gluten_free,
     purchaseLocation: locations,
-
-    // Dish specific
     restaurantName: dbItem.restaurant_name,
     cuisineType: dbItem.cuisine_type,
     price: dbItem.price,
   } as FoodItem;
 };
 
-/**
- * Konvertiert das Frontend-Objekt in das Datenbank-Format.
- */
 export const mapFoodItemToDbPayload = (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'> & { user_id: string, image_url?: string }): FoodItemDbPayload => {
   return {
     user_id: item.user_id,
@@ -103,11 +81,8 @@ export const mapFoodItemToDbPayload = (item: Omit<FoodItem, 'id' | 'user_id' | '
     image_url: item.image_url || item.image,
     tags: item.tags,
     item_type: item.itemType,
-    // Explicitly pass category, ensuring it defaults to 'other' if somehow undefined to ensure DB column is hit
     category: item.category || 'other',
     is_family_favorite: item.isFamilyFavorite || false,
-
-    // Product specific mappings
     nutri_score: item.nutriScore || null,
     calories: item.calories || null,
     ingredients: item.ingredients,
@@ -116,8 +91,6 @@ export const mapFoodItemToDbPayload = (item: Omit<FoodItem, 'id' | 'user_id' | '
     is_vegan: item.isVegan || false,
     is_gluten_free: item.isGlutenFree || false,
     purchase_location: item.purchaseLocation,
-
-    // Dish specific mappings
     restaurant_name: item.restaurantName,
     cuisine_type: item.cuisineType,
     price: item.price,
@@ -157,112 +130,87 @@ export const createFoodItem = async (item: Omit<FoodItem, 'id' | 'user_id' | 'cr
     .single();
 
   if (error) {
-      console.warn("Initial create failed, attempting cascade retry strategy for missing columns.", error.message);
-
-      // RETRY STRATEGY: Cascade downwards from newest features to oldest
-      
-      // 1. Try removing 'calories' (Newest field)
+      console.warn("Cascade retry for single item:", error.message);
       const { calories, ...payloadNoCalories } = payload;
-      const { data: retry1Data, error: retry1Error } = await supabase
-        .from('food_items')
-        .insert(payloadNoCalories)
-        .select()
-        .single();
-      
-      if (!retry1Error) {
-          console.log("Recovered by omitting 'calories' column.");
-          return mapDbToFoodItem(retry1Data);
-      }
+      const { data: r1, error: e1 } = await supabase.from('food_items').insert(payloadNoCalories).select().single();
+      if (!e1) return mapDbToFoodItem(r1);
 
-      // 2. Try removing 'calories' AND 'category' (Oldest stable schema)
       const { category, ...payloadLegacy } = payloadNoCalories;
-      const { data: retry2Data, error: retry2Error } = await supabase
-        .from('food_items')
-        .insert(payloadLegacy)
-        .select()
-        .single();
-
-      if (!retry2Error) {
-          console.log("Recovered by omitting 'calories' and 'category' columns.");
-          return mapDbToFoodItem(retry2Data);
-      }
-
-      // If all fail, throw original error
+      const { data: r2, error: e2 } = await supabase.from('food_items').insert(payloadLegacy).select().single();
+      if (!e2) return mapDbToFoodItem(r2);
       throw error;
   }
   return mapDbToFoodItem(data);
 };
 
-export const createFoodItemsBulk = async (items: (Omit<FoodItem, 'id' | 'user_id' | 'created_at'>)[], userId: string) => {
+/**
+ * Enhanced Bulk Import with Multi-Stage Recovery Strategy
+ */
+export const createFoodItemsBulk = async (items: (Omit<FoodItem, 'id' | 'user_id' | 'created_at'>)[], userId: string): Promise<FoodItem[]> => {
     if (items.length === 0) return [];
 
-    const payloads = items.map(item => mapFoodItemToDbPayload({ ...item, user_id: userId }));
+    const basePayloads = items.map(item => mapFoodItemToDbPayload({ ...item, user_id: userId }));
 
-    const { data, error } = await supabase
-        .from('food_items')
-        .insert(payloads)
-        .select();
+    // Helper for batch attempts
+    const attemptBatch = async (payloads: any[]) => {
+        const { data, error } = await supabase.from('food_items').insert(payloads).select();
+        return { data, error };
+    };
 
-    if (error) {
-        console.error("Bulk create failed:", error);
-        throw error;
+    // Stage 1: Full Batch
+    let result = await attemptBatch(basePayloads);
+    if (!result.error) return (result.data || []).map(mapDbToFoodItem);
+
+    console.warn("Bulk import Stage 1 failed, trying without 'calories'...", result.error.message);
+
+    // Stage 2: Remove 'calories'
+    const payloadsNoCalories = basePayloads.map(({ calories, ...rest }) => rest);
+    result = await attemptBatch(payloadsNoCalories);
+    if (!result.error) return (result.data || []).map(mapDbToFoodItem);
+
+    console.warn("Bulk import Stage 2 failed, trying without 'category'...", result.error.message);
+
+    // Stage 3: Remove 'calories' AND 'category'
+    const payloadsLegacy = payloadsNoCalories.map(({ category, ...rest }) => rest);
+    result = await attemptBatch(payloadsLegacy);
+    if (!result.error) return (result.data || []).map(mapDbToFoodItem);
+
+    // Stage 4: Nuclear Option - Individual Inserts (Slow but guaranteed to save what's possible)
+    console.warn("Bulk import Stage 3 failed. Switching to individual resilient inserts...");
+    const savedItems: FoodItem[] = [];
+    for (const item of items) {
+        try {
+            const saved = await createFoodItem(item, userId);
+            savedItems.push(saved);
+        } catch (e) {
+            console.error("Failed to save individual item during bulk fallback:", item.name, e);
+        }
     }
-    return (data || []).map(mapDbToFoodItem);
+
+    if (savedItems.length === 0) throw new Error("Mass import failed completely. Check database connection and schema.");
+    return savedItems;
 };
 
 export const updateFoodItem = async (id: string, item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>, userId: string, imageUrl?: string) => {
   const payload = mapFoodItemToDbPayload({ ...item, user_id: userId, image_url: imageUrl });
   
-  const { data, error } = await supabase
-    .from('food_items')
-    .update(payload)
-    .eq('id', id)
-    .select()
-    .single();
+  const { data, error } = await supabase.from('food_items').update(payload).eq('id', id).select().single();
 
   if (error) {
-      console.warn("Initial update failed, attempting cascade retry strategy.", error.message);
+      console.warn("Cascade retry for update:", error.message);
+      const { calories, ...p1 } = payload;
+      const { data: r1, error: e1 } = await supabase.from('food_items').update(p1).eq('id', id).select().single();
+      if (!e1) return mapDbToFoodItem(r1);
 
-      // RETRY STRATEGY: Cascade downwards
-      
-      // 1. Try removing 'calories' but KEEP 'category'
-      const { calories, ...payloadNoCalories } = payload;
-      const { data: retry1Data, error: retry1Error } = await supabase
-        .from('food_items')
-        .update(payloadNoCalories)
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (!retry1Error) {
-          console.log("Update recovered by omitting 'calories'.");
-          return mapDbToFoodItem(retry1Data);
-      }
-
-      // 2. Try removing 'category' too (fallback to legacy)
-      const { category, ...payloadLegacy } = payloadNoCalories;
-      const { data: retry2Data, error: retry2Error } = await supabase
-        .from('food_items')
-        .update(payloadLegacy)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (!retry2Error) {
-          console.log("Update recovered by omitting 'calories' and 'category'.");
-          return mapDbToFoodItem(retry2Data);
-      }
-
+      const { category, ...p2 } = p1;
+      const { data: r2, error: e2 } = await supabase.from('food_items').update(p2).eq('id', id).select().single();
+      if (!e2) return mapDbToFoodItem(r2);
       throw error;
   }
   return mapDbToFoodItem(data);
 };
 
 export const deleteFoodItem = async (id: string) => {
-  const { error } = await supabase
-    .from('food_items')
-    .delete()
-    .eq('id', id);
-
+  const { error } = await supabase.from('food_items').delete().eq('id', id);
   if (error) throw error;
 };
