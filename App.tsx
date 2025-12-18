@@ -558,8 +558,12 @@ export const App: React.FC = () => {
       setIsReceiptCameraOpen(false);
       setIsProcessingReceipt(true);
       try {
-          // Analyze via Gemini
-          const analyzed = await geminiService.analyzeReceiptImage(imageDataUrl);
+          // Optimization: Provide checked shopping list items as context hints for mapping
+          const contextItems = hydratedShoppingList
+              .filter(i => i.checked) // Prefer items that were recently bought
+              .map(i => ({ id: i.id, name: i.name }));
+
+          const analyzed = await geminiService.analyzeReceiptImage(imageDataUrl, contextItems);
           setScannedReceiptData(analyzed);
       } catch (e) {
           console.error("Receipt Analysis Failed", e);
@@ -577,8 +581,6 @@ export const App: React.FC = () => {
           refreshReceipts(); // Update dashboard
           
           if (savedReceipt && savedReceipt.items && savedReceipt.items.length > 0) {
-              // Trigger the "Import to Inventory" flow
-              // Cast to correct type since we know we just created it
               setConfirmedReceiptForImport({ 
                   receipt: savedReceipt as Receipt, 
                   items: savedReceipt.items as ReceiptItem[] 
@@ -685,10 +687,8 @@ export const App: React.FC = () => {
 
     // 3. Finance View
     else if (activeTab === 'finance') {
-        // Calculate Totals for Dashboard
         const monthlyData = getMonthlySpending();
         const categoryData = getCategoryBreakdown();
-        // Current Month Total
         const currentMonthLabel = new Date().toLocaleString('default', { month: 'short' });
         const currentTotal = monthlyData.find(d => d.label === currentMonthLabel)?.value || 0;
 
@@ -702,7 +702,6 @@ export const App: React.FC = () => {
                     onScan={() => setIsReceiptCameraOpen(true)}
                 />
                 
-                {/* Global Overlays for Finance Flow */}
                 {isReceiptCameraOpen && (
                     <CameraCapture 
                         onCapture={handleReceiptCapture}
@@ -715,7 +714,7 @@ export const App: React.FC = () => {
                     <div className="fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-50 animate-fade-in text-white">
                         <SpinnerIcon className="w-12 h-12 text-white mb-4" />
                         <p className="text-lg font-bold">Analyzing Receipt...</p>
-                        <p className="text-sm opacity-70">Detecting items and prices</p>
+                        <p className="text-sm opacity-70">Detecting items and matching to shopping list</p>
                     </div>
                 )}
 
@@ -740,13 +739,11 @@ export const App: React.FC = () => {
     }
   }
 
-  // Aggregate errors for display
   const displayError = foodError || householdError || shoppingListError;
 
   return (
     <div className="min-h-[100dvh] bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans transition-colors duration-300">
        
-       {/* Full Screen Form Overlay */}
        {isFormVisible && (
             <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-100 dark:bg-gray-900 p-safe-top">
                 <FoodItemForm 
@@ -760,7 +757,6 @@ export const App: React.FC = () => {
             </div>
        )}
 
-       {/* Main App Shell */}
        {!isFormVisible && (
            <>
             <header className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow-md dark:shadow-lg sticky top-0 z-30 pt-safe-top">
@@ -774,7 +770,6 @@ export const App: React.FC = () => {
                         </button>
                     </div>
                     
-                    {/* Filter Bar (Only show in Inventory Tab) */}
                     {activeTab === 'inventory' && (
                         <div className="mt-4 space-y-3">
                             <div className="flex gap-2 items-center">
@@ -834,7 +829,6 @@ export const App: React.FC = () => {
                 {renderContent()}
             </main>
 
-            {/* Floating Action Button - Only on Inventory Tab */}
             {activeTab === 'inventory' && (
                 <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-6 z-30">
                     <button
@@ -919,15 +913,6 @@ export const App: React.FC = () => {
       )}
       
       {selectedImage && <ImageModal imageUrl={selectedImage} onClose={() => setSelectedImage(null)} />}
-      <style>{`
-          @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-          .animate-fade-in { animation: fadeIn 0.2s ease-out; }
-          @keyframes fade-in-out {
-              0%, 100% { opacity: 0; transform: translateY(20px) translateX(-50%); }
-              10%, 90% { opacity: 1; transform: translateY(0) translateX(-50%); }
-          }
-          .animate-fade-in-out { animation: fade-in-out 3s ease-in-out; }
-      `}</style>
     </div>
   );
 };
