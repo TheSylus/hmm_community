@@ -185,13 +185,15 @@ const DatabaseManager: React.FC = () => {
     const { t } = useTranslation();
     const [showSql, setShowSql] = useState(false);
     
-    // Updated SQL to include Receipts tables
+    // Updated SQL to include Receipts tables AND DELETE POLICIES
     const sqlCode = `
 -- 1. Updates für bestehende Tabellen
 ALTER TABLE food_items ADD COLUMN IF NOT EXISTS category text DEFAULT 'other';
 ALTER TABLE food_items ADD COLUMN IF NOT EXISTS calories integer;
+ALTER TABLE food_items ADD COLUMN IF NOT EXISTS unit_quantity numeric;
+ALTER TABLE food_items ADD COLUMN IF NOT EXISTS unit_type text;
 
--- 2. Neue Tabelle: Receipts (Belege)
+-- 2. Tabelle: Receipts (Belege)
 CREATE TABLE IF NOT EXISTS receipts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   uploader_id UUID REFERENCES auth.users NOT NULL,
@@ -205,7 +207,7 @@ CREATE TABLE IF NOT EXISTS receipts (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Neue Tabelle: Receipt Items (Positionen)
+-- 3. Tabelle: Receipt Items (Positionen)
 CREATE TABLE IF NOT EXISTS receipt_items (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   receipt_id UUID REFERENCES receipts(id) ON DELETE CASCADE,
@@ -214,35 +216,43 @@ CREATE TABLE IF NOT EXISTS receipt_items (
   category TEXT,
   price NUMERIC DEFAULT 0,
   quantity NUMERIC DEFAULT 1,
-  total_price NUMERIC DEFAULT 0
+  total_price NUMERIC DEFAULT 0,
+  unit_quantity NUMERIC,
+  unit_type TEXT
 );
 
 -- 4. Sicherheit (RLS) für Receipts
 ALTER TABLE receipts ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can insert their own receipts" ON receipts
-  FOR INSERT WITH CHECK (auth.uid() = uploader_id);
+-- Verhindert Fehler beim erneuten Ausführen
+DO $$ 
+BEGIN
+    DROP POLICY IF EXISTS "Users can insert their own receipts" ON receipts;
+    DROP POLICY IF EXISTS "Users can view their own receipts" ON receipts;
+    DROP POLICY IF EXISTS "Users can view household receipts" ON receipts;
+    DROP POLICY IF EXISTS "Users can delete their own receipts" ON receipts;
+    DROP POLICY IF EXISTS "Users can update their own receipts" ON receipts;
+END $$;
 
-CREATE POLICY "Users can view their own receipts" ON receipts
-  FOR SELECT USING (auth.uid() = uploader_id);
-
-CREATE POLICY "Users can view household receipts" ON receipts
-  FOR SELECT USING (
-    household_id IN (SELECT household_id FROM profiles WHERE id = auth.uid())
-  );
+CREATE POLICY "Users can insert their own receipts" ON receipts FOR INSERT WITH CHECK (auth.uid() = uploader_id);
+CREATE POLICY "Users can view their own receipts" ON receipts FOR SELECT USING (auth.uid() = uploader_id);
+CREATE POLICY "Users can view household receipts" ON receipts FOR SELECT USING (household_id IN (SELECT household_id FROM profiles WHERE id = auth.uid()));
+CREATE POLICY "Users can delete their own receipts" ON receipts FOR DELETE USING (auth.uid() = uploader_id);
+CREATE POLICY "Users can update their own receipts" ON receipts FOR UPDATE USING (auth.uid() = uploader_id);
 
 -- 5. Sicherheit (RLS) für Receipt Items
 ALTER TABLE receipt_items ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can insert items for their receipts" ON receipt_items
-  FOR INSERT WITH CHECK (
-    receipt_id IN (SELECT id FROM receipts WHERE uploader_id = auth.uid())
-  );
+DO $$ 
+BEGIN
+    DROP POLICY IF EXISTS "Users can insert items for their receipts" ON receipt_items;
+    DROP POLICY IF EXISTS "Users can view items of visible receipts" ON receipt_items;
+    DROP POLICY IF EXISTS "Users can delete items of their receipts" ON receipt_items;
+END $$;
 
-CREATE POLICY "Users can view items of visible receipts" ON receipt_items
-  FOR SELECT USING (
-    receipt_id IN (SELECT id FROM receipts)
-  );
+CREATE POLICY "Users can insert items for their receipts" ON receipt_items FOR INSERT WITH CHECK (receipt_id IN (SELECT id FROM receipts WHERE uploader_id = auth.uid()));
+CREATE POLICY "Users can view items of visible receipts" ON receipt_items FOR SELECT USING (receipt_id IN (SELECT id FROM receipts));
+CREATE POLICY "Users can delete items of their receipts" ON receipt_items FOR DELETE USING (receipt_id IN (SELECT id FROM receipts WHERE uploader_id = auth.uid()));
 `.trim();
 
     return (

@@ -44,7 +44,6 @@ export const useReceipts = (user: User | null, householdId: string | null | unde
     const updateReceipt = useCallback(async (id: string, updates: Partial<Receipt>) => {
         try {
             const updated = await apiUpdateReceipt(id, updates);
-            // Optimistic update
             setReceipts(prev => prev.map(r => r.id === id ? { ...r, ...updated } : r));
             return true;
         } catch (e: any) {
@@ -55,40 +54,43 @@ export const useReceipts = (user: User | null, householdId: string | null | unde
     }, []);
 
     const deleteReceipt = useCallback(async (id: string) => {
+        const previousReceipts = [...receipts];
+        // 1. Optimistic Update
+        setReceipts(prev => prev.filter(r => r.id !== id));
+        setError(null);
+
         try {
+            // 2. Server Request
             await apiDeleteReceipt(id);
-            // Optimistic update
-            setReceipts(prev => prev.filter(r => r.id !== id));
             return true;
         } catch (e: any) {
-            console.error("Failed to delete receipt:", e);
-            setError(e.message);
+            // 3. Rollback on error
+            console.error("Failed to delete receipt, rolling back UI:", e);
+            setReceipts(previousReceipts);
+            setError(e.message || "Löschen fehlgeschlagen. Bitte prüfe deine Berechtigungen.");
             return false;
         }
-    }, []);
+    }, [receipts]);
 
     const getMonthlySpending = useCallback(() => {
         const monthlyData: Record<string, number> = {};
         const now = new Date();
         const monthNames = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 
-        // Initialize last 6 months with 0
         for (let i = 5; i >= 0; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const key = `${monthNames[d.getMonth()]}`; 
-            monthlyData[key] = 0; // Initialize order matters
+            monthlyData[key] = 0; 
         }
 
         receipts.forEach(receipt => {
             const date = new Date(receipt.date);
             const key = monthNames[date.getMonth()];
-            // Only count if it falls within our tracked keys (approx last year logic for simplicity in chart)
             if (monthlyData[key] !== undefined) {
                 monthlyData[key] += receipt.total_amount;
             }
         });
 
-        // Convert to array for Recharts/SVG
         return Object.entries(monthlyData).map(([label, value]) => ({ 
             label, 
             value,
@@ -126,11 +128,11 @@ export const useReceipts = (user: User | null, householdId: string | null | unde
 
         return Object.entries(catData)
             .map(([cat, value]) => ({
-                label: cat, // Will translate in component
+                label: cat,
                 value,
                 color: categoryColors[cat] || '#ccc'
             }))
-            .sort((a, b) => b.value - a.value); // Sort highest spend first
+            .sort((a, b) => b.value - a.value);
     }, [receipts]);
 
     return {
