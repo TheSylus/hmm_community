@@ -128,11 +128,11 @@ const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
       if (Math.abs(touchOffset) > 5) return;
       
       if (isPreview) {
-          // In preview mode (e.g. Discover or Duplicate check), show details modal if available
+          // In preview mode (e.g. Discover or Duplicate check)
           if (onViewDetails) onViewDetails(item);
       } else {
-          // In Dashboard, go straight to Edit Form
-          onEdit(item.id);
+          // In Dashboard, view Details (which allows Edit)
+          onViewDetails(item);
       }
   };
 

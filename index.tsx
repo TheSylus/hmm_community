@@ -6,6 +6,7 @@ import { I18nProvider } from './i18n/index';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AppSettingsProvider } from './contexts/AppSettingsContext';
 import { AuthProvider } from './contexts/AuthContext';
+import { BrowserRouter } from 'react-router-dom';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -15,14 +16,16 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <ThemeProvider>
-      <I18nProvider>
-        <AuthProvider>
-          <AppSettingsProvider>
-            <App />
-          </AppSettingsProvider>
-        </AuthProvider>
-      </I18nProvider>
-    </ThemeProvider>
+    <BrowserRouter>
+      <ThemeProvider>
+        <I18nProvider>
+          <AuthProvider>
+            <AppSettingsProvider>
+              <App />
+            </AppSettingsProvider>
+          </AuthProvider>
+        </I18nProvider>
+      </ThemeProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );
