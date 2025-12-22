@@ -67,28 +67,28 @@ export const Layout: React.FC<LayoutProps> = ({
         
         {/* Header */}
         <header className="bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm shadow-md dark:shadow-lg sticky top-0 z-30 pt-safe-top">
-            <div className="container mx-auto px-4 py-4">
+            <div className="container mx-auto px-4 py-3 md:py-4">
                 <div className="flex justify-between items-center gap-4">
                     {showBackBtn ? (
                         <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
                             <ChevronLeftIcon className="w-6 h-6 text-gray-600 dark:text-gray-300" />
                         </button>
                     ) : (
-                        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-green-500 dark:from-indigo-400 dark:to-green-400">
+                        <h1 className="text-xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-green-500 dark:from-indigo-400 dark:to-green-400 truncate">
                             {pageTitle}
                         </h1>
                     )}
                     
                     {!showBackBtn && (
                         <Link to="/settings" className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" aria-label={t('settings.title')}>
-                            <SettingsIcon className="w-7 h-7 text-gray-600 dark:text-gray-300" />
+                            <SettingsIcon className="w-6 h-6 md:w-7 md:h-7 text-gray-600 dark:text-gray-300" />
                         </Link>
                     )}
                 </div>
                 
                 {/* Search & Filter Bar (Only on Inventory) */}
                 {isInventory && (
-                    <div className="mt-4 space-y-3 animate-fade-in">
+                    <div className="mt-3 md:mt-4 space-y-3 animate-fade-in">
                         <div className="flex gap-2 items-center">
                             <div className="relative flex-1">
                                 <input
@@ -96,7 +96,7 @@ export const Layout: React.FC<LayoutProps> = ({
                                     placeholder={t('header.searchPlaceholder')}
                                     value={searchTerm}
                                     onChange={e => setSearchTerm(e.target.value)}
-                                    className="w-full bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-full shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2 pl-10 pr-4 transition"
+                                    className="w-full bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-full shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-2 pl-10 pr-4 transition text-sm md:text-base"
                                 />
                                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                                     <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />

@@ -33,7 +33,8 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
   const [notes, setNotes] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [tags, setTags] = useState('');
-  const [isFamilyFavorite, setIsFamilyFavorite] = useState(false);
+  // UX Improvement: Default to true for sharing
+  const [isFamilyFavorite, setIsFamilyFavorite] = useState(true);
   const [category, setCategory] = useState<GroceryCategory>('other');
   
   // Product-specific
@@ -86,7 +87,8 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
     setCalories('');
     setPurchaseLocation('');
     setTags('');
-    setIsFamilyFavorite(false);
+    // Reset to true by default for new items
+    setIsFamilyFavorite(true);
     setIngredients([]);
     setAllergens([]);
     setDietary({ isLactoseFree: false, isVegan: false, isGlutenFree: false });
@@ -112,7 +114,8 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       setNotes(initialData.notes || '');
       setImage(initialData.image || null);
       setTags(initialData.tags?.join(', ') || '');
-      setIsFamilyFavorite(initialData.isFamilyFavorite || false);
+      // When editing, respect the existing value (default to false only if undefined in DB, which shouldn't happen)
+      setIsFamilyFavorite(initialData.isFamilyFavorite ?? false);
       setPrice(initialData.price ?? '');
       
       // Strict category initialization: Use data from DB if exists, otherwise fallback intelligently
