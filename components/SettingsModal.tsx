@@ -224,7 +224,6 @@ CREATE TABLE IF NOT EXISTS receipt_items (
 -- 4. Sicherheit (RLS) für Receipts
 ALTER TABLE receipts ENABLE ROW LEVEL SECURITY;
 
--- Verhindert Fehler beim erneuten Ausführen
 DO $$ 
 BEGIN
     DROP POLICY IF EXISTS "Users can insert their own receipts" ON receipts;
