@@ -4,9 +4,10 @@ import { Receipt, ReceiptItem, GroceryCategory } from '../../types';
 import { XMarkIcon, SpinnerIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon, CategoryRestaurantIcon, CheckCircleIcon, TrashIcon, PlusCircleIcon } from '../Icons';
 import { useTranslation } from '../../i18n/index';
 
+// FIX: Type definition to allow items to be Partial<ReceiptItem>[]
 interface ReceiptReviewModalProps {
-    receiptData: Partial<Receipt> & { items: Partial<ReceiptItem>[] };
-    onSave: (data: Partial<Receipt> & { items: Partial<ReceiptItem>[] }) => Promise<void>;
+    receiptData: Omit<Partial<Receipt>, 'items'> & { items: Partial<ReceiptItem>[] };
+    onSave: (data: Omit<Partial<Receipt>, 'items'> & { items: Partial<ReceiptItem>[] }) => Promise<void>;
     onClose: () => void;
     isLoading?: boolean;
 }
@@ -119,7 +120,7 @@ export const ReceiptReviewModal: React.FC<ReceiptReviewModalProps> = ({ receiptD
                             <label className="block text-xs font-bold text-indigo-900 dark:text-indigo-200 uppercase mb-1">Gesamt ({data.currency})</label>
                             <input 
                                 type="number" 
-                                step="0.01"
+                                step="0.01" 
                                 value={data.total_amount || ''} 
                                 onChange={(e) => updateHeader('total_amount', parseFloat(e.target.value))}
                                 className="w-full bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 rounded-lg p-2 text-right font-mono"
@@ -181,7 +182,7 @@ export const ReceiptReviewModal: React.FC<ReceiptReviewModalProps> = ({ receiptD
                                     <div className="flex flex-col items-end gap-1">
                                         <input 
                                             type="number" 
-                                            step="0.01"
+                                            step="0.01" 
                                             value={item.price || ''} 
                                             onChange={(e) => updateItem(idx, 'price', parseFloat(e.target.value))}
                                             className="w-20 bg-transparent border-none p-0 text-sm font-bold text-right focus:ring-0"

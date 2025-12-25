@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { FoodItem, FoodItemType, ShoppingList, UserProfile, Household, Receipt, ReceiptItem } from './types';
@@ -179,7 +180,8 @@ export const App = () => {
   // Receipt State
   const [isReceiptCameraOpen, setIsReceiptCameraOpen] = useState(false);
   const [isProcessingReceipt, setIsProcessingReceipt] = useState(false);
-  const [scannedReceiptData, setScannedReceiptData] = useState<(Partial<Receipt> & { items: Partial<ReceiptItem>[] }) | null>(null);
+  // FIX: Using Omit<Partial<Receipt>, 'items'> to prevent conflict with stricter ReceiptItem[] type in Partial<Receipt>
+  const [scannedReceiptData, setScannedReceiptData] = useState<(Omit<Partial<Receipt>, 'items'> & { items: Partial<ReceiptItem>[] }) | null>(null);
   const [confirmedReceiptForImport, setConfirmedReceiptForImport] = useState<{receipt: Receipt, items: ReceiptItem[]} | null>(null);
 
   // Modal History for transient modals
@@ -458,7 +460,7 @@ export const App = () => {
       }
   };
 
-  const handleSaveReceipt = async (data: Partial<Receipt> & { items: Partial<ReceiptItem>[] }) => {
+  const handleSaveReceipt = async (data: Omit<Partial<Receipt>, 'items'> & { items: Partial<ReceiptItem>[] }) => {
       if (!user) return;
       try {
           const savedReceipt = await createReceipt(data, user.id, userProfile?.household_id || undefined);
@@ -542,7 +544,8 @@ export const App = () => {
                         shoppingListFoodIds={shoppingListFoodIds}
                         isFiltering={isAnyFilterActive}
                         collapsedCategories={collapsedCategories}
-                        onToggleCategory={(category) => setCollapsedCategories(prev => { const n = new Set(prev); n.has(category) ? n.delete(category) : n.add(category); return n; })}
+                        // FIX: Explicitly type Set<string> to avoid inference error
+                        onToggleCategory={(category) => setCollapsedCategories(prev => { const n = new Set<string>(prev); n.has(category) ? n.delete(category) : n.add(category); return n; })}
                     />
                     
                     <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-6 z-30">

@@ -17,7 +17,8 @@ const mapReceiptToDbPayload = (receipt: Partial<Receipt>, userId: string, househ
 };
 
 export const createReceipt = async (
-    receiptData: Partial<Receipt> & { items: Partial<ReceiptItem>[] }, 
+    // FIX: Use Omit to allow Partial items
+    receiptData: Omit<Partial<Receipt>, 'items'> & { items: Partial<ReceiptItem>[] }, 
     userId: string, 
     householdId?: string,
     imageUrl?: string
