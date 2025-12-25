@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { FoodItem, NutriScore } from '../types';
 import { StarIcon, TrashIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, UserGroupIcon, LockClosedIcon, ShoppingCartIcon, BeakerIcon } from './Icons';
 import { useTranslation } from '../i18n/index';
@@ -58,6 +58,9 @@ const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   // Swipe State
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchOffset, setTouchOffset] = useState(0);
+  // Ref to track if we've already triggered haptic for this swipe interaction
+  const hasTriggeredHapticRef = useRef(false);
+  
   const SWIPE_THRESHOLD = 80;
 
   if (!displayItem) {
@@ -101,27 +104,42 @@ const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
   const onTouchStart = (e: React.TouchEvent) => {
       if (isPreview) return;
       setTouchStart(e.targetTouches[0].clientX);
+      hasTriggeredHapticRef.current = false;
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
       if (touchStart === null || isPreview) return;
       const currentTouch = e.targetTouches[0].clientX;
       const diff = currentTouch - touchStart;
+      
       if (diff < 0) {
-          setTouchOffset(Math.max(diff, -150));
+          const newOffset = Math.max(diff, -150);
+          setTouchOffset(newOffset);
+          
+          // Trigger haptic feedback exactly when crossing the threshold
+          if (newOffset < -SWIPE_THRESHOLD && !hasTriggeredHapticRef.current) {
+              triggerHaptic('medium');
+              hasTriggeredHapticRef.current = true;
+          } else if (newOffset > -SWIPE_THRESHOLD && hasTriggeredHapticRef.current) {
+              // Optional: Feedback when going back under threshold
+              hasTriggeredHapticRef.current = false;
+          }
       }
   };
 
   const onTouchEnd = () => {
       if (touchStart === null || isPreview) return;
+      
       if (touchOffset < -SWIPE_THRESHOLD) {
-          triggerHaptic('warning');
+          // If we passed the threshold, delete.
+          // Note: Haptic already fired during move for better UX.
           onDelete(item.id);
-          setTouchOffset(0); 
+          // Don't reset offset immediately to prevent visual snap-back before unmount
       } else {
           setTouchOffset(0);
       }
       setTouchStart(null);
+      hasTriggeredHapticRef.current = false;
   };
 
   const handleCardClick = () => {
@@ -145,7 +163,7 @@ const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEd
                 className="absolute inset-0 bg-red-500 flex items-center justify-end pr-6 rounded-xl transition-opacity duration-200"
                 style={{ opacity: Math.abs(touchOffset) > 20 ? 1 : 0 }}
             >
-                <TrashIcon className="w-6 h-6 text-white" />
+                <TrashIcon className="w-6 h-6 text-white scale-110" />
             </div>
         )}
 

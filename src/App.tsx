@@ -293,9 +293,9 @@ export const App: React.FC = () => {
   const handleToggleFamilyStatus = useCallback(async (item: FoodItem) => {
       if (!user || item.user_id !== user.id) return;
       const newStatus = !item.isFamilyFavorite;
-      const { id, user_id, created_at, ...dataToSave } = item;
-      // Use casting to ensure spread works if TS complains about rest type not being object
-      const success = await saveItem({ ...(dataToSave as any), isFamilyFavorite: newStatus }, id);
+      // FIX: Cast to any to avoid "Spread types may only be created from object types" error
+      const { id, user_id, created_at, ...dataToSave } = item as any;
+      const success = await saveItem({ ...dataToSave, isFamilyFavorite: newStatus }, id);
       if (success) {
           triggerHaptic('medium');
           setToastMessage(newStatus ? t('toast.familyShared', { name: item.name }) : t('toast.private', { name: item.name }));
@@ -541,10 +541,8 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Image Modal (Global for zoom) */}
       {selectedImage && <ImageModal imageUrl={selectedImage} onClose={() => setSelectedImage(null)} />}
 
-      {/* Receipt Modals (Context-specific but global Z-index) */}
       {isReceiptCameraOpen && (
           <CameraCapture onCapture={handleReceiptCapture} onClose={() => setIsReceiptCameraOpen(false)} mode="receipt" />
       )}

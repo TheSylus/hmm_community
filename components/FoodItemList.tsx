@@ -79,10 +79,10 @@ const CategorySection: React.FC<{
     if (items.length === 0) return null;
 
     return (
-        <div className="mb-6 last:mb-0">
+        <div className="mb-6 last:mb-0 transition-all duration-300 ease-in-out">
             <button 
                 onClick={() => onToggle(category)}
-                className={`w-full flex items-center justify-between p-3 rounded-xl mb-3 transition-all duration-200 border sticky top-[calc(130px+env(safe-area-inset-top,0px))] z-10 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90`}
+                className={`w-full flex items-center justify-between p-3 rounded-xl mb-3 transition-all duration-200 border sticky top-[calc(130px+env(safe-area-inset-top,0px))] z-10 shadow-sm backdrop-blur-md ${colorClass} bg-opacity-95 dark:bg-opacity-90 active:scale-[0.99]`}
             >
                 <div className="flex items-center gap-3">
                     <div className="p-1.5 bg-white dark:bg-black/20 rounded-full shadow-sm">
@@ -97,25 +97,26 @@ const CategorySection: React.FC<{
             </button>
 
             {!isCollapsed && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 animate-slide-down px-1">
-                    {items.map(item => (
-                        <FoodItemCard 
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 px-1">
+                    {items.map((item, index) => (
+                        <div 
                             key={item.id} 
-                            item={item} 
-                            onDelete={props.onDelete} 
-                            onEdit={props.onEdit}
-                            onViewDetails={props.onViewDetails}
-                            onAddToShoppingList={props.onAddToShoppingList}
-                            onToggleFamilyStatus={props.onToggleFamilyStatus}
-                            isInShoppingList={props.shoppingListFoodIds?.has(item.id)}
-                        />
+                            className="transition-all duration-300 animate-fade-in-staggered"
+                            style={{ animationDelay: `${index * 0.05}s` }}
+                        >
+                            <FoodItemCard 
+                                item={item} 
+                                onDelete={props.onDelete} 
+                                onEdit={props.onEdit}
+                                onViewDetails={props.onViewDetails}
+                                onAddToShoppingList={props.onAddToShoppingList}
+                                onToggleFamilyStatus={props.onToggleFamilyStatus}
+                                isInShoppingList={props.shoppingListFoodIds?.has(item.id)}
+                            />
+                        </div>
                     ))}
                 </div>
             )}
-             <style>{`
-                @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-                .animate-slide-down { animation: slideDown 0.3s ease-out; }
-            `}</style>
         </div>
     );
 };
@@ -135,21 +136,20 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, on
 
   if (isLoading) {
       return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 px-1">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 px-1">
             {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
         </div>
       );
   }
 
-  // Quality Update: Helpful Empty State
   if (items.length === 0) {
     return (
-        <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-full mb-4">
-                <MagnifyingGlassIcon className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+        <div className="flex flex-col items-center justify-center py-20 px-4 text-center animate-fade-in">
+            <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-full mb-4 shadow-inner">
+                <MagnifyingGlassIcon className="w-10 h-10 text-gray-400 dark:text-gray-500" />
             </div>
-            <h2 className="text-xl font-bold text-gray-700 dark:text-gray-300">{t('list.empty.title')}</h2>
-            <p className="text-gray-500 dark:text-gray-400 mt-2 max-w-xs">{t('list.empty.description')}</p>
+            <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300">{t('list.empty.title')}</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 max-w-[250px]">{t('list.empty.description')}</p>
         </div>
     );
   }
@@ -190,6 +190,11 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, on
                 />
             ))
         }
+        <style>{`
+            @keyframes fadeInStaggered { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+            .animate-fade-in-staggered { animation: fadeInStaggered 0.4s ease-out forwards; opacity: 0; }
+            .animate-fade-in { animation: fadeInStaggered 0.4s ease-out; }
+        `}</style>
     </div>
   );
 };
