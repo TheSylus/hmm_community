@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { FoodItem, NutriScore, GroceryCategory, Receipt, ReceiptItem } from "../types";
+import { AiFoodAnalysisSchema, AiIngredientsAnalysisSchema, AiReceiptSchema } from "./schemas";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -137,7 +138,18 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
       },
     });
     
-    const result = parseJsonFromString(response.text);
+    const rawResult = parseJsonFromString(response.text);
+    
+    // ZOD VALIDATION
+    const parsedResult = AiFoodAnalysisSchema.safeParse(rawResult);
+    
+    if (!parsedResult.success) {
+        console.warn("AI Validation Failed", parsedResult.error);
+        throw new Error("AI response did not match expected schema.");
+    }
+    
+    const result = parsedResult.data;
+
     let boundingBox: BoundingBox | undefined;
     if (result.boundingBox) {
         const img = new Image();
@@ -152,7 +164,15 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
             height: ((result.boundingBox.ymax - result.boundingBox.ymin) / 1000) * h
         };
     }
-    return { ...result, boundingBox, image: resizedImage };
+    return { 
+        name: result.name || '', 
+        tags: result.tags || [], 
+        nutriScore: (result.nutriScore as NutriScore) || undefined, 
+        itemType: (result.itemType as any) || 'product',
+        category: (result.category as any) || 'other',
+        boundingBox, 
+        image: resizedImage 
+    };
   } catch (error) {
     console.error("Error analyzing food image:", error);
     throw error;
@@ -188,7 +208,22 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
           },
         },
       });
-      return parseJsonFromString(response.text);
+      const rawResult = parseJsonFromString(response.text);
+      
+      // ZOD VALIDATION
+      const parsed = AiIngredientsAnalysisSchema.safeParse(rawResult);
+      if (!parsed.success) {
+          console.warn("Ingredients validation failed", parsed.error);
+          return { ingredients: [], allergens: [], isLactoseFree: false, isVegan: false, isGlutenFree: false };
+      }
+      
+      return {
+          ingredients: parsed.data.ingredients || [],
+          allergens: parsed.data.allergens || [],
+          isLactoseFree: !!parsed.data.isLactoseFree,
+          isVegan: !!parsed.data.isVegan,
+          isGlutenFree: !!parsed.data.isGlutenFree
+      };
     } catch (error) {
       console.error("Error analyzing ingredients image:", error);
       throw error;
@@ -278,7 +313,8 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
                 }
             }
         });
-        return parseJsonFromString(response.text).items || [];
+        const result = parseJsonFromString(response.text);
+        return result.items || [];
     } catch (error) {
         console.error("Error parsing shopping list:", error);
         throw error;
@@ -290,7 +326,7 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
 export const analyzeReceiptImage = async (
     base64Image: string, 
     shoppingListContext: { id: string, name: string }[] = []
-): Promise<Partial<Receipt> & { items: Partial<ReceiptItem>[] }> => {
+): Promise<Omit<Partial<Receipt>, 'items'> & { items: Partial<ReceiptItem>[] }> => {
     const resizedImage = await resizeImage(base64Image, 'receipt');
     const match = resizedImage.match(/^data:(image\/[a-z]+);base64,(.*)$/);
     if (!match) throw new Error("Invalid base64 image string.");
@@ -343,13 +379,23 @@ export const analyzeReceiptImage = async (
             }
         });
 
-        const result = parseJsonFromString(response.text);
+        const rawResult = parseJsonFromString(response.text);
+        
+        // ZOD VALIDATION
+        const parsed = AiReceiptSchema.safeParse(rawResult);
+        if (!parsed.success) {
+             console.warn("Receipt validation failed", parsed.error);
+             throw new Error("Validation failed");
+        }
+        
+        const result = parsed.data;
+
         return {
             merchant_name: result.merchant_name,
             date: result.date || new Date().toISOString().split('T')[0],
-            total_amount: result.total_amount,
+            total_amount: result.total_amount || 0,
             currency: result.currency || 'EUR',
-            items: result.items || []
+            items: (result.items || []) as Partial<ReceiptItem>[]
         };
     } catch (error) {
         console.error("Error analyzing receipt:", error);

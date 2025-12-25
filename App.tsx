@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { FoodItem, FoodItemType, ShoppingList, UserProfile, Household, Receipt, ReceiptItem } from './types';
@@ -129,7 +130,7 @@ const ItemFormPage: React.FC<{
 
 // --- MAIN APP COMPONENT ---
 
-export const App: React.FC = () => {
+export const App = () => {
   const { t } = useTranslation();
   const { session, user } = useAuth();
   const navigate = useNavigate();
@@ -253,7 +254,7 @@ export const App: React.FC = () => {
         const foodItemDetails = foodItemMap.get(sli.food_item_id);
         if (foodItemDetails) {
           hydratedItems.push({
-            ...foodItemDetails,
+            ...(foodItemDetails as FoodItem),
             shoppingListItemId: sli.id,
             checked: sli.checked,
             added_by_user_id: sli.added_by_user_id,
@@ -309,9 +310,34 @@ export const App: React.FC = () => {
 
   const handleToggleFamilyStatus = useCallback(async (item: FoodItem) => {
       if (!user || item.user_id !== user.id) return;
+      
       const newStatus = !item.isFamilyFavorite;
-      const { id, user_id, created_at, ...dataToSave } = item as any;
-      const success = await saveItem({ ...dataToSave, isFamilyFavorite: newStatus }, id);
+      
+      // Strict Type Construction: Extract pure data properties for the update
+      const updatePayload = {
+          name: item.name,
+          rating: item.rating,
+          itemType: item.itemType,
+          category: item.category,
+          isFamilyFavorite: newStatus,
+          notes: item.notes,
+          image: item.image,
+          tags: item.tags,
+          nutriScore: item.nutriScore,
+          calories: item.calories,
+          ingredients: item.ingredients,
+          allergens: item.allergens,
+          purchaseLocation: item.purchaseLocation,
+          restaurantName: item.restaurantName,
+          cuisineType: item.cuisineType,
+          price: item.price,
+          isLactoseFree: item.isLactoseFree,
+          isVegan: item.isVegan,
+          isGlutenFree: item.isGlutenFree,
+      };
+
+      const success = await saveItem(updatePayload, item.id);
+      
       if (success) {
           triggerHaptic('medium');
           showToast(newStatus ? t('toast.familyShared', { name: item.name }) : t('toast.private', { name: item.name }));
@@ -338,12 +364,33 @@ export const App: React.FC = () => {
   }, [allItems, deleteItem]);
 
   const handleUndoDelete = useCallback(async (item: FoodItem) => {
-      // Omit system fields to treat as insertion
-      const { id, user_id, created_at, ...data } = item as any;
-      const success = await saveItem(data); // Will create new item with new ID
+      // Strict Type Construction for Undo: Treat as new insertion (omit ID)
+      const restorePayload = {
+          name: item.name,
+          rating: item.rating,
+          itemType: item.itemType,
+          category: item.category,
+          isFamilyFavorite: item.isFamilyFavorite,
+          notes: item.notes,
+          image: item.image,
+          tags: item.tags,
+          nutriScore: item.nutriScore,
+          calories: item.calories,
+          ingredients: item.ingredients,
+          allergens: item.allergens,
+          purchaseLocation: item.purchaseLocation,
+          restaurantName: item.restaurantName,
+          cuisineType: item.cuisineType,
+          price: item.price,
+          isLactoseFree: item.isLactoseFree,
+          isVegan: item.isVegan,
+          isGlutenFree: item.isGlutenFree,
+      };
+
+      const success = await saveItem(restorePayload); 
       if (success) {
           setLastDeletedItem(null);
-          setToastData(null); // Clear toast immediately
+          setToastData(null); 
           triggerHaptic('success');
       }
   }, [saveItem]);

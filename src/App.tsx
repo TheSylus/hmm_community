@@ -110,9 +110,6 @@ const ItemFormPage: React.FC<{
     const initialItem = id ? items.find(i => i.id === id) : null;
 
     const handleSave = async (data: any) => {
-        // Wrapper to navigate after save
-        // We let the parent App handle the actual DB save logic for now
-        // Ideally this logic moves here later.
         await onSave(data); 
         navigate(-1);
     };
@@ -132,7 +129,7 @@ const ItemFormPage: React.FC<{
 
 // --- MAIN APP COMPONENT ---
 
-export const App: React.FC = () => {
+export const App = () => {
   const { t } = useTranslation();
   const { session, user } = useAuth();
   const navigate = useNavigate();
@@ -171,7 +168,11 @@ export const App: React.FC = () => {
   
   const [isFilterPanelVisible, setIsFilterPanelVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  
+  // Toast & Undo State
+  const [toastData, setToastData] = useState<{ message: string; action?: { label: string; onClick: () => void } } | null>(null);
+  const [lastDeletedItem, setLastDeletedItem] = useState<FoodItem | null>(null);
+
   const [isSmartAddLoading, setIsSmartAddLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -252,7 +253,7 @@ export const App: React.FC = () => {
         const foodItemDetails = foodItemMap.get(sli.food_item_id);
         if (foodItemDetails) {
           hydratedItems.push({
-            ...foodItemDetails,
+            ...(foodItemDetails as FoodItem),
             shoppingListItemId: sli.id,
             checked: sli.checked,
             added_by_user_id: sli.added_by_user_id,
@@ -277,37 +278,121 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  // Toast Auto-Dismiss
+  useEffect(() => {
+      if (toastData) {
+          const timer = setTimeout(() => {
+              setToastData(null);
+              // Clear undoable item if toast disappears naturally
+              setLastDeletedItem(null); 
+          }, 4000);
+          return () => clearTimeout(timer);
+      }
+  }, [toastData]);
+
+  const showToast = (message: string, action?: { label: string; onClick: () => void }) => {
+      setToastData({ message, action });
+  };
+
   const handleToggleShoppingList = useCallback((item: FoodItem) => {
       const existingItem = shoppingListItems.find(i => i.food_item_id === item.id);
       if (existingItem) {
           removeItem(existingItem.id);
           triggerHaptic('medium');
-          setToastMessage(t('shoppingList.removedToast', { name: item.name }));
+          showToast(t('shoppingList.removedToast', { name: item.name }));
       } else {
           addItemToList(item.id, 1);
           triggerHaptic('success');
-          setToastMessage(t('shoppingList.addedToast', { name: item.name }));
+          showToast(t('shoppingList.addedToast', { name: item.name }));
       }
   }, [shoppingListItems, removeItem, addItemToList, t]);
 
   const handleToggleFamilyStatus = useCallback(async (item: FoodItem) => {
       if (!user || item.user_id !== user.id) return;
+      
       const newStatus = !item.isFamilyFavorite;
-      // FIX: Cast to any to avoid "Spread types may only be created from object types" error
-      const { id, user_id, created_at, ...dataToSave } = item as any;
-      const success = await saveItem({ ...dataToSave, isFamilyFavorite: newStatus }, id);
+      
+      // Explicitly construct the object to avoid "Spread types" error on 'item'
+      const updatePayload = {
+          name: item.name,
+          rating: item.rating,
+          itemType: item.itemType,
+          category: item.category,
+          isFamilyFavorite: newStatus,
+          notes: item.notes,
+          image: item.image,
+          tags: item.tags,
+          nutriScore: item.nutriScore,
+          calories: item.calories,
+          ingredients: item.ingredients,
+          allergens: item.allergens,
+          purchaseLocation: item.purchaseLocation,
+          restaurantName: item.restaurantName,
+          cuisineType: item.cuisineType,
+          price: item.price,
+          isLactoseFree: item.isLactoseFree,
+          isVegan: item.isVegan,
+          isGlutenFree: item.isGlutenFree,
+      };
+
+      const success = await saveItem(updatePayload, item.id);
+      
       if (success) {
           triggerHaptic('medium');
-          setToastMessage(newStatus ? t('toast.familyShared', { name: item.name }) : t('toast.private', { name: item.name }));
+          showToast(newStatus ? t('toast.familyShared', { name: item.name }) : t('toast.private', { name: item.name }));
       }
   }, [user, saveItem, t]);
 
   const handleHouseholdCreateWrapper = useCallback(async (name: string) => {
       try {
           await createHousehold(name);
-          setToastMessage(t('shoppingList.joinSuccess', { householdName: name }));
+          showToast(t('shoppingList.joinSuccess', { householdName: name }));
       } catch (e) {}
   }, [createHousehold, t]);
+
+  const handleUndoDelete = useCallback(async (item: FoodItem) => {
+      // Explicitly construct the object to avoid "Spread types" error on 'item'
+      const restorePayload = {
+          name: item.name,
+          rating: item.rating,
+          itemType: item.itemType,
+          category: item.category,
+          isFamilyFavorite: item.isFamilyFavorite,
+          notes: item.notes,
+          image: item.image,
+          tags: item.tags,
+          nutriScore: item.nutriScore,
+          calories: item.calories,
+          ingredients: item.ingredients,
+          allergens: item.allergens,
+          purchaseLocation: item.purchaseLocation,
+          restaurantName: item.restaurantName,
+          cuisineType: item.cuisineType,
+          price: item.price,
+          isLactoseFree: item.isLactoseFree,
+          isVegan: item.isVegan,
+          isGlutenFree: item.isGlutenFree,
+      };
+
+      const success = await saveItem(restorePayload); 
+      if (success) {
+          setLastDeletedItem(null);
+          setToastData(null); 
+          triggerHaptic('success');
+      }
+  }, [saveItem]);
+
+  const handleDeleteItem = useCallback(async (id: string) => {
+      const itemToDelete = allItems.find(i => i.id === id);
+      if (itemToDelete) {
+          setLastDeletedItem(itemToDelete);
+          await deleteItem(id);
+          showToast("Eintrag gelöscht.", {
+              label: "Rückgängig",
+              onClick: () => handleUndoDelete(itemToDelete)
+          });
+      }
+  }, [allItems, deleteItem, handleUndoDelete]);
 
   const handleConversationalSearch = useCallback(async (query: string) => {
     setAiSearchQuery(query);
@@ -337,7 +422,6 @@ export const App: React.FC = () => {
               let match = allItems.find(i => i.name.toLowerCase() === parsedItem.name.toLowerCase());
               let foodItemId = match?.id;
               if (!foodItemId) {
-                  // Auto create item if missing
                   const { createFoodItem } = await import('./services/foodItemService');
                   const newItem = await createFoodItem({ name: parsedItem.name, rating: 0, itemType: 'product', category: parsedItem.category, isFamilyFavorite: !!userProfile?.household_id }, user.id);
                   foodItemId = newItem.id;
@@ -350,10 +434,10 @@ export const App: React.FC = () => {
           }
           if (addedCount > 0) {
               triggerHaptic('success');
-              setToastMessage(t('shoppingList.addedAnotherToast', { name: `${addedCount} items` }));
+              showToast(t('shoppingList.addedAnotherToast', { name: `${addedCount} items` }));
           }
       } catch (e) {
-          setToastMessage("Could not process list.");
+          showToast("Could not process list.");
       } finally {
           setIsSmartAddLoading(false);
       }
@@ -368,7 +452,7 @@ export const App: React.FC = () => {
           const analyzed = await geminiService.analyzeReceiptImage(imageDataUrl, contextItems);
           setScannedReceiptData(analyzed);
       } catch (e) {
-          setToastMessage("Could not scan receipt.");
+          showToast("Could not scan receipt.");
       } finally {
           setIsProcessingReceipt(false);
       }
@@ -383,10 +467,10 @@ export const App: React.FC = () => {
           if (savedReceipt && savedReceipt.items && savedReceipt.items.length > 0) {
               setConfirmedReceiptForImport({ receipt: savedReceipt as Receipt, items: savedReceipt.items as ReceiptItem[] });
           } else {
-              setToastMessage("Receipt Saved!");
+              showToast("Receipt Saved!");
           }
       } catch (e: any) {
-          setToastMessage(`Failed to save: ${e.message}`);
+          showToast(`Failed to save: ${e.message}`);
       }
   };
 
@@ -395,7 +479,7 @@ export const App: React.FC = () => {
           const success = await saveItemsBulk(selectedItems);
           if (success) {
               triggerHaptic('success');
-              setToastMessage(`Imported ${selectedItems.length} items.`);
+              showToast(`Imported ${selectedItems.length} items.`);
           }
       }
       setConfirmedReceiptForImport(null);
@@ -417,14 +501,13 @@ export const App: React.FC = () => {
                 setSearchTerm={setSearchTerm}
                 isAnyFilterActive={isAnyFilterActive}
                 toggleAllCategories={() => {
-                    // Simple logic for categories toggle
                     const cats = new Set<string>();
                     filteredAndSortedItems.forEach(item => cats.add(item.category || 'other'));
                     const allCats = Array.from(cats);
                     if (collapsedCategories.size >= allCats.length) setCollapsedCategories(new Set());
                     else setCollapsedCategories(new Set(allCats));
                 }}
-                isAllCollapsed={filteredAndSortedItems.length > 0 && collapsedCategories.size > 0} // Approximate
+                isAllCollapsed={filteredAndSortedItems.length > 0 && collapsedCategories.size > 0} 
                 onOpenSettings={() => navigate('/settings')}
                 onOpenFilter={() => setIsFilterPanelVisible(true)}
                 ownerFilter={ownerFilter} setOwnerFilter={setOwnerFilter}
@@ -452,7 +535,7 @@ export const App: React.FC = () => {
                         isLoading={isFoodLoading}
                         onAddNew={() => navigate('/add', { state: { startMode: 'camera' } })}
                         onEdit={(id) => navigate(`/edit/${id}`)}
-                        onDelete={deleteItem}
+                        onDelete={handleDeleteItem} // Use new handle wrapper
                         onViewDetails={(item) => navigate(`/item/${item.id}`)}
                         onAddToShoppingList={handleToggleShoppingList}
                         onToggleFamilyStatus={handleToggleFamilyStatus}
@@ -462,7 +545,6 @@ export const App: React.FC = () => {
                         onToggleCategory={(category) => setCollapsedCategories(prev => { const n = new Set(prev); n.has(category) ? n.delete(category) : n.add(category); return n; })}
                     />
                     
-                    {/* Floating Action Button for Inventory */}
                     <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-6 z-30">
                         <button onClick={() => navigate('/add', { state: { startMode: 'camera' } })} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-xl transition-transform transform hover:scale-105 active:scale-95">
                             <CameraIcon className="w-8 h-8" />
@@ -497,7 +579,7 @@ export const App: React.FC = () => {
                 <FinanceDashboard 
                     monthlyData={getMonthlySpending()}
                     categoryData={getCategoryBreakdown()}
-                    totalSpend={0} // calculated inside
+                    totalSpend={0}
                     isLoading={isReceiptsLoading}
                     onScan={() => setIsReceiptCameraOpen(true)}
                 />
@@ -521,9 +603,17 @@ export const App: React.FC = () => {
       </Routes>
 
       {/* GLOBAL MODALS (Transient State) */}
-      {toastMessage && (
-         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 text-sm font-semibold py-2 px-4 rounded-full shadow-lg z-50">
-            {toastMessage}
+      {toastData && (
+         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 text-sm font-semibold py-3 px-5 rounded-full shadow-lg z-50 flex items-center gap-4 animate-slide-up">
+            <span>{toastData.message}</span>
+            {toastData.action && (
+                <button 
+                    onClick={toastData.action.onClick} 
+                    className="text-indigo-300 dark:text-indigo-600 hover:text-white dark:hover:text-black font-bold uppercase text-xs tracking-wide"
+                >
+                    {toastData.action.label}
+                </button>
+            )}
         </div>
       )}
 
@@ -558,6 +648,10 @@ export const App: React.FC = () => {
       {confirmedReceiptForImport && (
           <ReceiptToInventoryModal receipt={confirmedReceiptForImport.receipt} items={confirmedReceiptForImport.items} onConfirm={handleImportReceiptItems} onClose={() => setConfirmedReceiptForImport(null)} />
       )}
+      <style>{`
+        @keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+        .animate-slide-up { animation: slideUp 0.3s ease-out; }
+      `}</style>
     </>
   );
 };

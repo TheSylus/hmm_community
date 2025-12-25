@@ -1,288 +1,198 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ShoppingList, ShoppingListItem, Household } from '../types';
 import { supabase } from '../services/supabaseClient';
-import { User, RealtimeChannel } from '@supabase/supabase-js';
+import { User } from '@supabase/supabase-js';
 import { useTranslation } from '../i18n/index';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+const KEYS = {
+    lists: (householdId: string) => ['shoppingLists', householdId],
+    items: (listId: string) => ['shoppingListItems', listId],
+};
 
 export const useShoppingList = (user: User | null, household: Household | null) => {
   const { t } = useTranslation();
-  const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
+  const queryClient = useQueryClient();
   const [activeShoppingListId, setActiveShoppingListId] = useState<string | null>(null);
-  const [shoppingListItems, setShoppingListItems] = useState<ShoppingListItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
 
-  // Fetch Lists when household changes
-  useEffect(() => {
-    if (!household) {
-      setShoppingLists([]);
-      setShoppingListItems([]);
-      setActiveShoppingListId(null);
-      return;
-    }
-
-    const fetchLists = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('shopping_lists')
-          .select('*')
-          .eq('household_id', household.id);
-        
-        if (error) throw error;
-
-        if (data && data.length === 0) {
-          // Auto-create default list if none exists
-          const { data: newList, error: createError } = await supabase
-             .from('shopping_lists')
-             .insert({ household_id: household.id, name: t('shoppingList.defaultListName') })
-             .select()
-             .single();
+  // 1. Fetch Lists
+  const { data: shoppingLists = [], isLoading: isLoadingLists } = useQuery({
+      queryKey: KEYS.lists(household?.id || ''),
+      queryFn: async () => {
+          if (!household) return [];
+          const { data, error } = await supabase.from('shopping_lists').select('*').eq('household_id', household.id);
+          if (error) throw error;
           
-          if (createError) throw createError;
-          if (newList) {
-              setShoppingLists([newList]);
-              setActiveShoppingListId(newList.id);
+          // Auto-create default list logic moved to mutation or handled here if empty
+          if (data.length === 0) {
+               const { data: newList, error: createError } = await supabase
+                 .from('shopping_lists')
+                 .insert({ household_id: household.id, name: t('shoppingList.defaultListName') })
+                 .select()
+                 .single();
+               if (createError) throw createError;
+               return [newList];
           }
-        } else {
-            setShoppingLists(data || []);
-            // Restore active list from local storage or default to first
-            const savedId = localStorage.getItem(`activeShoppingListId_${household.id}`);
-            const exists = data?.some(l => l.id === savedId);
-            setActiveShoppingListId(exists ? savedId : data?.[0]?.id || null);
-        }
-      } catch (err: any) {
-        console.error("Error fetching lists:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+          return data;
+      },
+      enabled: !!household,
+  });
 
-    fetchLists();
-  }, [household, t]);
-
-  // Fetch Items and Subscribe to Realtime when active list changes
+  // Auto-select list
   useEffect(() => {
-    if (!activeShoppingListId || !user || activeShoppingListId.startsWith('temp_')) {
-      setShoppingListItems([]);
-      return;
-    }
-    
-    if (household) {
-        localStorage.setItem(`activeShoppingListId_${household.id}`, activeShoppingListId);
-    }
-
-    const fetchItems = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('shopping_list_items')
-          .select('*')
-          .eq('list_id', activeShoppingListId);
-        
-        if (error) throw error;
-        setShoppingListItems(data || []);
-      } catch (err: any) {
-        console.error("Error fetching list items:", err);
-        setError(err.message);
+      if (shoppingLists.length > 0 && !activeShoppingListId) {
+          const savedId = household ? localStorage.getItem(`activeShoppingListId_${household.id}`) : null;
+          const exists = shoppingLists.find(l => l.id === savedId);
+          setActiveShoppingListId(exists ? savedId : shoppingLists[0].id);
       }
-    };
+  }, [shoppingLists, activeShoppingListId, household]);
 
-    fetchItems();
-
-    // Realtime Subscription
-    if (realtimeChannelRef.current) realtimeChannelRef.current.unsubscribe();
-
-    const channel = supabase.channel(`shopping_list:${activeShoppingListId}`);
-    channel
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => {
-          setShoppingListItems(prev => [...prev, payload.new as ShoppingListItem]);
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => {
-          setShoppingListItems(prev => prev.map(item => item.id === payload.new.id ? payload.new as ShoppingListItem : item));
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => {
-          setShoppingListItems(prev => prev.filter(item => item.id !== (payload.old as any).id));
-      })
-      .subscribe();
-    
-    realtimeChannelRef.current = channel;
-
-    return () => {
-      if (realtimeChannelRef.current) realtimeChannelRef.current.unsubscribe();
-    };
-
-  }, [activeShoppingListId, user, household]);
-
-
-  // --- Actions ---
-
-  const createList = useCallback(async (name: string) => {
-    if (!household) return;
-    setError(null);
-    // Optimistic
-    const tempList: ShoppingList = {
-        id: `temp_${Date.now()}`, name: name, household_id: household.id, created_at: new Date().toISOString()
-    };
-    setShoppingLists(prev => [...prev, tempList]);
-    setActiveShoppingListId(tempList.id);
-
-    try {
-        const { data, error } = await supabase
-            .from('shopping_lists')
-            .insert({ name: name, household_id: household.id })
-            .select()
-            .single();
-        
-        if (error) throw error;
-        
-        // Replace temp with real
-        setShoppingLists(prev => prev.map(l => l.id === tempList.id ? data : l));
-        setActiveShoppingListId(data.id);
-    } catch (err: any) {
-        setError(err.message);
-        // Revert
-        setShoppingLists(prev => prev.filter(l => l.id !== tempList.id));
-    }
-  }, [household]);
-
-  const deleteList = useCallback(async (listId: string) => {
-      setError(null);
-      const previousLists = [...shoppingLists];
-      
-      // Optimistic update
-      const newLists = shoppingLists.filter(l => l.id !== listId);
-      setShoppingLists(newLists);
-      if (activeShoppingListId === listId) {
-          setActiveShoppingListId(newLists[0]?.id || null);
+  useEffect(() => {
+      if (activeShoppingListId && household) {
+          localStorage.setItem(`activeShoppingListId_${household.id}`, activeShoppingListId);
       }
+  }, [activeShoppingListId, household]);
 
-      try {
-          const { error } = await supabase.from('shopping_lists').delete().eq('id', listId);
+  // 2. Fetch Items
+  const { data: shoppingListItems = [], isLoading: isLoadingItems } = useQuery({
+      queryKey: KEYS.items(activeShoppingListId || ''),
+      queryFn: async () => {
+          if (!activeShoppingListId || activeShoppingListId.startsWith('temp_')) return [];
+          const { data, error } = await supabase.from('shopping_list_items').select('*').eq('list_id', activeShoppingListId);
           if (error) throw error;
-      } catch (err: any) {
-          setError(err.message);
-          setShoppingLists(previousLists); // Revert
+          return data;
+      },
+      enabled: !!activeShoppingListId && !activeShoppingListId.startsWith('temp_'),
+  });
+
+  // 3. Realtime Subscription (Syncs React Query Cache)
+  useEffect(() => {
+      if (!activeShoppingListId || activeShoppingListId.startsWith('temp_')) return;
+
+      const channel = supabase.channel(`shopping_list:${activeShoppingListId}`)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_list_items', filter: `list_id=eq.${activeShoppingListId}` }, (payload) => {
+              const queryKey = KEYS.items(activeShoppingListId);
+              
+              queryClient.setQueryData<ShoppingListItem[]>(queryKey, (old) => {
+                  if (!old) return [];
+                  if (payload.eventType === 'INSERT') {
+                      return [...old, payload.new as ShoppingListItem];
+                  } else if (payload.eventType === 'UPDATE') {
+                      return old.map(item => item.id === payload.new.id ? payload.new as ShoppingListItem : item);
+                  } else if (payload.eventType === 'DELETE') {
+                      return old.filter(item => item.id !== payload.old.id);
+                  }
+                  return old;
+              });
+          })
+          .subscribe();
+
+      return () => {
+          supabase.removeChannel(channel);
+      };
+  }, [activeShoppingListId, queryClient]);
+
+  // 4. Mutations
+  const createListMutation = useMutation({
+      mutationFn: async (name: string) => {
+          if (!household) throw new Error("No household");
+          const { data, error } = await supabase.from('shopping_lists').insert({ name, household_id: household.id }).select().single();
+          if (error) throw error;
+          return data;
+      },
+      onSuccess: (newList) => {
+          queryClient.invalidateQueries({ queryKey: KEYS.lists(household?.id || '') });
+          setActiveShoppingListId(newList.id);
       }
-  }, [shoppingLists, activeShoppingListId]);
+  });
 
-  const addItemToList = useCallback(async (foodItemId: string, quantity: number = 1) => {
-      if (!user || !activeShoppingListId) return;
-      setError(null);
+  const addItemMutation = useMutation({
+      mutationFn: async ({ foodItemId, quantity }: { foodItemId: string, quantity: number }) => {
+          if (!user || !activeShoppingListId) throw new Error("No context");
+          const { data, error } = await supabase.from('shopping_list_items').insert({
+              food_item_id: foodItemId,
+              list_id: activeShoppingListId,
+              added_by_user_id: user.id,
+              quantity
+          }).select().single();
+          if (error) throw error;
+          return data;
+      },
+      // Realtime subscription handles updates, but we can do optimistic insert here if needed.
+      // For simplicity, we rely on Supabase returning fast or Realtime triggering.
+  });
 
-      const existingItem = shoppingListItems.find(sli => sli.food_item_id === foodItemId && sli.list_id === activeShoppingListId);
-      
-      // Optimistic update handled below separately for create vs update
-      if (existingItem) {
-          await updateQuantity(existingItem.id, existingItem.quantity + quantity);
-      } else {
-          const tempId = `temp_${Date.now()}`;
-          const newItem: ShoppingListItem = {
-              id: tempId, list_id: activeShoppingListId, food_item_id: foodItemId, added_by_user_id: user.id,
-              checked: false, created_at: new Date().toISOString(), checked_by_user_id: null, quantity
-          };
-          setShoppingListItems(prev => [...prev, newItem]);
-
-          try {
-              const { data, error } = await supabase
-                  .from('shopping_list_items')
-                  .insert({ food_item_id: foodItemId, list_id: activeShoppingListId, added_by_user_id: user.id, quantity })
-                  .select()
-                  .single();
-              if (error) throw error;
-              // Realtime will handle the update usually, but we can replace temp
-              setShoppingListItems(prev => prev.map(i => i.id === tempId ? data : i));
-          } catch (err: any) {
-              setError(err.message);
-              setShoppingListItems(prev => prev.filter(i => i.id !== tempId));
+  const updateItemMutation = useMutation({
+      mutationFn: async ({ id, updates }: { id: string, updates: Partial<ShoppingListItem> }) => {
+          const { error } = await supabase.from('shopping_list_items').update(updates).eq('id', id);
+          if (error) throw error;
+      },
+      onMutate: async ({ id, updates }) => {
+          if (!activeShoppingListId) return;
+          await queryClient.cancelQueries({ queryKey: KEYS.items(activeShoppingListId) });
+          const previous = queryClient.getQueryData(KEYS.items(activeShoppingListId));
+          
+          queryClient.setQueryData<ShoppingListItem[]>(KEYS.items(activeShoppingListId), old => 
+              old ? old.map(item => item.id === id ? { ...item, ...updates } : item) : []
+          );
+          return { previous };
+      },
+      onError: (err, vars, context) => {
+          if (activeShoppingListId && context?.previous) {
+              queryClient.setQueryData(KEYS.items(activeShoppingListId), context.previous);
           }
       }
-  }, [user, activeShoppingListId, shoppingListItems]); // Note: updateQuantity is defined below, used here via closure/hoisting logic but cleaner to define before or use ref if strict. 
-  // To avoid dependency cycle in `addItemToList` needing `updateQuantity`, we define generic DB helpers or just standard logic.
+  });
 
-  const updateQuantity = useCallback(async (itemId: string, newQuantity: number) => {
-      if (newQuantity <= 0) {
-          await removeItem(itemId);
-          return;
-      }
-      
-      const previousItems = [...shoppingListItems];
-      setShoppingListItems(prev => prev.map(i => i.id === itemId ? { ...i, quantity: newQuantity } : i));
-      
-      try {
-          const { error } = await supabase
-              .from('shopping_list_items')
-              .update({ quantity: newQuantity })
-              .eq('id', itemId);
+  const deleteItemMutation = useMutation({
+      mutationFn: async (id: string) => {
+          const { error } = await supabase.from('shopping_list_items').delete().eq('id', id);
           if (error) throw error;
-      } catch (err: any) {
-          setError(err.message);
-          setShoppingListItems(previousItems);
+      },
+      onMutate: async (id) => {
+          if (!activeShoppingListId) return;
+          await queryClient.cancelQueries({ queryKey: KEYS.items(activeShoppingListId) });
+          const previous = queryClient.getQueryData(KEYS.items(activeShoppingListId));
+          queryClient.setQueryData<ShoppingListItem[]>(KEYS.items(activeShoppingListId), old => 
+              old ? old.filter(item => item.id !== id) : []
+          );
+          return { previous };
+      },
+      onError: (err, vars, context) => {
+          if (activeShoppingListId && context?.previous) {
+              queryClient.setQueryData(KEYS.items(activeShoppingListId), context.previous);
+          }
       }
-  }, [shoppingListItems]); // removeItem defined below
+  });
 
-  const removeItem = useCallback(async (itemId: string) => {
-      const previousItems = [...shoppingListItems];
-      setShoppingListItems(prev => prev.filter(i => i.id !== itemId));
-      
-      try {
-          const { error } = await supabase.from('shopping_list_items').delete().eq('id', itemId);
-          if (error) throw error;
-      } catch (err: any) {
-          setError(err.message);
-          setShoppingListItems(previousItems);
+  // --- API ---
+  const addItemToList = useCallback((foodItemId: string, quantity = 1) => {
+      // Check existing
+      const existing = shoppingListItems.find(i => i.food_item_id === foodItemId);
+      if (existing) {
+          updateItemMutation.mutate({ id: existing.id, updates: { quantity: existing.quantity + quantity } });
+      } else {
+          addItemMutation.mutate({ foodItemId, quantity });
       }
-  }, [shoppingListItems]);
-
-  const toggleChecked = useCallback(async (itemId: string, isChecked: boolean) => {
-      if (!user) return;
-      const previousItems = [...shoppingListItems];
-      setShoppingListItems(prev => prev.map(i => i.id === itemId ? { ...i, checked: isChecked, checked_by_user_id: isChecked ? user.id : null } : i));
-
-      try {
-           const { error } = await supabase
-              .from('shopping_list_items')
-              .update({ checked: isChecked, checked_by_user_id: isChecked ? user.id : null })
-              .eq('id', itemId);
-           if (error) throw error;
-      } catch (err: any) {
-          setError(err.message);
-          setShoppingListItems(previousItems);
-      }
-  }, [shoppingListItems, user]);
-
-  const clearCompleted = useCallback(async () => {
-      if (!activeShoppingListId) return;
-      const completedIds = shoppingListItems.filter(i => i.checked).map(i => i.id);
-      if (completedIds.length === 0) return;
-
-      const previousItems = [...shoppingListItems];
-      setShoppingListItems(prev => prev.filter(i => !i.checked));
-
-      try {
-          const { error } = await supabase.from('shopping_list_items').delete().in('id', completedIds);
-          if (error) throw error;
-      } catch (err: any) {
-          setError(err.message);
-          setShoppingListItems(previousItems);
-      }
-  }, [shoppingListItems, activeShoppingListId]);
+  }, [shoppingListItems, addItemMutation, updateItemMutation]);
 
   return {
     shoppingLists,
     activeShoppingListId,
     shoppingListItems,
-    loading,
-    error,
+    loading: isLoadingLists || isLoadingItems,
+    error: null,
     setActiveShoppingListId,
-    createList,
-    deleteList,
+    createList: (name: string) => createListMutation.mutate(name),
+    deleteList: async (id: string) => { await supabase.from('shopping_lists').delete().eq('id', id); queryClient.invalidateQueries({ queryKey: KEYS.lists(household?.id || '') }); }, // Simplified
     addItemToList,
-    updateQuantity,
-    removeItem,
-    toggleChecked,
-    clearCompleted
+    updateQuantity: (id: string, q: number) => q <= 0 ? deleteItemMutation.mutate(id) : updateItemMutation.mutate({ id, updates: { quantity: q } }),
+    removeItem: (id: string) => deleteItemMutation.mutate(id),
+    toggleChecked: (id: string, checked: boolean) => updateItemMutation.mutate({ id, updates: { checked, checked_by_user_id: checked ? user?.id : null } }),
+    clearCompleted: async () => {
+        const ids = shoppingListItems.filter(i => i.checked).map(i => i.id);
+        if(ids.length > 0) await supabase.from('shopping_list_items').delete().in('id', ids); // Realtime will update UI
+    }
   };
 };
