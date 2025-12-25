@@ -358,9 +358,8 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ isLoading, o
             {editingReceipt && (
                 <ReceiptEditModal 
                     receipt={editingReceipt} 
-                    // FIX: Wrapped handlers to return Promise<void> matching expected prop type
-                    onSave={async (id, updates) => { await updateReceipt(id, updates); }} 
-                    onDelete={async (id) => { await deleteReceipt(id); }} 
+                    onSave={updateReceipt} 
+                    onDelete={deleteReceipt} 
                     onClose={() => setEditingReceipt(null)} 
                 />
             )}

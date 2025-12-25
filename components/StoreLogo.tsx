@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 
 interface StoreLogoProps {
@@ -11,17 +10,17 @@ interface StoreLogoProps {
 // Domain mapping for logo fetching.
 // Maps common store names to their likely domain to fetch logos via API.
 const STORE_DOMAINS: Record<string, string> = {
-  'lidl': 'lidl.de',
+  'lidl': 'lidl.com',
   'aldi süd': 'aldi-sued.de',
   'aldi sued': 'aldi-sued.de',
   'aldi nord': 'aldi-nord.de',
   'aldi': 'aldi.com', 
   'rewe': 'rewe.de',
   'edeka': 'edeka.de',
-  'kaufland': 'kaufland.de',
+  'kaufland': 'kaufland.com',
   'netto marken-discount': 'netto-online.de',
   'netto scottie': 'netto.de',
-  'netto': 'netto-online.de', 
+  'netto': 'netto-online.de', // Defaulting to the red/yellow Netto
   'penny': 'penny.de',
   'dm': 'dm.de',
   'rossmann': 'rossmann.de',
@@ -58,10 +57,6 @@ const STORE_DOMAINS: Record<string, string> = {
   'bauhaus': 'bauhaus.info',
   'obi': 'obi.de',
   'hornbach': 'hornbach.de',
-  'saturn': 'saturn.de',
-  'mediamarkt': 'mediamarkt.de',
-  'media markt': 'mediamarkt.de',
-  'tchibo': 'tchibo.de',
 };
 
 // Fallback colors if logo fails or isn't found
@@ -106,6 +101,7 @@ export const StoreLogo: React.FC<StoreLogoProps> = ({ name, size = 'sm', showNam
   const normalizedName = name.toLowerCase().trim();
   
   // 1. Identify Domain by finding the longest matching key
+  // Sorting by length desc ensures "aldi süd" is matched before "aldi"
   const domainKey = Object.keys(STORE_DOMAINS)
     .sort((a, b) => b.length - a.length)
     .find(key => normalizedName.includes(key));
@@ -114,22 +110,30 @@ export const StoreLogo: React.FC<StoreLogoProps> = ({ name, size = 'sm', showNam
   
   // Image Source State
   const [imgSource, setImgSource] = useState<string | null>(null);
+  const [isFallback, setIsFallback] = useState(false);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     // Reset state when name/domain changes
     setHasError(false);
+    setIsFallback(false);
     if (domain) {
-        // Use Brandfetch for high quality logos
-        setImgSource(`https://cdn.brandfetch.io/${domain}`);
+        // Start with Clearbit
+        setImgSource(`https://logo.clearbit.com/${domain}?size=128`);
     } else {
         setImgSource(null);
     }
   }, [domain]);
 
   const handleImgError = () => {
-    // If main brandfetch fails (rare), we fall back to text initials
-    setHasError(true);
+    if (imgSource && imgSource.includes('clearbit') && domain) {
+        // If Clearbit failed, try Google Favicon as backup
+        setIsFallback(true);
+        setImgSource(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
+    } else {
+        // If Google also fails (or we weren't using Clearbit), give up
+        setHasError(true);
+    }
   };
 
   // Fallback styling logic
@@ -143,8 +147,7 @@ export const StoreLogo: React.FC<StoreLogoProps> = ({ name, size = 'sm', showNam
     lg: 'w-12 h-12 text-sm',
   };
   
-  // Added p-0.5 or p-1 padding to logos so they have breathing room inside the white circle
-  const containerBase = `flex items-center justify-center rounded-full font-bold shrink-0 shadow-sm overflow-hidden relative transition-all duration-200 ${sizeClasses[size]}`;
+  const containerBase = `flex items-center justify-center rounded-full font-bold shrink-0 shadow-sm overflow-hidden bg-white relative ${sizeClasses[size]}`;
   
   const fallbackStyle = isKnownColor 
     ? `${style.bg} ${style.text} ${style.border ? `border ${style.border}` : ''}` 
@@ -155,14 +158,12 @@ export const StoreLogo: React.FC<StoreLogoProps> = ({ name, size = 'sm', showNam
   return (
     <div className={`inline-flex items-center gap-2 ${className}`}>
       {imgSource && !hasError ? (
-         // Render Real Logo
-         // Added bg-white to ensure transparency works on dark mode
-         // Added p-[10%] to give the logo some breathing room within the circle
-        <div className={`${containerBase} bg-white border border-gray-100 dark:border-gray-700`} title={name}>
+         // Render Real Logo (Clearbit or Google)
+        <div className={`${containerBase} border border-gray-200 dark:border-gray-600 bg-white`} title={name}>
           <img 
             src={imgSource} 
             alt={name} 
-            className="w-full h-full object-contain p-[15%]" 
+            className={`w-full h-full object-contain ${isFallback ? 'scale-75' : ''}`} // Google favicons might need padding
             onError={handleImgError}
             loading="lazy"
           />
