@@ -1,4 +1,5 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangleIcon } from './Icons';
 
 interface Props {
@@ -10,24 +11,38 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
-  public state: State = {
-    hasError: false,
-    error: null,
-  };
+/**
+ * Standard React Error Boundary component.
+ * Uses a class component as functional components cannot be error boundaries yet.
+ */
+// FIX: Explicitly inheriting from React.Component ensures 'this.props' and 'this.state' are correctly typed and recognized by TypeScript.
+export class ErrorBoundary extends Component<Props, State> {
+  // FIX: Traditional state initialization in constructor to avoid inheritance issues.
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+    };
+  }
 
+  // Static method to update state when an error occurs
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
+  // Lifecycle method to catch errors and log them
+  // FIX: Removed 'override' keyword which was incorrectly applied.
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
+  // Simple reload function for the UI button
   private handleReload = () => {
     window.location.reload();
   };
 
+  // FIX: Removed 'override' keyword.
   public render() {
     if (this.state.hasError) {
       return (
@@ -43,7 +58,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
               Die App ist auf einen unerwarteten Fehler gestoßen. Wir haben dies protokolliert.
             </p>
             
-            {/* Optional: Show error message in dev mode only, or simplified for user */}
             {this.state.error && (
                 <div className="mb-6 p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs text-left font-mono text-red-500 overflow-auto max-h-32">
                     {this.state.error.toString()}

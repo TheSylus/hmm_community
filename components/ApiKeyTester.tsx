@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { useTranslation } from '../i18n/index';
@@ -25,20 +26,18 @@ export const ApiKeyTester: React.FC<ApiKeyTesterProps> = ({ onKeyVerified, butto
         
         try {
             const testAi = new GoogleGenAI({ apiKey: keyToTest });
-            // Use a more robust object structure for the content, which can be more reliable.
+            // FIX: Updated model to gemini-3-flash-preview for connectivity test.
             await testAi.models.generateContent({ 
-                model: 'gemini-2.5-flash', 
+                model: 'gemini-3-flash-preview', 
                 contents: { parts: [{ text: 'hello' }] }
             });
             
             setStatus('success');
-            // If successful, call the callback to notify the parent.
             onKeyVerified(keyToTest);
 
         } catch (e: any) {
             setStatus('error');
             
-            // Improved error message extraction to handle different error formats from the API.
             let message = 'An unknown error occurred.';
             if (e?.error?.message) {
                 message = e.error.message;
