@@ -71,19 +71,29 @@ export const ReceiptToInventoryModal: React.FC<ReceiptToInventoryModalProps> = (
         setError(null);
         
         try {
-            const foodItemsToCreate: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>[] = [];
+            // Deduplication Logic:
+            // Use a Map to ensure unique items by name (case-insensitive).
+            // If "Water" appears twice on the receipt, we only create one "Water" FoodItem.
+            const uniqueItemsMap = new Map<string, Omit<FoodItem, 'id' | 'user_id' | 'created_at'>>();
+
             selectedIndices.forEach(index => {
                 const rItem = items[index];
-                foodItemsToCreate.push({
-                    name: rItem.raw_name,
-                    rating: 0,
-                    itemType: 'product',
-                    category: rItem.category,
-                    purchaseLocation: [receipt.merchant_name],
-                    isFamilyFavorite: false,
-                    price: rItem.price
-                });
+                const nameKey = rItem.raw_name.trim().toLowerCase();
+
+                if (!uniqueItemsMap.has(nameKey)) {
+                    uniqueItemsMap.set(nameKey, {
+                        name: rItem.raw_name,
+                        rating: 0,
+                        itemType: 'product',
+                        category: rItem.category,
+                        purchaseLocation: [receipt.merchant_name],
+                        isFamilyFavorite: false,
+                        price: rItem.price
+                    });
+                }
             });
+
+            const foodItemsToCreate = Array.from(uniqueItemsMap.values());
 
             await onConfirm(foodItemsToCreate);
             onClose();

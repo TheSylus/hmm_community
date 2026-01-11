@@ -1,5 +1,4 @@
-
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { AlertTriangleIcon } from './Icons';
 
 interface Props {
@@ -15,7 +14,7 @@ interface State {
  * Standard React Error Boundary component.
  * Uses a class component as functional components cannot be error boundaries yet.
  */
-export class ErrorBoundary extends Component<Props, State> {
+export class ErrorBoundary extends React.Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null,
