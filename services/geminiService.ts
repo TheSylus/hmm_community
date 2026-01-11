@@ -242,11 +242,37 @@ export const analyzeReceiptImage = async (base64Image: string, context: { id: st
         model: "gemini-3-flash-preview",
         contents: { parts: [
             { inlineData: { mimeType: match[1], data: match[2] } },
-            { text: `Analyze receipt. Map items to context if possible: ${JSON.stringify(context)}` }
+            { text: `Analyze this receipt image. Extract the merchant name, date, total amount, and currency.
+            List all purchased items with their name, price, quantity, and categorize them.
+            If an item name strongly matches one in this list: ${JSON.stringify(context)}, return its 'id' as 'food_item_id'.` }
         ]},
         config: {
             temperature: 0.1,
-            responseMimeType: "application/json"
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    merchant_name: { type: Type.STRING },
+                    date: { type: Type.STRING },
+                    total_amount: { type: Type.NUMBER },
+                    currency: { type: Type.STRING },
+                    items: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                raw_name: { type: Type.STRING },
+                                price: { type: Type.NUMBER },
+                                quantity: { type: Type.NUMBER },
+                                category: { type: Type.STRING, enum: ['produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'frozen', 'snacks', 'beverages', 'household', 'personal_care', 'restaurant_food', 'other'] },
+                                food_item_id: { type: Type.STRING }
+                            },
+                            required: ["raw_name", "price", "category"]
+                        }
+                    }
+                },
+                required: ["merchant_name", "total_amount", "items"]
+            }
         }
     });
     // FIX: Accessing .text directly on response object.

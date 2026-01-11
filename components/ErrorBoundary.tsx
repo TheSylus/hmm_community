@@ -15,10 +15,8 @@ interface State {
  * Standard React Error Boundary component.
  * Uses a class component as functional components cannot be error boundaries yet.
  */
-// FIX: Explicitly inheriting from React.Component ensures 'this.props' and 'this.state' are correctly typed and recognized by TypeScript.
-export class ErrorBoundary extends React.Component<Props, State> {
-  // FIX: Explicitly initialize state to avoid potential inference issues.
-  public override state: State = {
+export class ErrorBoundary extends Component<Props, State> {
+  public state: State = {
     hasError: false,
     error: null,
   };
@@ -29,7 +27,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   // Lifecycle method to catch errors and log them
-  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
@@ -38,8 +36,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     window.location.reload();
   };
 
-  public override render() {
-    // FIX: Using state from the typed Component class.
+  public render() {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4 text-center">
@@ -71,7 +68,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
       );
     }
 
-    // FIX: Accessing this.props.children now correctly resolves within the React.Component context.
     return this.props.children;
   }
 }
