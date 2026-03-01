@@ -73,7 +73,8 @@ const ItemDetailPage: React.FC<{
     items: FoodItem[]; 
     currentUser: any; 
     onImageClick: (url: string) => void;
-}> = ({ items, currentUser, onImageClick }) => {
+    onDelete: (id: string) => void;
+}> = ({ items, currentUser, onImageClick, onDelete }) => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { t } = useTranslation();
@@ -81,14 +82,25 @@ const ItemDetailPage: React.FC<{
 
     if (!item) return <div className="p-8 text-center">Item not found</div>;
 
+    const handleDelete = () => {
+        if (window.confirm(t('modal.deleteConfirm'))) {
+             if (item.id) onDelete(item.id);
+        }
+    }
+
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm min-h-[50vh]">
             <FoodItemDetailView item={item} onImageClick={onImageClick} />
-            <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+            <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-4">
                 {item.user_id === currentUser?.id && (
-                    <button onClick={() => navigate(`/edit/${item.id}`)} className="w-full sm:w-auto px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-md">
-                        {t('form.editTitle')}
-                    </button>
+                    <>
+                        <button onClick={handleDelete} className="px-4 py-3 text-red-600 font-bold hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors">
+                             {t('common.delete')}
+                        </button>
+                        <button onClick={() => navigate(`/edit/${item.id}`)} className="w-full sm:w-auto px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-md">
+                            {t('form.editTitle')}
+                        </button>
+                    </>
                 )}
             </div>
         </div>
@@ -588,7 +600,7 @@ export const App = () => {
             {/* SUB-PAGES */}
             <Route path="/add" element={<ItemFormPage items={allItems} onSave={(data) => saveItem(data)} householdId={userProfile?.household_id || null} />} />
             <Route path="/edit/:id" element={<ItemFormPage items={allItems} onSave={(data) => saveItem(data, data.id)} householdId={userProfile?.household_id || null} />} />
-            <Route path="/item/:id" element={<ItemDetailPage items={allItems} currentUser={user} onImageClick={setSelectedImage} />} />
+            <Route path="/item/:id" element={<ItemDetailPage items={allItems} currentUser={user} onImageClick={setSelectedImage} onDelete={(id) => { handleDeleteItem(id); navigate(-1); }} />} />
             <Route path="/settings" element={
                 <SettingsPage 
                     household={household} 
