@@ -145,7 +145,7 @@ export const Layout: React.FC<LayoutProps> = ({
             <Outlet />
         </main>
 
-        <BottomNavigation shoppingListCount={shoppingListCount} />
+        {!showBackBtn && <BottomNavigation shoppingListCount={shoppingListCount} />}
     </div>
   );
 };
