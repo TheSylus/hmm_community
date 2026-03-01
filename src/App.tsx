@@ -71,18 +71,21 @@ const SettingsPage: React.FC<{
 // 2. Detail Page Component
 const ItemDetailPage: React.FC<{
     items: FoodItem[]; 
-    currentUser: any; 
     onImageClick: (url: string) => void;
     onDelete: (id: string) => void;
-}> = ({ items, currentUser, onImageClick, onDelete }) => {
+}> = ({ items, onImageClick, onDelete }) => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { t } = useTranslation();
+    const { user } = useAuth();
     const item = items.find(i => i.id === id);
 
     if (!item) return <div className="p-8 text-center">Item not found</div>;
 
+    const isOwner = user && item.user_id === user.id;
+
     const handleDelete = () => {
+        if (!isOwner) return;
         if (window.confirm(t('modal.deleteConfirm'))) {
              if (item.id) onDelete(item.id);
         }
@@ -92,17 +95,26 @@ const ItemDetailPage: React.FC<{
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm min-h-[50vh]">
             <FoodItemDetailView item={item} onImageClick={onImageClick} />
             <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700 flex flex-col-reverse sm:flex-row items-center justify-end gap-4">
-                {item.user_id === currentUser?.id && (
-                    <>
-                        <button onClick={handleDelete} className="w-full sm:w-auto px-4 py-3 text-red-600 font-bold hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors">
-                             {t('common.delete')}
-                        </button>
-                        <button onClick={() => navigate(`/edit/${item.id}`)} className="w-full sm:w-auto px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-md">
-                            {t('form.editTitle')}
-                        </button>
-                    </>
-                )}
+                <button 
+                    onClick={handleDelete} 
+                    disabled={!isOwner}
+                    className={`w-full sm:w-auto px-4 py-3 font-bold rounded-xl transition-colors ${isOwner ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20' : 'text-gray-400 cursor-not-allowed'}`}
+                >
+                        {t('common.delete')}
+                </button>
+                <button 
+                    onClick={() => navigate(`/edit/${item.id}`)} 
+                    disabled={!isOwner}
+                    className={`w-full sm:w-auto px-8 py-3 text-white rounded-xl font-bold transition-colors shadow-md ${isOwner ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-400 cursor-not-allowed'}`}
+                >
+                    {t('form.editTitle')}
+                </button>
             </div>
+            {!isOwner && (
+                <div className="text-center mt-2 text-xs text-gray-500">
+                    Only the creator of this item can edit or delete it.
+                </div>
+            )}
         </div>
     );
 };
@@ -600,7 +612,7 @@ export const App = () => {
             {/* SUB-PAGES */}
             <Route path="/add" element={<ItemFormPage items={allItems} onSave={(data) => saveItem(data)} householdId={userProfile?.household_id || null} />} />
             <Route path="/edit/:id" element={<ItemFormPage items={allItems} onSave={(data) => saveItem(data, data.id)} householdId={userProfile?.household_id || null} />} />
-            <Route path="/item/:id" element={<ItemDetailPage items={allItems} currentUser={user} onImageClick={setSelectedImage} onDelete={(id) => { handleDeleteItem(id); navigate(-1); }} />} />
+            <Route path="/item/:id" element={<ItemDetailPage items={allItems} onImageClick={setSelectedImage} onDelete={(id) => { handleDeleteItem(id); navigate(-1); }} />} />
             <Route path="/settings" element={
                 <SettingsPage 
                     household={household} 
