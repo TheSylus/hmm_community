@@ -91,10 +91,10 @@ const ItemDetailPage: React.FC<{
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm min-h-[50vh]">
             <FoodItemDetailView item={item} onImageClick={onImageClick} />
-            <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-4">
+            <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700 flex flex-col-reverse sm:flex-row items-center justify-end gap-4">
                 {item.user_id === currentUser?.id && (
                     <>
-                        <button onClick={handleDelete} className="px-4 py-3 text-red-600 font-bold hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors">
+                        <button onClick={handleDelete} className="w-full sm:w-auto px-4 py-3 text-red-600 font-bold hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors">
                              {t('common.delete')}
                         </button>
                         <button onClick={() => navigate(`/edit/${item.id}`)} className="w-full sm:w-auto px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-md">
