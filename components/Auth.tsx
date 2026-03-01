@@ -11,15 +11,7 @@ export const Auth: React.FC = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
-    const [hasInvite, setHasInvite] = useState(false);
-
-    useEffect(() => {
-        // Check for pending invite
-        const pendingInvite = localStorage.getItem('pending_household_invite');
-        if (pendingInvite) {
-            setHasInvite(true);
-        }
-    }, []);
+    const [hasInvite, setHasInvite] = useState(() => !!localStorage.getItem('pending_household_invite'));
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();

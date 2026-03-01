@@ -15,7 +15,7 @@ interface UseFoodFormLogicProps {
   startMode?: 'barcode' | 'camera' | 'none';
 }
 
-export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onSaveItem, onCancel, startMode = 'none' }: UseFoodFormLogicProps) => {
+export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onSaveItem, startMode = 'none' }: UseFoodFormLogicProps) => {
   const { t, language } = useTranslation();
   const { isAiEnabled, isOffSearchEnabled } = useAppSettings();
   const [apiKeyValid, setApiKeyValid] = useState(false);
@@ -241,7 +241,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
       // Use the current itemType to decide which DB to search (product=Food, drugstore=Beauty)
       const offResult = await searchProductByNameFromOpenDatabase(productName, itemType, language);
       
-      let mergedData = {
+      const mergedData = {
           tags: offResult.tags || [],
           nutriScore: (offResult.nutriScore || '') as NutriScore | '',
           calories: offResult.calories,
@@ -394,7 +394,7 @@ export const useFoodFormLogic = ({ initialData, initialItemType = 'product', onS
         
         if(progressInterval) clearInterval(progressInterval);
         
-        let mergedData = {
+        const mergedData = {
             name: aiResult.name || '',
             tags: aiResult.tags || [],
             nutriScore: (aiResult.nutriScore || '') as NutriScore | '',

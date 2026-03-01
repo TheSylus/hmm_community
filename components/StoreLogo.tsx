@@ -97,47 +97,62 @@ const getFallbackColor = (str: string) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
+// Sub-component to handle image loading state with key-based reset
+const StoreLogoImage: React.FC<{
+  domain: string;
+  name: string;
+  containerBase: string;
+  fallbackStyle: string;
+  initials: string;
+}> = ({ domain, name, containerBase, fallbackStyle, initials }) => {
+  const [imgSource, setImgSource] = useState<string>(`https://logo.clearbit.com/${domain}?size=128`);
+  const [isFallback, setIsFallback] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  const handleImgError = () => {
+    if (imgSource.includes('clearbit')) {
+        // If Clearbit failed, try Google Favicon as backup
+        setIsFallback(true);
+        setImgSource(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
+    } else {
+        // If Google also fails, give up
+        setHasError(true);
+    }
+  };
+
+  if (hasError) {
+    return (
+      <div className={`${containerBase} ${fallbackStyle}`} title={name}>
+        {initials}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${containerBase} border border-gray-200 dark:border-gray-600 bg-white`} title={name}>
+      <img 
+        src={imgSource} 
+        alt={name} 
+        className={`w-full h-full object-contain ${isFallback ? 'scale-75' : ''}`} 
+        onError={handleImgError}
+        loading="lazy"
+      />
+    </div>
+  );
+};
+
 export const StoreLogo: React.FC<StoreLogoProps> = ({ name, size = 'sm', showName = false, className = '' }) => {
   const normalizedName = name.toLowerCase().trim();
   
   // 1. Identify Domain by finding the longest matching key
-  // Sorting by length desc ensures "aldi süd" is matched before "aldi"
   const domainKey = Object.keys(STORE_DOMAINS)
     .sort((a, b) => b.length - a.length)
     .find(key => normalizedName.includes(key));
     
   const domain = domainKey ? STORE_DOMAINS[domainKey] : null;
   
-  // Image Source State
-  const [imgSource, setImgSource] = useState<string | null>(null);
-  const [isFallback, setIsFallback] = useState(false);
-  const [hasError, setHasError] = useState(false);
-
-  useEffect(() => {
-    // Reset state when name/domain changes
-    setHasError(false);
-    setIsFallback(false);
-    if (domain) {
-        // Start with Clearbit
-        setImgSource(`https://logo.clearbit.com/${domain}?size=128`);
-    } else {
-        setImgSource(null);
-    }
-  }, [domain]);
-
-  const handleImgError = () => {
-    if (imgSource && imgSource.includes('clearbit') && domain) {
-        // If Clearbit failed, try Google Favicon as backup
-        setIsFallback(true);
-        setImgSource(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
-    } else {
-        // If Google also fails (or we weren't using Clearbit), give up
-        setHasError(true);
-    }
-  };
-
   // Fallback styling logic
-  let style = STORE_COLORS[Object.keys(STORE_COLORS).find(key => normalizedName.includes(key)) || ''];
+  const style = STORE_COLORS[Object.keys(STORE_COLORS).find(key => normalizedName.includes(key)) || ''];
   const isKnownColor = !!style;
   const fallbackBg = getFallbackColor(normalizedName);
 
@@ -157,19 +172,16 @@ export const StoreLogo: React.FC<StoreLogoProps> = ({ name, size = 'sm', showNam
 
   return (
     <div className={`inline-flex items-center gap-2 ${className}`}>
-      {imgSource && !hasError ? (
-         // Render Real Logo (Clearbit or Google)
-        <div className={`${containerBase} border border-gray-200 dark:border-gray-600 bg-white`} title={name}>
-          <img 
-            src={imgSource} 
-            alt={name} 
-            className={`w-full h-full object-contain ${isFallback ? 'scale-75' : ''}`} // Google favicons might need padding
-            onError={handleImgError}
-            loading="lazy"
-          />
-        </div>
+      {domain ? (
+        <StoreLogoImage 
+          key={domain} // Reset state when domain changes
+          domain={domain}
+          name={name}
+          containerBase={containerBase}
+          fallbackStyle={fallbackStyle}
+          initials={initials}
+        />
       ) : (
-        // Render Fallback Initials
         <div className={`${containerBase} ${fallbackStyle}`} title={name}>
           {initials}
         </div>

@@ -4,6 +4,14 @@ import { useTranslation } from '../i18n/index';
 import { XMarkIcon, PencilIcon, BarcodeIcon } from './Icons';
 import { useAppSettings } from '../contexts/AppSettingsContext';
 
+interface ExtendedMediaTrackConstraints extends MediaTrackConstraints {
+  focusMode?: ConstrainDOMString;
+}
+
+interface ExtendedMediaTrackCapabilities extends MediaTrackCapabilities {
+  focusMode?: string[];
+}
+
 interface CameraCaptureProps {
   onCapture: (imageDataUrl: string) => void;
   onClose: () => void;
@@ -33,7 +41,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
           width: { ideal: 4096 }, // 4K ideal
           height: { ideal: 2160 },
           focusMode: 'continuous' // Nur manche Browser/Systeme unterstützen das direkt in den Initial Constraints
-        } as any,
+        } as ExtendedMediaTrackConstraints,
         audio: false,
       };
       
@@ -41,14 +49,14 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
       
       // Fokus-Optimierung nach dem Start
       const track = mediaStream.getVideoTracks()[0];
-      const capabilities = track.getCapabilities() as any;
+      const capabilities = track.getCapabilities() as ExtendedMediaTrackCapabilities;
       
       // Falls das Gerät erweiterten Autofokus unterstützt, aktivieren wir ihn
       if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
         try {
           await track.applyConstraints({
             advanced: [{ focusMode: 'continuous' }]
-          } as any);
+          } as ExtendedMediaTrackConstraints);
         } catch (e) {
           console.warn("Konnte kontinuierlichen Autofokus nicht erzwingen", e);
         }
@@ -61,7 +69,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
           setIsCameraReady(true);
         };
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Fehler beim Zugriff auf die Kamera:", err);
       setError(t('camera.error'));
     }
@@ -82,7 +90,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
     if (!streamRef.current) return;
     
     const track = streamRef.current.getVideoTracks()[0];
-    const capabilities = track.getCapabilities() as any;
+    const capabilities = track.getCapabilities() as ExtendedMediaTrackCapabilities;
 
     // Koordinaten für die visuelle Anzeige berechnen
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -97,12 +105,12 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
         try {
             await track.applyConstraints({
                 advanced: [{ focusMode: 'manual' }] // Kurz umschalten triggert oft eine Neuausrichtung
-            } as any);
+            } as ExtendedMediaTrackConstraints);
             // Kurz darauf zurück auf kontinuierlich für beste User Experience
             setTimeout(async () => {
                 await track.applyConstraints({
                     advanced: [{ focusMode: 'continuous' }]
-                } as any);
+                } as ExtendedMediaTrackConstraints);
             }, 500);
         } catch (e) {
             console.warn("Fokus-Constraint fehlgeschlagen", e);
@@ -122,7 +130,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
         const videoH = video.videoHeight;
         const minDim = Math.min(videoW, videoH);
         
-        let cropW, cropH, startX, startY;
+        let cropW, cropH;
 
         if (mode === 'main') {
             const cropSize = minDim * 0.85; 
@@ -136,8 +144,8 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
             cropW = cropH * 0.5;
         }
 
-        startX = (videoW - cropW) / 2;
-        startY = (videoH - cropH) / 2;
+        const startX = (videoW - cropW) / 2;
+        const startY = (videoH - cropH) / 2;
 
         canvas.width = cropW;
         canvas.height = cropH;

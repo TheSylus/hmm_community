@@ -19,6 +19,28 @@ const nutriScoreColors: Record<NutriScore, string> = {
   E: 'bg-red-600',
 };
 
+const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', className?: string }> = ({ type, className }) => {
+    const { t } = useTranslation();
+    const icons = {
+        lactoseFree: <LactoseFreeIcon className={`${className} text-blue-600 dark:text-blue-400`} />,
+        vegan: <VeganIcon className={`${className}`} />,
+        glutenFree: <GlutenFreeIcon className={`${className}`} />,
+    };
+    const tooltips = {
+        lactoseFree: t('card.lactoseFreeTooltip'),
+        vegan: t('card.veganTooltip'),
+        glutenFree: t('card.glutenFreeTooltip'),
+    };
+    return (
+        <div className="relative group flex items-center justify-center">
+            {icons[type]}
+            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                {tooltips[type]}
+            </span>
+        </div>
+    );
+}
+
 export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, onImageClick }) => {
   const { t } = useTranslation();
   const displayItem = useTranslatedItem(item);
@@ -33,27 +55,6 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
   const hasIngredients = isConsumableOrDrugstore && displayItem.ingredients && displayItem.ingredients.length > 0;
   const hasTags = displayItem.tags && displayItem.tags.length > 0;
   
-  const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', className?: string }> = ({ type, className }) => {
-      const icons = {
-          lactoseFree: <LactoseFreeIcon className={`${className} text-blue-600 dark:text-blue-400`} />,
-          vegan: <VeganIcon className={`${className}`} />,
-          glutenFree: <GlutenFreeIcon className={`${className}`} />,
-      };
-      const tooltips = {
-          lactoseFree: t('card.lactoseFreeTooltip'),
-          vegan: t('card.veganTooltip'),
-          glutenFree: t('card.glutenFreeTooltip'),
-      };
-      return (
-          <div className="relative group flex items-center justify-center">
-              {icons[type]}
-              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                  {tooltips[type]}
-              </span>
-          </div>
-      );
-  }
-
   return (
     <div className="space-y-4 text-sm">
       {/* Header with Image, Name, Rating */}

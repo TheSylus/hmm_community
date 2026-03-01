@@ -38,7 +38,7 @@ export const useHousehold = (user: User | null) => {
       if (membersError) throw membersError;
       setHouseholdMembers(membersData || []);
 
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error fetching household details:", err);
       // Don't set global error here to avoid blocking UI, just log
     }
@@ -72,9 +72,9 @@ export const useHousehold = (user: User | null) => {
             await fetchHouseholdDetails(data.household_id);
           }
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error("Error loading profile:", err);
-        if (mounted) setError(err.message);
+        if (mounted) setError((err as Error).message);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -118,12 +118,13 @@ export const useHousehold = (user: User | null) => {
       // Fetch members (just current user initially)
       await fetchHouseholdDetails(newHousehold.id);
 
-    } catch (err: any) {
+    } catch (err) {
       console.error("Create household error:", err);
-      if (err.message === 'RLS_INSERT_VIOLATION') {
+      const message = (err as Error).message;
+      if (message === 'RLS_INSERT_VIOLATION') {
           setError(t('household.error.rls.insert'));
       } else {
-          setError(t('household.error.generic', { message: err.message }));
+          setError(t('household.error.generic', { message }));
       }
       throw err; // Re-throw to let UI handle specific success/fail actions if needed
     }
@@ -145,9 +146,9 @@ export const useHousehold = (user: User | null) => {
         setUserProfile(data);
         await fetchHouseholdDetails(householdId);
         return data?.name; // Return household name if possible (requires extra fetch or heuristic)
-    } catch (err: any) {
+    } catch (err) {
         console.error("Join household error:", err);
-        setError(err.message);
+        setError((err as Error).message);
         throw err;
     }
   }, [user, fetchHouseholdDetails]);
@@ -168,9 +169,9 @@ export const useHousehold = (user: User | null) => {
         setUserProfile(data);
         setHousehold(null);
         setHouseholdMembers([]);
-    } catch (err: any) {
+    } catch (err) {
         console.error("Leave household error:", err);
-        setError(err.message);
+        setError((err as Error).message);
     }
   }, [user]);
 
@@ -190,9 +191,9 @@ export const useHousehold = (user: User | null) => {
         setUserProfile(data);
         setHousehold(null);
         setHouseholdMembers([]);
-    } catch (err: any) {
+    } catch (err) {
         console.error("Delete household error:", err);
-        setError(err.message);
+        setError((err as Error).message);
     }
   }, [user, household]);
   

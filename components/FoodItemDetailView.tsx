@@ -23,7 +23,7 @@ const nutriScoreColors: Record<NutriScore, string> = {
   E: 'bg-red-600',
 };
 
-const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', className?: string }> = ({ type, className }) => {
+const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', className?: string }> = ({ type, className }): React.ReactElement => {
     const { t } = useTranslation();
     const icons = {
         lactoseFree: <LactoseFreeIcon className={`${className} text-blue-600 dark:text-blue-400`} />,
@@ -45,7 +45,7 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
     );
 }
 
-export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, onImageClick }) => {
+export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, onImageClick }): React.ReactElement | null => {
   const { t, language } = useTranslation();
   const { user } = useAuth();
   const displayItem = useTranslatedItem(item);

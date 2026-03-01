@@ -28,21 +28,23 @@ interface FoodItemDbPayload {
 
 // --- Mappers ---
 
-export const mapDbToFoodItem = (dbItem: any): FoodItem => {
+export const mapDbToFoodItem = (dbItem: FoodItemDbPayload & { id: string; created_at: string }): FoodItem => {
   let locations: string[] = [];
   if (Array.isArray(dbItem.purchase_location)) {
     locations = dbItem.purchase_location;
-  } else if (typeof dbItem.purchase_location === 'string' && dbItem.purchase_location.trim() !== '') {
-    let raw = dbItem.purchase_location;
+  } else if (typeof dbItem.purchase_location === 'string' && (dbItem.purchase_location as string).trim() !== '') {
+    let raw = dbItem.purchase_location as string;
     if (raw.startsWith('[') && raw.endsWith(']')) {
       try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) locations = parsed.map(String);
-      } catch (e) {}
+      } catch {
+        // Ignore JSON parse error
+      }
     }
     if (locations.length === 0) {
-        if (raw.startsWith('{') && raw.endsWith('}')) raw = raw.slice(1, -1);
-        locations = raw.split(',').map((l: string) => l.trim()).filter(Boolean);
+      if (raw.startsWith('{') && raw.endsWith('}')) raw = raw.slice(1, -1);
+      locations = raw.split(',').map((l: string) => l.trim()).filter(Boolean);
     }
   }
 
@@ -131,11 +133,13 @@ export const createFoodItem = async (item: Omit<FoodItem, 'id' | 'user_id' | 'cr
 
   if (error) {
       console.warn("Cascade retry for single item:", error.message);
-      const { calories, ...payloadNoCalories } = payload;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { calories: _calories, ...payloadNoCalories } = payload;
       const { data: r1, error: e1 } = await supabase.from('food_items').insert(payloadNoCalories).select().single();
       if (!e1) return mapDbToFoodItem(r1);
 
-      const { category, ...payloadLegacy } = payloadNoCalories;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { category: _category, ...payloadLegacy } = payloadNoCalories;
       const { data: r2, error: e2 } = await supabase.from('food_items').insert(payloadLegacy).select().single();
       if (!e2) return mapDbToFoodItem(r2);
       throw error;
@@ -164,14 +168,16 @@ export const createFoodItemsBulk = async (items: (Omit<FoodItem, 'id' | 'user_id
     console.warn("Bulk import Stage 1 failed, trying without 'calories'...", result.error.message);
 
     // Stage 2: Remove 'calories'
-    const payloadsNoCalories = basePayloads.map(({ calories, ...rest }) => rest);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const payloadsNoCalories = basePayloads.map(({ calories: _calories, ...rest }) => rest);
     result = await attemptBatch(payloadsNoCalories);
     if (!result.error) return (result.data || []).map(mapDbToFoodItem);
 
     console.warn("Bulk import Stage 2 failed, trying without 'category'...", result.error.message);
 
     // Stage 3: Remove 'calories' AND 'category'
-    const payloadsLegacy = payloadsNoCalories.map(({ category, ...rest }) => rest);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const payloadsLegacy = payloadsNoCalories.map(({ category: _category, ...rest }) => rest);
     result = await attemptBatch(payloadsLegacy);
     if (!result.error) return (result.data || []).map(mapDbToFoodItem);
 
@@ -198,11 +204,13 @@ export const updateFoodItem = async (id: string, item: Omit<FoodItem, 'id' | 'us
 
   if (error) {
       console.warn("Cascade retry for update:", error.message);
-      const { calories, ...p1 } = payload;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { calories: _calories, ...p1 } = payload;
       const { data: r1, error: e1 } = await supabase.from('food_items').update(p1).eq('id', id).select().single();
       if (!e1) return mapDbToFoodItem(r1);
 
-      const { category, ...p2 } = p1;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { category: _category, ...p2 } = p1;
       const { data: r2, error: e2 } = await supabase.from('food_items').update(p2).eq('id', id).select().single();
       if (!e2) return mapDbToFoodItem(r2);
       throw error;

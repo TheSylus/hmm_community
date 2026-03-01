@@ -1,12 +1,11 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { FoodItem, FoodItemType, ShoppingList, UserProfile, Household, Receipt, ReceiptItem } from './types';
+import { FoodItem, UserProfile, Household, Receipt, ReceiptItem } from './types';
 import { FoodItemForm } from './components/FoodItemForm';
 import { Dashboard } from './components/Dashboard';
 import { ShoppingListView } from './components/ShoppingListView'; 
 import { FilterPanel } from './components/FilterPanel';
-import { DuplicateConfirmationModal } from './components/DuplicateConfirmationModal';
 import { ImageModal } from './components/ImageModal';
 import { SettingsModal } from './components/SettingsModal';
 import { FoodItemDetailView } from './components/FoodItemDetailView';
@@ -23,24 +22,12 @@ import { useTranslation } from './i18n/index';
 import { XMarkIcon, SpinnerIcon, CameraIcon } from './components/Icons';
 import { useModalHistory } from './hooks/useModalHistory';
 import { triggerHaptic } from './utils/haptics';
-import { useAppSettings } from './contexts/AppSettingsContext';
 import { FinanceDashboard } from './components/finance/FinanceDashboard';
 import { CameraCapture } from './components/CameraCapture';
 import { ReceiptReviewModal } from './components/finance/ReceiptReviewModal';
 import { ReceiptToInventoryModal } from './components/finance/ReceiptToInventoryModal';
 
 // --- TYPES & HELPERS ---
-const decodeAndDecompress = async (base64UrlString: string): Promise<any> => {
-  let base64 = base64UrlString.replace(/-/g, '+').replace(/_/g, '/');
-  while (base64.length % 4) { base64 += '='; }
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) { bytes[i] = binaryString.charCodeAt(i); }
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-  const decompressed = await new Response(stream).text();
-  return JSON.parse(decompressed);
-};
-
 export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
 export type RatingFilter = 'liked' | 'disliked' | 'all';
 export type TypeFilter = 'all' | 'product' | 'dish' | 'drugstore';
@@ -123,7 +110,7 @@ const ItemDetailPage: React.FC<{
 // 3. Form Page Component (Add/Edit)
 const ItemFormPage: React.FC<{
     items: FoodItem[];
-    onSave: (item: any) => Promise<void>;
+    onSave: (item: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => Promise<void>;
     householdId: string | null;
 }> = ({ items, onSave, householdId }) => {
     const { id } = useParams();
@@ -131,10 +118,11 @@ const ItemFormPage: React.FC<{
     const location = useLocation();
     
     // Determine start mode from state passed via navigation
-    const startMode = (location.state as any)?.startMode || 'none';
+    const state = location.state as { startMode?: 'barcode' | 'camera' | 'none' } | null;
+    const startMode = state?.startMode || 'none';
     const initialItem = id ? items.find(i => i.id === id) : null;
 
-    const handleSave = async (data: any) => {
+    const handleSave = async (data: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>) => {
         await onSave(data); 
         navigate(-1);
     };
@@ -163,8 +151,8 @@ export const App = () => {
   
   const { 
     userProfile, household, householdMembers, 
-    loading: isHouseholdLoading, error: householdError,
-    createHousehold, joinHousehold, leaveHousehold, deleteHousehold, refreshHousehold
+    error: householdError,
+    createHousehold, leaveHousehold, deleteHousehold
   } = useHousehold(user);
 
   const { 
@@ -178,7 +166,7 @@ export const App = () => {
   } = useShoppingList(user, household);
 
   const {
-      receipts, isLoading: isReceiptsLoading, refreshReceipts, getMonthlySpending, getCategoryBreakdown
+      isLoading: isReceiptsLoading, refreshReceipts, getMonthlySpending, getCategoryBreakdown
   } = useReceipts(user, userProfile?.household_id);
 
   // --- Global State ---
@@ -196,7 +184,6 @@ export const App = () => {
   
   // Toast & Undo State
   const [toastData, setToastData] = useState<{ message: string; action?: { label: string; onClick: () => void } } | null>(null);
-  const [lastDeletedItem, setLastDeletedItem] = useState<FoodItem | null>(null);
 
   const [isSmartAddLoading, setIsSmartAddLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -308,8 +295,6 @@ export const App = () => {
       if (toastData) {
           const timer = setTimeout(() => {
               setToastData(null);
-              // Clear undoable item if toast disappears naturally
-              setLastDeletedItem(null); 
           }, 4000);
           return () => clearTimeout(timer);
       }
@@ -372,20 +357,10 @@ export const App = () => {
       try {
           await createHousehold(name);
           showToast(t('shoppingList.joinSuccess', { householdName: name }));
-      } catch (e) {}
-  }, [createHousehold, t]);
-
-  const handleDeleteItem = useCallback(async (id: string) => {
-      const itemToDelete = allItems.find(i => i.id === id);
-      if (itemToDelete) {
-          setLastDeletedItem(itemToDelete);
-          await deleteItem(id);
-          showToast("Eintrag gelöscht.", {
-              label: "Rückgängig",
-              onClick: () => handleUndoDelete(itemToDelete)
-          });
+      } catch {
+        // Ignore error
       }
-  }, [allItems, deleteItem]);
+  }, [createHousehold, t]);
 
   const handleUndoDelete = useCallback(async (item: FoodItem) => {
       // Strict Type Construction for Undo: Treat as new insertion (omit ID)
@@ -413,11 +388,21 @@ export const App = () => {
 
       const success = await saveItem(restorePayload); 
       if (success) {
-          setLastDeletedItem(null);
           setToastData(null); 
           triggerHaptic('success');
       }
   }, [saveItem]);
+
+  const handleDeleteItem = useCallback(async (id: string) => {
+      const itemToDelete = allItems.find(i => i.id === id);
+      if (itemToDelete) {
+          await deleteItem(id);
+          showToast("Eintrag gelöscht.", {
+              label: "Rückgängig",
+              onClick: () => handleUndoDelete(itemToDelete)
+          });
+      }
+  }, [allItems, deleteItem, handleUndoDelete]);
 
   const handleConversationalSearch = useCallback(async (query: string) => {
     setAiSearchQuery(query);
@@ -444,7 +429,7 @@ export const App = () => {
           const parsedItems = await geminiService.parseShoppingList(input);
           let addedCount = 0;
           for (const parsedItem of parsedItems) {
-              let match = allItems.find(i => i.name.toLowerCase() === parsedItem.name.toLowerCase());
+              const match = allItems.find(i => i.name.toLowerCase() === parsedItem.name.toLowerCase());
               let foodItemId = match?.id;
               if (!foodItemId) {
                   const { createFoodItem } = await import('./services/foodItemService');
@@ -461,7 +446,7 @@ export const App = () => {
               triggerHaptic('success');
               showToast(t('shoppingList.addedAnotherToast', { name: `${addedCount} items` }));
           }
-      } catch (e) {
+      } catch {
           showToast("Could not process list.");
       } finally {
           setIsSmartAddLoading(false);
@@ -476,7 +461,7 @@ export const App = () => {
           const contextItems = hydratedShoppingList.filter(i => i.checked).map(i => ({ id: i.id, name: i.name }));
           const analyzed = await geminiService.analyzeReceiptImage(imageDataUrl, contextItems);
           setScannedReceiptData(analyzed);
-      } catch (e) {
+      } catch {
           showToast("Could not scan receipt.");
       } finally {
           setIsProcessingReceipt(false);
@@ -494,8 +479,9 @@ export const App = () => {
           } else {
               showToast("Receipt Saved!");
           }
-      } catch (e: any) {
-          showToast(`Failed to save: ${e.message}`);
+      } catch (e) {
+          const message = e instanceof Error ? e.message : 'Unknown error';
+          showToast(`Failed to save: ${message}`);
       }
   };
 
@@ -567,7 +553,15 @@ export const App = () => {
                         shoppingListFoodIds={shoppingListFoodIds}
                         isFiltering={isAnyFilterActive}
                         collapsedCategories={collapsedCategories}
-                        onToggleCategory={(category) => setCollapsedCategories(prev => { const n = new Set(prev); n.has(category) ? n.delete(category) : n.add(category); return n; })}
+                        onToggleCategory={(category) => setCollapsedCategories(prev => { 
+                            const n = new Set(prev); 
+                            if (n.has(category)) {
+                                n.delete(category);
+                            } else {
+                                n.add(category);
+                            }
+                            return n; 
+                        })}
                     />
                     
                     <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-6 z-30">

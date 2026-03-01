@@ -32,7 +32,7 @@ interface LayoutProps {
   clearAllFilters: () => void;
 }
 
-const ActiveFilterPill: React.FC<{onDismiss: () => void, children: React.ReactNode}> = ({onDismiss, children}) => (
+const ActiveFilterPill: React.FC<{onDismiss: () => void, children: React.ReactNode}> = ({onDismiss, children}): React.ReactElement => (
   <div className="flex items-center gap-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-600/50 dark:text-indigo-200 text-xs font-semibold px-2 py-1 rounded-full">
       <span>{children}</span>
       <button onClick={onDismiss} className="p-0.5 rounded-full hover:bg-indigo-200 dark:hover:bg-indigo-500/50">
@@ -45,7 +45,7 @@ export const Layout: React.FC<LayoutProps> = ({
     shoppingListCount, isOnline,
     searchTerm, setSearchTerm, isAnyFilterActive, toggleAllCategories, isAllCollapsed, onOpenSettings, onOpenFilter,
     ownerFilter, setOwnerFilter, aiSearchQuery, clearAiSearch, typeFilter, setTypeFilter, ratingFilter, setRatingFilter, clearAllFilters
-}) => {
+}): React.ReactElement => {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();

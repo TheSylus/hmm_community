@@ -1,10 +1,9 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { FoodItem, NutriScore, GroceryCategory, Receipt, ReceiptItem } from "../types";
-import { AiFoodAnalysisSchema, AiIngredientsAnalysisSchema, AiReceiptSchema } from "./schemas";
 
 // FIX: Always initialize GoogleGenAI with process.env.API_KEY directly.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// const ai = new GoogleGenAI({ apiKey: process.env.API_KEY }); // Removed unused variable
 
 export const hasValidApiKey = (): boolean => {
     return !!process.env.API_KEY;
@@ -311,7 +310,7 @@ export const findNearbyRestaurants = async (latitude: number, longitude: number)
         const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
 
         if (chunks) {
-            chunks.forEach((chunk: any) => {
+            chunks.forEach((chunk: { maps?: { title?: string } }) => {
                 if (chunk.maps && chunk.maps.title) {
                     restaurants.push({
                         name: chunk.maps.title,

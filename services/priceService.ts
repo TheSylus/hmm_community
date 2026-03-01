@@ -20,6 +20,20 @@ const calculateOverlapScore = (str1: string, str2: string): number => {
     return matches.length / words1.length;
 };
 
+interface ReceiptItemDb {
+    price: number;
+    raw_name: string;
+    receipts: {
+        date: string;
+        merchant_name: string;
+        uploader_id: string;
+    } | {
+        date: string;
+        merchant_name: string;
+        uploader_id: string;
+    }[]; 
+}
+
 export const fetchPriceHistory = async (itemName: string, userId: string): Promise<PricePoint[]> => {
     if (!itemName) return [];
 
@@ -59,8 +73,8 @@ export const fetchPriceHistory = async (itemName: string, userId: string): Promi
 
     // 3. Post-Process: Weighted Filtering
     // We filter the database results locally to ensure they actually match the product
-    const history: PricePoint[] = data
-        .filter((item: any) => {
+    const history: PricePoint[] = (data as unknown as ReceiptItemDb[])
+        .filter((item) => {
             // Ignore items with zero price (likely discounts or errors)
             if (item.price <= 0) return false;
             
@@ -71,11 +85,14 @@ export const fetchPriceHistory = async (itemName: string, userId: string): Promi
             // or the receipt item must be very similar to the anchor
             return score >= 0.6;
         })
-        .map((item: any) => ({
-            date: item.receipts.date,
-            price: item.price,
-            merchant: item.receipts.merchant_name
-        }));
+        .map((item) => {
+            const receipt = Array.isArray(item.receipts) ? item.receipts[0] : item.receipts;
+            return {
+                date: receipt.date,
+                price: item.price,
+                merchant: receipt.merchant_name
+            };
+        });
 
     // Deduplicate: If multiple items match on the same day (e.g. bought 2 packs separately),
     // we take the average or the last one.

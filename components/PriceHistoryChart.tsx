@@ -10,7 +10,7 @@ interface PriceHistoryChartProps {
     itemName: string;
 }
 
-export const PriceHistoryChart: React.FC<PriceHistoryChartProps> = ({ history, currentPrice, itemName }) => {
+export const PriceHistoryChart: React.FC<PriceHistoryChartProps> = ({ history, currentPrice, itemName }): React.ReactElement => {
     const { t, language } = useTranslation();
 
     // 1. Data Prep

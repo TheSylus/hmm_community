@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ShoppingList, ShoppingListItem, Household } from '../types';
 import { supabase } from '../services/supabaseClient';
 import { User } from '@supabase/supabase-js';
@@ -17,7 +17,7 @@ export const useShoppingList = (user: User | null, household: Household | null) 
   const [activeShoppingListId, setActiveShoppingListId] = useState<string | null>(null);
 
   // 1. Fetch Lists
-  const { data: shoppingLists = [], isLoading: isLoadingLists } = useQuery({
+  const { data: shoppingLists = [], isLoading: isLoadingLists } = useQuery<ShoppingList[]>({
       queryKey: KEYS.lists(household?.id || ''),
       queryFn: async () => {
           if (!household) return [];
@@ -44,6 +44,7 @@ export const useShoppingList = (user: User | null, household: Household | null) 
       if (shoppingLists.length > 0 && !activeShoppingListId) {
           const savedId = household ? localStorage.getItem(`activeShoppingListId_${household.id}`) : null;
           const exists = shoppingLists.find(l => l.id === savedId);
+          // eslint-disable-next-line react-hooks/exhaustive-deps
           setActiveShoppingListId(exists ? savedId : shoppingLists[0].id);
       }
   }, [shoppingLists, activeShoppingListId, household]);

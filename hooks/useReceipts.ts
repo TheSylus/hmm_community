@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Receipt, ReceiptItem, GroceryCategory } from '../types';
+import { Receipt } from '../types';
 import { User } from '@supabase/supabase-js';
 import { updateReceipt as apiUpdateReceipt, deleteReceipt as apiDeleteReceipt } from '../services/receiptService';
 
@@ -29,9 +29,9 @@ export const useReceipts = (user: User | null, householdId: string | null | unde
             const { data, error } = await query;
             if (error) throw error;
             setReceipts(data || []);
-        } catch (err: any) {
+        } catch (err) {
             console.error("Error fetching receipts:", err);
-            setError(err.message);
+            setError((err as Error).message);
         } finally {
             setIsLoading(false);
         }
@@ -46,9 +46,9 @@ export const useReceipts = (user: User | null, householdId: string | null | unde
             const updated = await apiUpdateReceipt(id, updates);
             setReceipts(prev => prev.map(r => r.id === id ? { ...r, ...updated } : r));
             return true;
-        } catch (e: any) {
+        } catch (e) {
             console.error("Failed to update receipt:", e);
-            setError(e.message);
+            setError((e as Error).message);
             return false;
         }
     }, []);
@@ -63,11 +63,11 @@ export const useReceipts = (user: User | null, householdId: string | null | unde
             // 2. Server Request
             await apiDeleteReceipt(id);
             return true;
-        } catch (e: any) {
+        } catch (e) {
             // 3. Rollback on error
             console.error("Failed to delete receipt, rolling back UI:", e);
             setReceipts(previousReceipts);
-            setError(e.message || "Löschen fehlgeschlagen. Bitte prüfe deine Berechtigungen.");
+            setError((e as Error).message || "Löschen fehlgeschlagen. Bitte prüfe deine Berechtigungen.");
             return false;
         }
     }, [receipts]);
