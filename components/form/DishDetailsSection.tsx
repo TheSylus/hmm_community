@@ -2,12 +2,15 @@
 import React from 'react';
 import { useTranslation } from '../../i18n/index';
 import { MapPinIcon, SpinnerIcon } from '../Icons';
+import { useFoodFormLogic } from '../../hooks/useFoodFormLogic';
+
+type FormLogic = ReturnType<typeof useFoodFormLogic>;
 
 interface DishDetailsSectionProps {
-  formState: any;
-  formSetters: any;
-  uiState: any;
-  actions: any;
+  formState: FormLogic['formState'];
+  formSetters: FormLogic['formSetters'];
+  uiState: FormLogic['uiState'];
+  actions: FormLogic['actions'];
 }
 
 export const DishDetailsSection: React.FC<DishDetailsSectionProps> = ({
@@ -62,7 +65,7 @@ export const DishDetailsSection: React.FC<DishDetailsSectionProps> = ({
               className="w-full mt-1 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 dark:text-white p-3"
             >
               <option value="">{t('form.placeholder.selectRestaurant')}</option>
-              {uiState.nearbyRestaurants.map((r: any, i: number) => (
+              {uiState.nearbyRestaurants.map((r, i) => (
                 <option key={`${r.name}-${i}`} value={i}>
                   {r.name} {r.cuisine ? `(${r.cuisine})` : ''}
                 </option>

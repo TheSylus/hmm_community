@@ -17,12 +17,28 @@ interface SpeechInputModalProps {
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const isSpeechSupported = !!SpeechRecognition;
 
+interface SpeechRecognitionEvent {
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+    };
+    length: number;
+  };
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+  message?: string;
+}
+
 export const SpeechInputModal: React.FC<SpeechInputModalProps> = ({ onDictate, onClose }) => {
   const { t, language } = useTranslation();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const recognitionRef = useRef<any>(null);
-  const transcriptRef = useRef('');
+  const transcriptRef = useRef<string>('');
 
   useEffect(() => {
     if (!isSpeechSupported) {
@@ -47,16 +63,16 @@ export const SpeechInputModal: React.FC<SpeechInputModalProps> = ({ onDictate, o
         onDictate(transcriptRef.current);
     };
 
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', event.error);
       setIsListening(false);
       onClose();
     };
 
-    recognition.onresult = (event: any) => {
-      const currentTranscript = Array.from(event.results)
-        .map((result: any) => result[0])
-        .map((result: any) => result.transcript)
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const currentTranscript = Array.from({ length: event.results.length })
+        .map((_, i) => event.results[i][0])
+        .map(result => result.transcript)
         .join('');
       transcriptRef.current = currentTranscript;
       setTranscript(currentTranscript);

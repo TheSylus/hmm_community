@@ -50,7 +50,6 @@ const SimpleBarChart: React.FC<{ data: { label: string; value: number; active?: 
 // Simple SVG Donut Chart
 const SimpleDonutChart: React.FC<{ data: { label: string; value: number; color: string }[] }> = ({ data }) => {
     const total = data.reduce((acc, curr) => acc + curr.value, 0);
-    let cumulativePercent = 0;
 
     const getCoordinatesForPercent = (percent: number) => {
         const x = Math.cos(2 * Math.PI * percent);
@@ -65,23 +64,30 @@ const SimpleDonutChart: React.FC<{ data: { label: string; value: number; color: 
         </div>
     );
 
+    type ProcessedSlice = SimpleDonutSlice & { startPercent: number; endPercent: number; slicePercent: number };
+
+    const slices = data.reduce((acc, slice) => {
+        const startPercent = acc.cumulative;
+        const slicePercent = slice.value / total;
+        const endPercent = startPercent + slicePercent;
+        
+        acc.items.push({ ...slice, startPercent, endPercent, slicePercent });
+        acc.cumulative = endPercent;
+        return acc;
+    }, { items: [] as ProcessedSlice[], cumulative: 0 }).items;
+
     return (
         <div className="relative w-48 h-48 mx-auto">
             <svg viewBox="-1 -1 2 2" style={{ transform: 'rotate(-90deg)' }} className="w-full h-full">
-                {data.map((slice, i) => {
-                    const startPercent = cumulativePercent;
-                    const slicePercent = slice.value / total;
-                    cumulativePercent += slicePercent;
-                    const endPercent = cumulativePercent;
-
+                {slices.map((slice, i) => {
                     // If full circle
-                    if (slicePercent === 1) {
+                    if (slice.slicePercent === 1) {
                         return <circle key={i} cx="0" cy="0" r="0.8" fill="transparent" stroke={slice.color} strokeWidth="0.4" />;
                     }
 
-                    const [startX, startY] = getCoordinatesForPercent(startPercent);
-                    const [endX, endY] = getCoordinatesForPercent(endPercent);
-                    const largeArcFlag = slicePercent > 0.5 ? 1 : 0;
+                    const [startX, startY] = getCoordinatesForPercent(slice.startPercent);
+                    const [endX, endY] = getCoordinatesForPercent(slice.endPercent);
+                    const largeArcFlag = slice.slicePercent > 0.5 ? 1 : 0;
 
                     const pathData = [
                         `M ${startX} ${startY}`,
@@ -132,7 +138,10 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ isLoading, o
         nextMonth.setMonth(nextMonth.getMonth() + 1);
         
         // Prevent going into future
-        if (nextMonth.getTime() > today.getTime() && nextMonth.getMonth() > today.getMonth()) return; 
+        if (nextMonth.getFullYear() > today.getFullYear() || 
+           (nextMonth.getFullYear() === today.getFullYear() && nextMonth.getMonth() > today.getMonth())) {
+            return;
+        }
         
         setSelectedDate(nextMonth);
     };

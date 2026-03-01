@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, CheckBadgeIcon, UserGroupIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon, SparklesIcon, CategoryRestaurantIcon, MapPinIcon } from './Icons';
+import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, CheckBadgeIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon, SparklesIcon, CategoryRestaurantIcon, MapPinIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { HydratedShoppingListItem } from '../App';
 import { ShoppingList, UserProfile, Household, GroceryCategory } from '../types';
@@ -94,8 +94,8 @@ const SmartAddInput: React.FC<{ onAdd: (input: string) => void, isLoading: boole
 };
 
 const ActivityLog: React.FC<{ userId: string | null; action: 'added' | 'checked'; members: UserProfile[]; currentUser: User | null; }> = ({ userId, action, members, currentUser }) => {
-  if (!userId) return null;
   const { t } = useTranslation();
+  if (!userId) return null;
   const member = members.find(m => m.id === userId);
   const isCurrentUser = currentUser?.id === userId;
   const name = isCurrentUser ? t('shoppingList.collaboration.you') : (member?.display_name.split('@')[0] || t('shoppingList.collaboration.someone'));
@@ -294,7 +294,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
   const groupedActiveItemsByStore = useMemo(() => {
       const groups: Record<string, Record<string, HydratedShoppingListItem[]>> = {};
       activeItems.forEach(item => {
-          let locations = item.purchaseLocation && item.purchaseLocation.length > 0 ? item.purchaseLocation : ['Other Stores'];
+          const locations = item.purchaseLocation && item.purchaseLocation.length > 0 ? item.purchaseLocation : ['Other Stores'];
           locations.forEach(storeName => {
               if (!groups[storeName]) groups[storeName] = {};
               const cat = item.category || 'other';

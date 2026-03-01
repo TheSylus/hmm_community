@@ -44,8 +44,9 @@ export const useShoppingList = (user: User | null, household: Household | null) 
       if (shoppingLists.length > 0 && !activeShoppingListId) {
           const savedId = household ? localStorage.getItem(`activeShoppingListId_${household.id}`) : null;
           const exists = shoppingLists.find(l => l.id === savedId);
-          // eslint-disable-next-line react-hooks/exhaustive-deps
-          setActiveShoppingListId(exists ? savedId : shoppingLists[0].id);
+          setTimeout(() => {
+              setActiveShoppingListId(exists ? savedId : shoppingLists[0].id);
+          }, 0);
       }
   }, [shoppingLists, activeShoppingListId, household]);
 

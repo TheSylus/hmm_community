@@ -35,12 +35,12 @@ export const ApiKeyTester: React.FC<ApiKeyTesterProps> = ({ onKeyVerified, butto
             setStatus('success');
             onKeyVerified(keyToTest);
 
-        } catch (e: any) {
+        } catch (e: unknown) {
             setStatus('error');
             
             let message = 'An unknown error occurred.';
-            if (e?.error?.message) {
-                message = e.error.message;
+            if (typeof e === 'object' && e !== null && 'error' in e && (e as any).error?.message) {
+                message = (e as any).error.message;
             } else if (e instanceof Error) {
                 message = e.message;
             } else if (typeof e === 'string') {

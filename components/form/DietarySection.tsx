@@ -2,12 +2,15 @@
 import React from 'react';
 import { useTranslation } from '../../i18n/index';
 import { SparklesIcon, DocumentTextIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon } from '../Icons';
+import { useFoodFormLogic } from '../../hooks/useFoodFormLogic';
+
+type FormLogic = ReturnType<typeof useFoodFormLogic>;
 
 interface DietarySectionProps {
-  formState: any;
-  formSetters: any;
-  uiState: any;
-  actions: any;
+  formState: FormLogic['formState'];
+  formSetters: FormLogic['formSetters'];
+  uiState: FormLogic['uiState'];
+  actions: FormLogic['actions'];
   itemType: string;
 }
 

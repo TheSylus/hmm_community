@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { useTranslation } from '../i18n';
 import { SpinnerIcon, UserGroupIcon } from './Icons';
@@ -11,7 +11,7 @@ export const Auth: React.FC = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
-    const [hasInvite, setHasInvite] = useState(() => !!localStorage.getItem('pending_household_invite'));
+    const [hasInvite] = useState(() => !!localStorage.getItem('pending_household_invite'));
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();

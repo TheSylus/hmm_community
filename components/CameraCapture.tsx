@@ -76,8 +76,11 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
   }, [t]);
 
   useEffect(() => {
-    setupCamera();
+    const timer = setTimeout(() => {
+        setupCamera();
+    }, 0);
     return () => {
+      clearTimeout(timer);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;

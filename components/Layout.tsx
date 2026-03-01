@@ -1,5 +1,5 @@
 
-import React, { ReactNode } from 'react';
+import React from 'react';
 import { useLocation, useNavigate, Link, Outlet } from 'react-router-dom';
 import { useTranslation } from '../i18n/index';
 import { SettingsIcon, MagnifyingGlassIcon, FunnelIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon, ChevronLeftIcon, XMarkIcon } from './Icons';

@@ -20,7 +20,7 @@ interface OpenFoodFactsProduct {
     labels_tags?: string[] | string;
     stores?: string;
     nutriments?: Record<string, number | string>;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 // Helper to fetch an image and convert it to Base64
@@ -85,7 +85,7 @@ const cleanTags = (tags: string[], productName: string = '', itemType: FoodItemT
     const pName = productName.toLowerCase();
     
     // Extensive blacklist of generic/structural categories (Food & Beauty mixed)
-    const ignoredTags = [
+    const ignoredTags: string[] = [
         'beverages', 'food', 'drinks', 'groceries', 'products', 
         'non-alcoholic beverages', 'unsweetened beverages', 
         'cocoa and its products', 'snacks', 'sweet snacks', 'salty snacks',

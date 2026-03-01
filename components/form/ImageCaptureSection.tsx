@@ -3,12 +3,15 @@ import React from 'react';
 import { useTranslation } from '../../i18n/index';
 import { CameraIcon, PlusCircleIcon, BarcodeIcon, MicrophoneIcon, SparklesIcon, SpinnerIcon, XMarkIcon } from '../Icons';
 import { useAppSettings } from '../../contexts/AppSettingsContext';
+import { useFoodFormLogic } from '../../hooks/useFoodFormLogic';
+
+type FormLogic = ReturnType<typeof useFoodFormLogic>;
 
 interface ImageCaptureSectionProps {
-  formState: any;
-  uiState: any;
-  uiSetters: any;
-  actions: any;
+  formState: FormLogic['formState'];
+  uiState: FormLogic['uiState'];
+  uiSetters: FormLogic['uiSetters'];
+  actions: FormLogic['actions'];
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   itemType: string;
 }

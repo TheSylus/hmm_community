@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../../i18n/index';
 import { Receipt, ReceiptItem, FoodItem, GroceryCategory } from '../../types';
-import { XMarkIcon, CheckCircleIcon, PlusCircleIcon, CategoryOtherIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryRestaurantIcon, CheckBadgeIcon, SpinnerIcon } from '../Icons';
+import { XMarkIcon, CheckCircleIcon, CategoryOtherIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryRestaurantIcon, CheckBadgeIcon, SpinnerIcon } from '../Icons';
 
 interface ReceiptToInventoryModalProps {
     receipt: Receipt;
@@ -97,7 +97,7 @@ export const ReceiptToInventoryModal: React.FC<ReceiptToInventoryModalProps> = (
 
             await onConfirm(foodItemsToCreate);
             onClose();
-        } catch (e: any) {
+        } catch (e) {
             console.error("Bulk Import UI Error:", e);
             setError("Einige Artikel konnten nicht importiert werden. Bitte prüfe deine Internetverbindung.");
         } finally {

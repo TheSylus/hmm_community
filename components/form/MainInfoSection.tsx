@@ -2,11 +2,14 @@
 import React from 'react';
 import { useTranslation } from '../../i18n/index';
 import { StarIcon, SpinnerIcon } from '../Icons';
+import { useFoodFormLogic } from '../../hooks/useFoodFormLogic';
+
+type FormLogic = ReturnType<typeof useFoodFormLogic>;
 
 interface MainInfoSectionProps {
-  formState: any;
-  formSetters: any;
-  uiState: any;
+  formState: FormLogic['formState'];
+  formSetters: FormLogic['formSetters'];
+  uiState: FormLogic['uiState'];
   itemType: string;
   nameInputRef?: React.RefObject<HTMLInputElement | null>;
 }

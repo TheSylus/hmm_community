@@ -156,7 +156,7 @@ export const createFoodItemsBulk = async (items: (Omit<FoodItem, 'id' | 'user_id
     const basePayloads = items.map(item => mapFoodItemToDbPayload({ ...item, user_id: userId }));
 
     // Helper for batch attempts
-    const attemptBatch = async (payloads: any[]) => {
+    const attemptBatch = async (payloads: FoodItemDbPayload[]) => {
         const { data, error } = await supabase.from('food_items').insert(payloads).select();
         return { data, error };
     };

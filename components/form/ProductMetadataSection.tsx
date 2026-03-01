@@ -10,11 +10,14 @@ import {
     CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon,
     CategoryRestaurantIcon, SparklesIcon
 } from '../Icons';
+import { useFoodFormLogic } from '../../hooks/useFoodFormLogic';
+
+type FormLogic = ReturnType<typeof useFoodFormLogic>;
 
 interface ProductMetadataSectionProps {
-  formState: any;
-  formSetters: any;
-  uiState: any;
+  formState: FormLogic['formState'];
+  formSetters: FormLogic['formSetters'];
+  uiState: FormLogic['uiState'];
   itemType: string;
 }
 

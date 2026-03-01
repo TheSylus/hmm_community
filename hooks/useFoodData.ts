@@ -5,19 +5,7 @@ import { User } from '@supabase/supabase-js';
 import * as foodItemService from '../services/foodItemService';
 import { supabase } from '../services/supabaseClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
-const base64ToBlob = (base64: string, mimeType: string): Blob => {
-  const byteCharacters = atob(base64.split(',')[1]);
-  const byteArrays = [];
-  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-    const slice = byteCharacters.slice(offset, offset + 512);
-    const byteNumbers = new Array(slice.length);
-    for (let i = 0; i < slice.length; i++) { byteNumbers[i] = slice.charCodeAt(i); }
-    const byteArray = new Uint8Array(byteNumbers);
-    byteArrays.push(byteArray);
-  }
-  return new Blob(byteArrays, { type: mimeType });
-};
+import { base64ToBlob } from '../utils/fileUtils';
 
 // Keys for caching
 const KEYS = {
@@ -144,9 +132,15 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
   });
 
   // Wrapper functions to match old interface
-  const saveItem = useCallback((itemData: any, existingId?: string) => saveMutation.mutateAsync({ itemData, existingId }).then(() => true).catch(() => false), [saveMutation]);
+  const saveItem = useCallback((itemData: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>, existingId?: string) => 
+      saveMutation.mutateAsync({ itemData, existingId }).then(() => true).catch(() => false), 
+  [saveMutation]);
+
   const deleteItem = useCallback((id: string) => deleteMutation.mutateAsync(id), [deleteMutation]);
-  const saveItemsBulk = useCallback((items: any[]) => bulkSaveMutation.mutateAsync(items).then(() => true).catch(() => false), [bulkSaveMutation]);
+  
+  const saveItemsBulk = useCallback((items: Omit<FoodItem, 'id' | 'user_id' | 'created_at'>[]) => 
+      bulkSaveMutation.mutateAsync(items).then(() => true).catch(() => false), 
+  [bulkSaveMutation]);
   
   const refreshData = useCallback(() => {
       queryClient.invalidateQueries({ queryKey: KEYS.personal(user?.id || '') });

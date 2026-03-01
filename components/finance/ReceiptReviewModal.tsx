@@ -34,18 +34,18 @@ export const ReceiptReviewModal: React.FC<ReceiptReviewModalProps> = ({ receiptD
     const [isSaving, setIsSaving] = useState(false);
 
     // Header Updates
-    const updateHeader = (key: keyof Receipt, value: any) => {
+    const updateHeader = <K extends keyof Receipt>(key: K, value: Receipt[K]) => {
         setData(prev => ({ ...prev, [key]: value }));
     };
 
     // Item Updates
-    const updateItem = (index: number, field: keyof ReceiptItem, value: any) => {
+    const updateItem = <K extends keyof ReceiptItem>(index: number, field: K, value: ReceiptItem[K]) => {
         const newItems = [...(data.items || [])];
         newItems[index] = { ...newItems[index], [field]: value };
         // Recalculate total if price/qty changes
         if (field === 'price' || field === 'quantity') {
-            const p = field === 'price' ? parseFloat(value) || 0 : newItems[index].price || 0;
-            const q = field === 'quantity' ? parseFloat(value) || 1 : newItems[index].quantity || 1;
+            const p = field === 'price' ? (typeof value === 'number' ? value : parseFloat(value as string) || 0) : (newItems[index].price || 0);
+            const q = field === 'quantity' ? (typeof value === 'number' ? value : parseFloat(value as string) || 1) : (newItems[index].quantity || 1);
             newItems[index].total_price = p * q;
         }
         
