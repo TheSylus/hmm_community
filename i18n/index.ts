@@ -2,7 +2,7 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useMemo, useCallback } from 'react';
 
 const enTranslations = {
-  "header.title": "Food Memory Tracker",
+  "header.title": "Food Memory Tracker (TEST)",
   "header.searchPlaceholder": "Search by name, notes, tags...",
   "header.filter.button": "Filters",
   "header.filter.owner.all": "All Items",
@@ -306,7 +306,7 @@ const enTranslations = {
 };
 
 const deTranslations = {
-  "header.title": "Lebensmittel-Tracker",
+  "header.title": "Lebensmittel-Tracker (TEST)",
   "header.searchPlaceholder": "Suche nach Name, Notizen, Tags...",
   "header.filter.button": "Filter",
   "header.filter.owner.all": "Alle Einträge",

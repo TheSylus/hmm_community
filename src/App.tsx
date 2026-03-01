@@ -93,6 +93,12 @@ const ItemDetailPage: React.FC<{
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm min-h-[50vh]">
+            <div className="bg-yellow-100 text-yellow-800 p-2 text-xs mb-4 rounded border border-yellow-200">
+                <strong>DEBUG INFO:</strong><br/>
+                My User ID: {user?.id || 'Not logged in'}<br/>
+                Item Owner ID: {item.user_id}<br/>
+                Is Owner: {isOwner ? 'YES' : 'NO'}
+            </div>
             <FoodItemDetailView item={item} onImageClick={onImageClick} />
             <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700 flex flex-col-reverse sm:flex-row items-center justify-end gap-4">
                 <button 
