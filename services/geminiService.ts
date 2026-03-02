@@ -285,6 +285,16 @@ export const analyzeReceiptImage = async (base64Image: string, context: { id: st
     };
 };
 
+export interface GoogleMapsGroundingChunk {
+    maps?: {
+        title?: string;
+        uri?: string;
+        placeAnswerSources?: {
+            reviewSnippets?: string[];
+        };
+    };
+}
+
 export const findNearbyRestaurants = async (latitude: number, longitude: number): Promise<{ name: string; cuisine?: string }[]> => {
     try {
         const gemini = getAiClient();
@@ -307,10 +317,10 @@ export const findNearbyRestaurants = async (latitude: number, longitude: number)
         });
 
         const restaurants: { name: string; cuisine?: string }[] = [];
-        const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+        const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks as GoogleMapsGroundingChunk[] | undefined;
 
         if (chunks) {
-            chunks.forEach((chunk: { maps?: { title?: string } }) => {
+            chunks.forEach((chunk) => {
                 if (chunk.maps && chunk.maps.title) {
                     restaurants.push({
                         name: chunk.maps.title,
