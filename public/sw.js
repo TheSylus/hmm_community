@@ -55,9 +55,16 @@ async function deleteFromQueue(id) {
 
 self.addEventListener('install', event => {
   console.log('[SW] Install');
-  // Pre-caching basic shell is good, but dynamic caching is more robust for assets with hashes.
-  // We will cache on the fly in the fetch handler.
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil(
+    caches.open(APP_SHELL_CACHE_NAME).then(cache => {
+      return cache.addAll([
+        '/',
+        '/index.html',
+        '/manifest.json',
+        '/icon.svg'
+      ]);
+    }).then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', event => {

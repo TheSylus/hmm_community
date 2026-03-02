@@ -1,5 +1,5 @@
 
-import { Type, GoogleGenAI } from "@google/genai";
+import { Type } from "@google/genai";
 import { getAiClient, hasValidApiKey } from './geminiService';
 
 const CACHE_KEY = 'food_tracker_translation_cache';
@@ -10,11 +10,11 @@ const loadCache = (): Record<string, Record<string, string>> => {
     try {
         const stored = localStorage.getItem(CACHE_KEY);
         return stored ? JSON.parse(stored) : {};
-    } catch (e) { return {}; }
+    } catch { return {}; }
 };
 
 const saveCache = (cache: Record<string, Record<string, string>>) => {
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch (e) {}
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); } catch { /* ignore */ }
 };
 
 const memoryCache: Record<string, Record<string, string>> = loadCache();
@@ -73,14 +73,14 @@ const processBatch = async () => {
         // FIX: Accessing .text directly.
         const json = JSON.parse(response.text || '{"translations":[]}');
         const mapping: Record<string, string> = {};
-        json.translations?.forEach((t: any) => mapping[t.original] = t.translated);
+        json.translations?.forEach((t: { original: string, translated: string }) => mapping[t.original] = t.translated);
 
         if (!memoryCache['de']) memoryCache['de'] = {};
         uniqueTexts.forEach(text => memoryCache['de'][text] = mapping[text] || text);
         saveCache(memoryCache);
 
         currentBatch.forEach(req => req.resolve(memoryCache['de'][req.text] || req.text));
-    } catch (error) {
+    } catch {
         currentBatch.forEach(req => req.resolve(req.text));
     }
 };

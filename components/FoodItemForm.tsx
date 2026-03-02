@@ -87,7 +87,7 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
         UX Improvement: Sticky Footer Structure 
         The layout already provides bottom padding, so we don't need extra padding inside the card.
       */}
-      <form onSubmit={actions.handleSubmit} className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-2xl shadow-lg mb-8 relative">
+      <form onSubmit={actions.handleSubmit} className="bg-white dark:bg-gray-800 p-4 md:p-6 pb-28 md:pb-32 rounded-2xl shadow-lg mb-8 relative">
          {/* Top Close Button */}
          <button type="button" onClick={onCancel} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
              <span className="sr-only">{t('form.button.cancel')}</span>

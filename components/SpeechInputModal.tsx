@@ -4,8 +4,8 @@ import { MicrophoneIcon } from './Icons';
 
 declare global {
   interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
+    SpeechRecognition: typeof window.SpeechRecognition;
+    webkitSpeechRecognition: typeof window.SpeechRecognition;
   }
 }
 
@@ -37,7 +37,7 @@ export const SpeechInputModal: React.FC<SpeechInputModalProps> = ({ onDictate, o
   const { t, language } = useTranslation();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const transcriptRef = useRef<string>('');
 
   useEffect(() => {

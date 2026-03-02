@@ -8,7 +8,7 @@ import {
     CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, 
     CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, 
     CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon,
-    CategoryRestaurantIcon, SparklesIcon
+    CategoryRestaurantIcon
 } from '../Icons';
 import { useFoodFormLogic } from '../../hooks/useFoodFormLogic';
 

@@ -43,7 +43,7 @@ const ActiveFilterPill: React.FC<{onDismiss: () => void, children: React.ReactNo
 
 export const Layout: React.FC<LayoutProps> = ({ 
     shoppingListCount, isOnline,
-    searchTerm, setSearchTerm, isAnyFilterActive, toggleAllCategories, isAllCollapsed, onOpenSettings, onOpenFilter,
+    searchTerm, setSearchTerm, isAnyFilterActive, toggleAllCategories, isAllCollapsed, onOpenFilter,
     ownerFilter, setOwnerFilter, aiSearchQuery, clearAiSearch, typeFilter, setTypeFilter, ratingFilter, setRatingFilter, clearAllFilters
 }): React.ReactElement => {
   const { t } = useTranslation();

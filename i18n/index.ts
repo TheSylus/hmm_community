@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useEffect, useContext, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useMemo, useCallback } from 'react';
 
 const enTranslations = {
   "header.title": "Food Memory Tracker (TEST)",
@@ -633,7 +633,7 @@ export const I18nProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [language]);
 
   const t = useCallback((key: string, params?: Record<string, string | number>) => {
-    let text = (translations as any)[key] || key;
+    let text = (translations as Record<string, string>)[key] || key;
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
         text = text.replace(`{${k}}`, String(v));

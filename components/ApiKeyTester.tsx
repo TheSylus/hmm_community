@@ -39,8 +39,11 @@ export const ApiKeyTester: React.FC<ApiKeyTesterProps> = ({ onKeyVerified, butto
             setStatus('error');
             
             let message = 'An unknown error occurred.';
-            if (typeof e === 'object' && e !== null && 'error' in e && (e as any).error?.message) {
-                message = (e as any).error.message;
+            if (typeof e === 'object' && e !== null && 'error' in e) {
+                const errObj = e as { error?: { message?: string } };
+                if (errObj.error?.message) {
+                    message = errObj.error.message;
+                }
             } else if (e instanceof Error) {
                 message = e.message;
             } else if (typeof e === 'string') {

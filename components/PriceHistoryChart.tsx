@@ -11,7 +11,7 @@ interface PriceHistoryChartProps {
 }
 
 export const PriceHistoryChart: React.FC<PriceHistoryChartProps> = ({ history, currentPrice, itemName }): React.ReactElement => {
-    const { t, language } = useTranslation();
+    const { language } = useTranslation();
 
     // 1. Data Prep
     const data = useMemo(() => {

@@ -5,8 +5,8 @@ import react from '@vitejs/plugin-react-swc'
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
   // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
-  // FIX: Cast `process` to `any` to resolve TypeScript error when Node types are not available.
-  const env = loadEnv(mode, (process as any).cwd(), '');
+  // FIX: Cast `process` to `unknown` then to `{ cwd: () => string }` to resolve TypeScript error when Node types are not available.
+  const env = loadEnv(mode, (process as unknown as { cwd: () => string }).cwd(), '');
   return {
     plugins: [react()],
     // The `define` option allows us to replace global variables at compile time.

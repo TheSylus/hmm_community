@@ -12,7 +12,7 @@ export const useModalHistory = (isOpen: boolean, onClose: () => void) => {
       const state = { modalOpen: true, timestamp: Date.now() };
       window.history.pushState(state, '');
 
-      const handlePopState = (event: PopStateEvent) => {
+      const handlePopState = () => {
         // Prevent default back behavior if necessary (mostly implied by pushing state)
         // Check if the event was triggered by our pushed state or a real back navigation
         // For simple modals, just closing is usually correct.

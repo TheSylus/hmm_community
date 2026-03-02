@@ -50,8 +50,7 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
 }
 
 // Internal component for the actual content
-const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onEdit, onViewDetails, onAddToShoppingList, onToggleFamilyStatus, isPreview = false, isInShoppingList = false }) => {
-  const { t, language } = useTranslation();
+const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onViewDetails, onAddToShoppingList, onToggleFamilyStatus, isPreview = false, isInShoppingList = false }) => {
   const { user } = useAuth();
   const displayItem = useTranslatedItem(item);
 

@@ -180,6 +180,7 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
   return React.createElement(AppSettingsContext.Provider, { value }, children);
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAppSettings = (): AppSettingsContextType => {
   const context = useContext(AppSettingsContext);
   if (context === undefined) {

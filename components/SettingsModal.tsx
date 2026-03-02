@@ -18,7 +18,7 @@ interface SettingsModalProps {
   error?: string | null;
 }
 
-const HouseholdManager: React.FC<Omit<SettingsModalProps, 'onClose'>> = ({ household, householdMembers, onHouseholdCreate, onHouseholdLeave, onHouseholdDelete, error }) => {
+const HouseholdManager: React.FC<Omit<SettingsModalProps, 'onClose'>> = ({ household, householdMembers, onHouseholdCreate, onHouseholdLeave, error }) => {
     const { t } = useTranslation();
     const { user } = useAuth();
     const [newHouseholdName, setNewHouseholdName] = useState('');

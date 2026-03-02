@@ -73,7 +73,7 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
       };
       loadHistory();
       return () => { isMounted = false; };
-  }, [user, displayItem?.name, displayItem?.itemType]);
+  }, [user, displayItem]);
 
   if (!displayItem) {
     return null; // Or a loading state
