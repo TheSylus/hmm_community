@@ -1,8 +1,8 @@
 // --- Service Worker for Offline Functionality ---
 
-// v4: Incrementing version to force cache refresh and fix stale JS.
-const APP_SHELL_CACHE_NAME = 'food-memory-tracker-v4-shell'; // For app assets (HTML, JS, CSS)
-const DYNAMIC_CACHE_NAME = 'food-memory-tracker-v4-dynamic'; // For API responses (Supabase)
+// v5: Incrementing version to force cache refresh and fix stale JS.
+const APP_SHELL_CACHE_NAME = 'food-memory-tracker-v5-shell'; // For app assets (HTML, JS, CSS)
+const DYNAMIC_CACHE_NAME = 'food-memory-tracker-v5-dynamic'; // For API responses (Supabase)
 
 // --- IndexedDB Helpers for Queuing Offline Actions ---
 const DB_NAME = 'food-tracker-offline';
@@ -91,16 +91,19 @@ self.addEventListener('fetch', event => {
   // Ignore non-http protocols, like chrome-extension://
   if (!url.protocol.startsWith('http')) return;
 
+  // Ignore Vite dev server requests to prevent caching issues
+  if (url.pathname.includes('@vite') || url.pathname.includes('node_modules')) return;
+
   // Strategy for Supabase API calls
   if (url.hostname.includes('supabase.co')) {
     if (request.method === 'GET') {
-      event.respondWith(networkFirstThenCache(request));
+      event.respondWith(networkFirstThenCache(request, DYNAMIC_CACHE_NAME));
     } else if (['POST', 'PATCH', 'DELETE'].includes(request.method)) {
       event.respondWith(handleApiMutation(request));
     }
   } else {
-    // Strategy for app assets (cache first)
-    event.respondWith(cacheFirst(request));
+    // Strategy for app assets (Network First to prevent white screens)
+    event.respondWith(networkFirstThenCache(request, APP_SHELL_CACHE_NAME));
   }
 });
 
@@ -123,11 +126,11 @@ const cacheFirst = async (request) => {
   }
 };
 
-const networkFirstThenCache = async (request) => {
+const networkFirstThenCache = async (request, cacheName = DYNAMIC_CACHE_NAME) => {
   try {
     const networkResponse = await fetch(request);
     if (networkResponse.ok) {
-      const cache = await caches.open(DYNAMIC_CACHE_NAME);
+      const cache = await caches.open(cacheName);
       cache.put(request, networkResponse.clone());
     }
     return networkResponse;
