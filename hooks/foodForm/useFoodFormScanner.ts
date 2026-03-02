@@ -329,6 +329,15 @@ export const useFoodFormScanner = (state: FoodFormStateReturn, handleFindNearby:
             isVegan: result.isVegan,
             isGlutenFree: result.isGlutenFree,
         });
+        
+        if (result.calories !== undefined && result.calories !== null) {
+            formSetters.setCalories(result.calories);
+            uiSetters.setHighlightedFields(prev => {
+                if (!prev.includes('calories')) return [...prev, 'calories'];
+                return prev;
+            });
+        }
+        
         formSetters.setAutoExpandDetails(true);
       } catch (e) {
         console.error(e);

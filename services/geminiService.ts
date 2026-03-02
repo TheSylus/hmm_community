@@ -147,7 +147,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
   }
 };
 
-export const analyzeIngredientsImage = async (base64Image: string): Promise<{ ingredients: string[]; allergens: string[]; isLactoseFree: boolean; isVegan: boolean; isGlutenFree: boolean; }> => {
+export const analyzeIngredientsImage = async (base64Image: string): Promise<{ ingredients: string[]; allergens: string[]; isLactoseFree: boolean; isVegan: boolean; isGlutenFree: boolean; calories?: number; }> => {
     const resizedImage = await resizeImage(base64Image, 'text');
     const match = resizedImage.match(/^data:(image\/[a-z]+);base64,(.*)$/);
     if (!match) throw new Error("Invalid image format.");
@@ -159,7 +159,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
         model: "gemini-3-flash-preview",
         contents: { parts: [
             { inlineData: { mimeType: match[1], data: match[2] } },
-            { text: "Extract ingredients/allergens and check dietary flags." }
+            { text: "Extract ingredients/allergens, check dietary flags, and extract energy in kcal (calories) per 100g or per serving if visible." }
         ]},
         config: {
           temperature: 0,
@@ -172,6 +172,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
               isLactoseFree: { type: Type.BOOLEAN },
               isVegan: { type: Type.BOOLEAN },
               isGlutenFree: { type: Type.BOOLEAN },
+              calories: { type: Type.NUMBER },
             }
           },
         },
