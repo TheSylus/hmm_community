@@ -74,19 +74,25 @@ export const ImageCaptureSection: React.FC<ImageCaptureSectionProps> = ({
       {/* Status indicators and Image Preview */}
       <div className="min-h-[1rem]">
         {uiState.analysisProgress.active && (
-          <div className="bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded-md flex items-center justify-center gap-2 text-indigo-700 dark:text-indigo-300">
-            <SparklesIcon className="w-5 h-5 animate-pulse" />
-            <p className="text-sm font-medium text-center">{uiState.analysisProgress.message}</p>
+          <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-xl flex flex-col items-center justify-center gap-3 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800/50 shadow-sm animate-fade-in">
+            <div className="relative">
+              <div className="absolute inset-0 bg-indigo-400 dark:bg-indigo-500 rounded-full blur-md opacity-50 animate-pulse"></div>
+              <SparklesIcon className="w-8 h-8 relative z-10 animate-bounce" />
+            </div>
+            <p className="text-sm font-bold text-center tracking-wide">{uiState.analysisProgress.message}</p>
+            <div className="w-full max-w-[200px] h-1.5 bg-indigo-200 dark:bg-indigo-800 rounded-full overflow-hidden mt-1">
+                <div className="h-full bg-indigo-500 dark:bg-indigo-400 rounded-full w-1/2 animate-[pulse_1.5s_ease-in-out_infinite] origin-left scale-x-150"></div>
+            </div>
           </div>
         )}
         {uiState.isLoading && !uiState.analysisProgress.active && (
-          <div className="bg-gray-100 dark:bg-gray-700/50 p-2 rounded-md flex items-center justify-center gap-2 text-gray-600 dark:text-gray-300">
-            <SpinnerIcon className="w-5 h-5" />
-            <p className="text-sm font-medium">Loading...</p>
+          <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl flex items-center justify-center gap-3 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 shadow-sm animate-fade-in">
+            <SpinnerIcon className="w-6 h-6 animate-spin text-indigo-500" />
+            <p className="text-sm font-bold">{t('common.loading') || 'Loading...'}</p>
           </div>
         )}
         {formState.image && !uiState.analysisProgress.active && !uiState.isLoading && (
-          <div className="relative w-28 h-28 rounded-lg overflow-hidden group shadow-md">
+          <div className="relative w-28 h-28 rounded-lg overflow-hidden group shadow-md animate-fade-in">
             <img src={formState.image} alt="Preview" className="w-full h-full object-cover" />
             <button
               type="button"

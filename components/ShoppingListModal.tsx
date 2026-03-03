@@ -3,6 +3,8 @@ import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../i18n/index';
 import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, CheckBadgeIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon, SparklesIcon, CategoryRestaurantIcon, MapPinIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
+import { useCategoryOrder } from '../hooks/useCategoryOrder';
+import { CategorySorter } from './CategorySorter';
 import { HydratedShoppingListItem } from '../App';
 import { ShoppingList, UserProfile, Household, GroceryCategory } from '../types';
 import { User } from '@supabase/supabase-js';
@@ -45,9 +47,7 @@ const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>>
     'other': CategoryOtherIcon,
 };
 
-const CATEGORY_ORDER: GroceryCategory[] = [
-    'produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 'snacks', 'beverages', 'frozen', 'household', 'personal_care', 'restaurant_food', 'other'
-];
+
 
 const CategoryColorMap: Record<GroceryCategory, string> = {
     'produce': 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 border-green-200 dark:border-green-800',
@@ -261,6 +261,8 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [isShoppingMode, setIsShoppingMode] = useState(false);
   const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(false);
+  const [isSortingCategories, setIsSortingCategories] = useState(false);
+  const { categoryOrder, setCategoryOrder } = useCategoryOrder();
 
   const toggleExpand = (id: string) => {
       setExpandedItems(prev => {
@@ -314,7 +316,17 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
       });
   }, [groupedActiveItemsByStore]);
 
-  const content = (
+  const content = isSortingCategories ? (
+      <div className={`bg-white dark:bg-gray-900 w-full h-full flex flex-col overflow-hidden ${isPageMode ? '' : 'max-w-2xl sm:rounded-xl shadow-2xl sm:h-[90vh]'}`} onClick={e => e.stopPropagation()}>
+          <CategorySorter 
+              categories={categoryOrder}
+              onCategoriesChange={setCategoryOrder}
+              onClose={() => setIsSortingCategories(false)}
+              categoryIconMap={CategoryIconMap}
+              categoryColorMap={CategoryColorMap}
+          />
+      </div>
+  ) : (
     <div className={`bg-white dark:bg-gray-900 w-full h-full flex flex-col overflow-hidden ${isPageMode ? '' : 'max-w-2xl sm:rounded-xl shadow-2xl sm:h-[90vh]'}`} onClick={e => e.stopPropagation()}>
         
         {/* Header */}
@@ -373,6 +385,15 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
             <div className="flex-1">
                 {!isShoppingMode && <div className="w-full"><SmartAddInput onAdd={onSmartAdd} isLoading={isSmartAddLoading} /></div>}
             </div>
+            {!isShoppingMode && (
+                <button 
+                    onClick={() => setIsSortingCategories(true)}
+                    className="flex-shrink-0 p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full transition-colors"
+                    title={t('shoppingList.sortCategories') || 'Sort Categories'}
+                >
+                    <ArrowsUpDownIcon className="w-5 h-5" />
+                </button>
+            )}
             <button onClick={() => setIsShoppingMode(!isShoppingMode)} className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all shadow-sm active:scale-95 ${isShoppingMode ? 'bg-green-100 text-green-800 border border-green-200 hover:bg-green-200' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
                 <CheckBadgeIcon className="w-5 h-5" />
                 {isShoppingMode ? t('shoppingList.mode.done') : t('shoppingList.mode.startShopping')}
@@ -380,17 +401,22 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
         </div>
 
         {/* List Content */}
-        <div className="flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] space-y-6 scroll-smooth bg-gray-50/50 dark:bg-black/20">
+        <div className="flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-bottom,0px))] space-y-6 scroll-smooth bg-gray-50/50 dark:bg-black/20">
             {listData.length === 0 ? (
-                <div className="text-center text-gray-500 dark:text-gray-400 py-10">
-                    <ShoppingBagIcon className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                    <p>{t('shoppingList.empty')}</p>
+                <div className="flex flex-col items-center justify-center py-20 px-4 text-center animate-fade-in h-full">
+                    <div className="bg-gradient-to-br from-green-100 to-teal-100 dark:from-green-900/30 dark:to-teal-900/30 w-28 h-28 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                        <ShoppingBagIcon className="w-14 h-14 text-green-500 dark:text-green-400 opacity-80" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-3">{t('shoppingList.empty') || 'Your list is empty'}</h2>
+                    <p className="text-gray-500 dark:text-gray-400 max-w-xs leading-relaxed">
+                        {t('shoppingList.emptyDescription') || 'Add items from your inventory or use the Smart Add feature above to quickly build your list.'}
+                    </p>
                 </div>
             ) : (
                 <>
                     {sortedStoreNames.map(storeName => {
                         const categoriesInStore = groupedActiveItemsByStore[storeName];
-                        const unknownCategories = Object.keys(categoriesInStore).filter(cat => !CATEGORY_ORDER.includes(cat as GroceryCategory));
+                        const unknownCategories = Object.keys(categoriesInStore).filter(cat => !categoryOrder.includes(cat as GroceryCategory));
                         return (
                             <div key={storeName} className="mb-6 animate-slide-in-up">
                                 <div className="flex items-center gap-2 mb-3 pb-1 border-b border-gray-300 dark:border-gray-600">
@@ -398,7 +424,7 @@ export const ShoppingListModal: React.FC<ShoppingListModalProps> = ({
                                     <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{storeName === 'Other Stores' ? t('shoppingList.uncategorized') : storeName}</h3>
                                 </div>
                                 <div className="space-y-4 pl-2 border-l-2 border-gray-200 dark:border-gray-800 ml-3">
-                                    {CATEGORY_ORDER.map(cat => {
+                                    {categoryOrder.map(cat => {
                                         const items = categoriesInStore[cat];
                                         if (!items || items.length === 0) return null;
                                         const catColorStyle = CategoryColorMap[cat];

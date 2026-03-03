@@ -4,6 +4,7 @@ import { FoodItem, GroceryCategory } from '../types';
 import { FoodItemCard } from './FoodItemCard';
 import { SkeletonCard } from './SkeletonCard';
 import { useTranslation } from '../i18n/index';
+import { useCategoryOrder } from '../hooks/useCategoryOrder';
 import { 
     CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, 
     CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, 
@@ -24,11 +25,7 @@ interface FoodItemListProps {
   onToggleFamilyStatus: (item: FoodItem) => void;
 }
 
-const CATEGORY_ORDER: GroceryCategory[] = [
-    'produce', 'bakery', 'meat_fish', 'dairy_eggs', 'pantry', 
-    'snacks', 'beverages', 'frozen', 'household', 'personal_care', 
-    'restaurant_food', 'other'
-];
+
 
 const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>> = {
     'produce': CategoryProduceIcon,
@@ -123,6 +120,7 @@ const CategorySection: React.FC<{
 
 export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, onDelete, onEdit, onViewDetails, onAddToShoppingList, shoppingListFoodIds, collapsedCategories, onToggleCategory, onToggleFamilyStatus }) => {
   const { t } = useTranslation();
+  const { categoryOrder } = useCategoryOrder();
 
   const groupedItems = useMemo(() => {
       const groups: Record<string, FoodItem[]> = {};
@@ -156,7 +154,7 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, on
 
   return (
     <div className="pb-24">
-        {CATEGORY_ORDER.map(category => (
+        {categoryOrder.map(category => (
             <CategorySection
                 key={category}
                 category={category}
@@ -173,7 +171,7 @@ export const FoodItemList: React.FC<FoodItemListProps> = ({ items, isLoading, on
         ))}
 
         {Object.keys(groupedItems)
-            .filter(cat => !CATEGORY_ORDER.includes(cat as GroceryCategory))
+            .filter(cat => !categoryOrder.includes(cat as GroceryCategory))
             .map(category => (
                 <CategorySection
                     key={category}

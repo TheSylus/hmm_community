@@ -15,6 +15,7 @@ import { useTranslation } from './i18n/index';
 import { XMarkIcon, SpinnerIcon, CameraIcon } from './components/Icons';
 import { useModalHistory } from './hooks/useModalHistory';
 import { triggerHaptic } from './utils/haptics';
+import { ReloadPrompt } from './components/ReloadPrompt';
 
 // Lazy load components
 const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -673,6 +674,7 @@ export const App = () => {
             <ReceiptToInventoryModal receipt={confirmedReceiptForImport.receipt} items={confirmedReceiptForImport.items} onConfirm={handleImportReceiptItems} onClose={() => setConfirmedReceiptForImport(null)} />
         )}
       </Suspense>
+      <ReloadPrompt />
       <style>{`
         @keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
         .animate-slide-up { animation: slideUp 0.3s ease-out; }

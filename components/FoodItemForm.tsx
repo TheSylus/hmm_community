@@ -178,8 +178,25 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
             )}
             
             {uiState.error && (
-                <div className="text-red-500 text-sm text-center bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800 animate-pulse">
-                    {uiState.error}
+                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800/50 flex flex-col gap-3 animate-fade-in">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                            <h3 className="text-sm font-bold text-red-800 dark:text-red-300 mb-1">
+                                {t('form.error.title') || 'Oops, something went wrong'}
+                            </h3>
+                            <p className="text-sm text-red-600 dark:text-red-400 leading-relaxed">
+                                {uiState.error}
+                            </p>
+                        </div>
+                        <button 
+                            type="button" 
+                            onClick={() => uiSetters.setError(null)}
+                            className="text-red-400 hover:text-red-600 dark:hover:text-red-300 p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-800/30 transition-colors"
+                        >
+                            <XMarkIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+                    {/* Optional: Add quick actions based on error type if needed in the future */}
                 </div>
             )}
         </div>

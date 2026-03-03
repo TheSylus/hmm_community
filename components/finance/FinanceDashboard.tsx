@@ -239,7 +239,17 @@ export const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ isLoading, o
 
 
     if (isLoading && receipts.length === 0) {
-        return <div className="flex justify-center py-20"><SpinnerIcon className="w-8 h-8 text-indigo-500"/></div>;
+        return (
+            <div className="flex flex-col items-center justify-center py-32 px-4 animate-pulse">
+                <div className="bg-indigo-100 dark:bg-indigo-900/30 p-4 rounded-full mb-4">
+                    <SpinnerIcon className="w-10 h-10 text-indigo-500 dark:text-indigo-400 animate-spin" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">{t('common.loading') || 'Loading data...'}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 text-center max-w-xs">
+                    {t('finance.loadingDescription') || 'Crunching your numbers and preparing your financial overview.'}
+                </p>
+            </div>
+        );
     }
 
     const monthLabel = selectedDate.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { month: 'long', year: 'numeric' });

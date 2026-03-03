@@ -26,6 +26,7 @@ export const useFoodFormScanner = (state: FoodFormStateReturn, handleFindNearby:
     if (!productName || !isOffSearchEnabled) return;
     
     uiSetters.setIsNameSearchLoading(true);
+    uiSetters.setAnalysisProgress({ active: true, message: t('form.aiProgress.searchingDatabase') });
     uiSetters.setError(null);
     try {
       const offResult = await searchProductByNameFromOpenDatabase(productName, formState.itemType, language);
@@ -63,8 +64,9 @@ export const useFoodFormScanner = (state: FoodFormStateReturn, handleFindNearby:
       console.error("Error searching by product name:", e);
     } finally {
       uiSetters.setIsNameSearchLoading(false);
+      uiSetters.setAnalysisProgress({ active: false, message: '' });
     }
-  }, [isOffSearchEnabled, language, formState.itemType, formSetters, uiSetters]);
+  }, [isOffSearchEnabled, language, formState.itemType, formSetters, uiSetters, t]);
 
   const handleDictationResult = useCallback((transcript: string) => {
     uiSetters.setIsSpeechModalOpen(false);
@@ -86,6 +88,7 @@ export const useFoodFormScanner = (state: FoodFormStateReturn, handleFindNearby:
     }
 
     uiSetters.setIsLoading(true);
+    uiSetters.setAnalysisProgress({ active: true, message: t('form.aiProgress.searchingDatabase') });
     try {
       const productData = await fetchProductFromOpenDatabase(barcode);
       
@@ -95,6 +98,7 @@ export const useFoodFormScanner = (state: FoodFormStateReturn, handleFindNearby:
       let finalAllergens = productData.allergens || [];
 
       if (language !== 'en' && uiState.isAiAvailable) {
+        uiSetters.setAnalysisProgress({ active: true, message: t('form.aiProgress.translating') || 'Translating...' });
         const textsToTranslate = [finalName, ...finalTags, ...finalIngredients, ...finalAllergens];
         try {
           const translated = await translateTexts(textsToTranslate, language);
@@ -140,6 +144,7 @@ export const useFoodFormScanner = (state: FoodFormStateReturn, handleFindNearby:
        uiSetters.setError(errorMessage);
     } finally {
         uiSetters.setIsLoading(false);
+        uiSetters.setAnalysisProgress({ active: false, message: '' });
     }
   }, [isOffSearchEnabled, t, language, uiState.isAiAvailable, formSetters, uiSetters]);
 

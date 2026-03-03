@@ -43,9 +43,9 @@ export const DietarySection: React.FC<DietarySectionProps> = ({
       </div>
       
       {uiState.isIngredientsLoading ? (
-        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-          <SparklesIcon className="w-4 h-4 animate-pulse" />
-          <span>{t('form.ingredients.loading')}</span>
+        <div className="flex flex-col items-center justify-center p-6 gap-3 text-sm text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl border border-indigo-100/50 dark:border-indigo-800/30 animate-fade-in">
+          <SparklesIcon className="w-6 h-6 animate-bounce" />
+          <span className="font-semibold">{t('form.ingredients.loading')}</span>
         </div>
       ) : (
         <div>

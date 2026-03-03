@@ -8,7 +8,10 @@ import { AppSettingsProvider } from './contexts/AppSettingsContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { BrowserRouter } from 'react-router-dom';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { get, set, del } from 'idb-keyval';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -19,10 +22,25 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // Data is fresh for 5 minutes
-      gcTime: 1000 * 60 * 30,   // Cache kept for 30 minutes
+      gcTime: 1000 * 60 * 60 * 24, // Cache kept for 24 hours for offline support
       retry: 1,
       refetchOnWindowFocus: true,
+      networkMode: 'offlineFirst', // Allow queries to run even when offline
     },
+    mutations: {
+      networkMode: 'offlineFirst',
+    }
+  },
+});
+
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: {
+    getItem: async (key) => {
+      const value = await get(key);
+      return value === undefined ? null : value;
+    },
+    setItem: set,
+    removeItem: del,
   },
 });
 
@@ -30,7 +48,10 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider 
+        client={queryClient}
+        persistOptions={{ persister: asyncStoragePersister }}
+      >
         <BrowserRouter>
           <ThemeProvider>
             <I18nProvider>
@@ -42,7 +63,7 @@ root.render(
             </I18nProvider>
           </ThemeProvider>
         </BrowserRouter>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );
