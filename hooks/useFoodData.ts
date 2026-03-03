@@ -5,7 +5,7 @@ import { User } from '@supabase/supabase-js';
 import * as foodItemService from '../services/foodItemService';
 import { supabase } from '../services/supabaseClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base64ToBlob } from '../utils/fileUtils';
+import { base64ToBlob, compressImage } from '../utils/fileUtils';
 
 // Keys for caching
 const KEYS = {
@@ -42,7 +42,11 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
           // Handle Image Upload
           if (imageUrl && imageUrl.startsWith('data:image')) {
               const mimeType = imageUrl.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/jpeg';
-              const blob = base64ToBlob(imageUrl, mimeType);
+              
+              // Compress image before uploading
+              const compressedBase64 = await compressImage(imageUrl, 800, 800, 0.7);
+              
+              const blob = base64ToBlob(compressedBase64, mimeType);
               const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(2, 9)}.jpg`;
               const { error: uploadError } = await supabase.storage.from('food-images').upload(fileName, blob, { contentType: mimeType });
               if (uploadError) throw uploadError;
