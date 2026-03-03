@@ -1,14 +1,7 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { FoodItem, UserProfile, Household, Receipt, ReceiptItem } from './types';
-import { FoodItemForm } from './components/FoodItemForm';
-import { Dashboard } from './components/Dashboard';
-import { ShoppingListView } from './components/ShoppingListView'; 
-import { FilterPanel } from './components/FilterPanel';
-import { ImageModal } from './components/ImageModal';
-import { SettingsModal } from './components/SettingsModal';
-import { FoodItemDetailView } from './components/FoodItemDetailView';
 import { Auth } from './components/Auth';
 import { Layout } from './components/Layout';
 import { useAuth } from './contexts/AuthContext';
@@ -22,10 +15,19 @@ import { useTranslation } from './i18n/index';
 import { XMarkIcon, SpinnerIcon, CameraIcon } from './components/Icons';
 import { useModalHistory } from './hooks/useModalHistory';
 import { triggerHaptic } from './utils/haptics';
-import { FinanceDashboard } from './components/finance/FinanceDashboard';
-import { CameraCapture } from './components/CameraCapture';
-import { ReceiptReviewModal } from './components/finance/ReceiptReviewModal';
-import { ReceiptToInventoryModal } from './components/finance/ReceiptToInventoryModal';
+
+// Lazy load components
+const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+const ShoppingListView = lazy(() => import('./components/ShoppingListView').then(m => ({ default: m.ShoppingListView })));
+const FinanceDashboard = lazy(() => import('./components/finance/FinanceDashboard').then(m => ({ default: m.FinanceDashboard })));
+const FoodItemForm = lazy(() => import('./components/FoodItemForm').then(m => ({ default: m.FoodItemForm })));
+const FoodItemDetailView = lazy(() => import('./components/FoodItemDetailView').then(m => ({ default: m.FoodItemDetailView })));
+const SettingsModal = lazy(() => import('./components/SettingsModal').then(m => ({ default: m.SettingsModal })));
+const FilterPanel = lazy(() => import('./components/FilterPanel').then(m => ({ default: m.FilterPanel })));
+const ImageModal = lazy(() => import('./components/ImageModal').then(m => ({ default: m.ImageModal })));
+const CameraCapture = lazy(() => import('./components/CameraCapture').then(m => ({ default: m.CameraCapture })));
+const ReceiptReviewModal = lazy(() => import('./components/finance/ReceiptReviewModal').then(m => ({ default: m.ReceiptReviewModal })));
+const ReceiptToInventoryModal = lazy(() => import('./components/finance/ReceiptToInventoryModal').then(m => ({ default: m.ReceiptToInventoryModal })));
 
 // --- TYPES & HELPERS ---
 export type SortKey = 'date_desc' | 'date_asc' | 'rating_desc' | 'rating_asc' | 'name_asc' | 'name_desc';
@@ -503,123 +505,125 @@ export const App = () => {
 
   return (
     <>
-      <Routes>
-        <Route element={
-            <Layout 
-                shoppingListCount={shoppingListItems.filter(i => !i.checked).length}
-                isOnline={isOnline}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                isAnyFilterActive={isAnyFilterActive}
-                toggleAllCategories={() => {
-                    const cats = new Set<string>();
-                    filteredAndSortedItems.forEach(item => cats.add(item.category || 'other'));
-                    const allCats = Array.from(cats);
-                    if (collapsedCategories.size >= allCats.length) setCollapsedCategories(new Set());
-                    else setCollapsedCategories(new Set(allCats));
-                }}
-                isAllCollapsed={filteredAndSortedItems.length > 0 && collapsedCategories.size > 0} 
-                onOpenSettings={() => navigate('/settings')}
-                onOpenFilter={() => setIsFilterPanelVisible(true)}
-                ownerFilter={ownerFilter} setOwnerFilter={setOwnerFilter}
-                aiSearchQuery={aiSearchQuery} clearAiSearch={() => { setAiSearchQuery(''); setAiSearchResults({ ids: null, error: null, isLoading: false }); }}
-                typeFilter={typeFilter} setTypeFilter={setTypeFilter}
-                ratingFilter={ratingFilter} setRatingFilter={setRatingFilter}
-                clearAllFilters={clearAllFilters}
-            />
-        }>
-            {/* INVENTORY (Dashboard) */}
-            <Route path="/" element={
-                <>
-                    {displayError && isOnline && <div className="bg-red-100 text-red-700 px-4 py-3 rounded m-4">{displayError}</div>}
-                    
-                    {aiSearchResults.ids !== null && (
-                        <div className="mb-6 p-4 bg-indigo-50 dark:bg-gray-800 rounded-lg flex items-center justify-between border border-indigo-100">
-                            <div><h2 className="text-xl font-bold text-indigo-800 dark:text-indigo-200">{t('conversationalSearch.resultsTitle')}</h2><p className="text-sm italic">"{aiSearchQuery}"</p></div>
-                            <button onClick={() => { setAiSearchQuery(''); setAiSearchResults({ ids: null, error: null, isLoading: false }); }} className="text-sm bg-indigo-200 px-3 py-1.5 rounded-full"><XMarkIcon className="w-4 h-4" /> Clear</button>
-                        </div>
-                    )}
-                    {aiSearchResults.error && <p className="text-red-500 text-center">{aiSearchResults.error}</p>}
+      <Suspense fallback={<div className="flex justify-center items-center h-screen"><SpinnerIcon className="w-8 h-8 text-indigo-500 animate-spin" /></div>}>
+        <Routes>
+          <Route element={
+              <Layout 
+                  shoppingListCount={shoppingListItems.filter(i => !i.checked).length}
+                  isOnline={isOnline}
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                  isAnyFilterActive={isAnyFilterActive}
+                  toggleAllCategories={() => {
+                      const cats = new Set<string>();
+                      filteredAndSortedItems.forEach(item => cats.add(item.category || 'other'));
+                      const allCats = Array.from(cats);
+                      if (collapsedCategories.size >= allCats.length) setCollapsedCategories(new Set());
+                      else setCollapsedCategories(new Set(allCats));
+                  }}
+                  isAllCollapsed={filteredAndSortedItems.length > 0 && collapsedCategories.size > 0} 
+                  onOpenSettings={() => navigate('/settings')}
+                  onOpenFilter={() => setIsFilterPanelVisible(true)}
+                  ownerFilter={ownerFilter} setOwnerFilter={setOwnerFilter}
+                  aiSearchQuery={aiSearchQuery} clearAiSearch={() => { setAiSearchQuery(''); setAiSearchResults({ ids: null, error: null, isLoading: false }); }}
+                  typeFilter={typeFilter} setTypeFilter={setTypeFilter}
+                  ratingFilter={ratingFilter} setRatingFilter={setRatingFilter}
+                  clearAllFilters={clearAllFilters}
+              />
+          }>
+              {/* INVENTORY (Dashboard) */}
+              <Route path="/" element={
+                  <>
+                      {displayError && isOnline && <div className="bg-red-100 text-red-700 px-4 py-3 rounded m-4">{displayError}</div>}
+                      
+                      {aiSearchResults.ids !== null && (
+                          <div className="mb-6 p-4 bg-indigo-50 dark:bg-gray-800 rounded-lg flex items-center justify-between border border-indigo-100">
+                              <div><h2 className="text-xl font-bold text-indigo-800 dark:text-indigo-200">{t('conversationalSearch.resultsTitle')}</h2><p className="text-sm italic">"{aiSearchQuery}"</p></div>
+                              <button onClick={() => { setAiSearchQuery(''); setAiSearchResults({ ids: null, error: null, isLoading: false }); }} className="text-sm bg-indigo-200 px-3 py-1.5 rounded-full"><XMarkIcon className="w-4 h-4" /> Clear</button>
+                          </div>
+                      )}
+                      {aiSearchResults.error && <p className="text-red-500 text-center">{aiSearchResults.error}</p>}
 
-                    <Dashboard 
-                        items={filteredAndSortedItems}
-                        isLoading={isFoodLoading}
-                        onAddNew={() => navigate('/add', { state: { startMode: 'camera' } })}
-                        onEdit={(id) => navigate(`/edit/${id}`)}
-                        onDelete={handleDeleteItem} // Use new handle wrapper
-                        onViewDetails={(item) => navigate(`/item/${item.id}`)}
-                        onAddToShoppingList={handleToggleShoppingList}
-                        onToggleFamilyStatus={handleToggleFamilyStatus}
-                        shoppingListFoodIds={shoppingListFoodIds}
-                        isFiltering={isAnyFilterActive}
-                        collapsedCategories={collapsedCategories}
-                        onToggleCategory={(category) => setCollapsedCategories(prev => { 
-                            const n = new Set(prev); 
-                            if (n.has(category)) {
-                                n.delete(category);
-                            } else {
-                                n.add(category);
-                            }
-                            return n; 
-                        })}
-                    />
-                    
-                    <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-6 z-30">
-                        <button onClick={() => navigate('/add', { state: { startMode: 'camera' } })} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-xl transition-transform transform hover:scale-105 active:scale-95">
-                            <CameraIcon className="w-8 h-8" />
-                        </button>
-                    </div>
-                </>
-            } />
+                      <Dashboard 
+                          items={filteredAndSortedItems}
+                          isLoading={isFoodLoading}
+                          onAddNew={() => navigate('/add', { state: { startMode: 'camera' } })}
+                          onEdit={(id) => navigate(`/edit/${id}`)}
+                          onDelete={handleDeleteItem} // Use new handle wrapper
+                          onViewDetails={(item) => navigate(`/item/${item.id}`)}
+                          onAddToShoppingList={handleToggleShoppingList}
+                          onToggleFamilyStatus={handleToggleFamilyStatus}
+                          shoppingListFoodIds={shoppingListFoodIds}
+                          isFiltering={isAnyFilterActive}
+                          collapsedCategories={collapsedCategories}
+                          onToggleCategory={(category) => setCollapsedCategories(prev => { 
+                              const n = new Set(prev); 
+                              if (n.has(category)) {
+                                  n.delete(category);
+                              } else {
+                                  n.add(category);
+                              }
+                              return n; 
+                          })}
+                      />
+                      
+                      <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-6 z-30">
+                          <button onClick={() => navigate('/add', { state: { startMode: 'camera' } })} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-4 rounded-full shadow-xl transition-transform transform hover:scale-105 active:scale-95">
+                              <CameraIcon className="w-8 h-8" />
+                          </button>
+                      </div>
+                  </>
+              } />
 
-            {/* SHOPPING LIST */}
-            <Route path="/shopping" element={
-                <ShoppingListView 
-                    allLists={shoppingLists}
-                    activeListId={activeShoppingListId}
-                    listData={hydratedShoppingList} 
-                    household={household}
-                    householdMembers={householdMembers}
-                    currentUser={user}
-                    onRemove={removeItem} 
-                    onClear={clearCompleted} 
-                    onToggleChecked={toggleChecked} 
-                    onSelectList={setActiveShoppingListId}
-                    onCreateList={createList}
-                    onDeleteList={deleteList}
-                    onUpdateQuantity={updateQuantity}
-                    onSmartAdd={handleSmartQuickAdd}
-                    isSmartAddLoading={isSmartAddLoading}
-                />
-            } />
+              {/* SHOPPING LIST */}
+              <Route path="/shopping" element={
+                  <ShoppingListView 
+                      allLists={shoppingLists}
+                      activeListId={activeShoppingListId}
+                      listData={hydratedShoppingList} 
+                      household={household}
+                      householdMembers={householdMembers}
+                      currentUser={user}
+                      onRemove={removeItem} 
+                      onClear={clearCompleted} 
+                      onToggleChecked={toggleChecked} 
+                      onSelectList={setActiveShoppingListId}
+                      onCreateList={createList}
+                      onDeleteList={deleteList}
+                      onUpdateQuantity={updateQuantity}
+                      onSmartAdd={handleSmartQuickAdd}
+                      isSmartAddLoading={isSmartAddLoading}
+                  />
+              } />
 
-            {/* FINANCE */}
-            <Route path="/finance" element={
-                <FinanceDashboard 
-                    monthlyData={getMonthlySpending()}
-                    categoryData={getCategoryBreakdown()}
-                    totalSpend={0}
-                    isLoading={isReceiptsLoading}
-                    onScan={() => setIsReceiptCameraOpen(true)}
-                />
-            } />
+              {/* FINANCE */}
+              <Route path="/finance" element={
+                  <FinanceDashboard 
+                      monthlyData={getMonthlySpending()}
+                      categoryData={getCategoryBreakdown()}
+                      totalSpend={0}
+                      isLoading={isReceiptsLoading}
+                      onScan={() => setIsReceiptCameraOpen(true)}
+                  />
+              } />
 
-            {/* SUB-PAGES */}
-            <Route path="/add" element={<ItemFormPage items={allItems} onSave={(data) => saveItem(data)} householdId={userProfile?.household_id || null} />} />
-            <Route path="/edit/:id" element={<ItemFormPage items={allItems} onSave={(data) => saveItem(data, data.id)} householdId={userProfile?.household_id || null} />} />
-            <Route path="/item/:id" element={<ItemDetailPage items={allItems} onImageClick={setSelectedImage} onDelete={(id) => { handleDeleteItem(id); navigate(-1); }} />} />
-            <Route path="/settings" element={
-                <SettingsPage 
-                    household={household} 
-                    householdMembers={householdMembers} 
-                    onHouseholdCreate={handleHouseholdCreateWrapper}
-                    onHouseholdLeave={leaveHousehold}
-                    onHouseholdDelete={deleteHousehold}
-                    error={householdError}
-                />
-            } />
-        </Route>
-      </Routes>
+              {/* SUB-PAGES */}
+              <Route path="/add" element={<ItemFormPage items={allItems} onSave={(data) => saveItem(data)} householdId={userProfile?.household_id || null} />} />
+              <Route path="/edit/:id" element={<ItemFormPage items={allItems} onSave={(data) => saveItem(data, data.id)} householdId={userProfile?.household_id || null} />} />
+              <Route path="/item/:id" element={<ItemDetailPage items={allItems} onImageClick={setSelectedImage} onDelete={(id) => { handleDeleteItem(id); navigate(-1); }} />} />
+              <Route path="/settings" element={
+                  <SettingsPage 
+                      household={household} 
+                      householdMembers={householdMembers} 
+                      onHouseholdCreate={handleHouseholdCreateWrapper}
+                      onHouseholdLeave={leaveHousehold}
+                      onHouseholdDelete={deleteHousehold}
+                      error={householdError}
+                  />
+              } />
+          </Route>
+        </Routes>
+      </Suspense>
 
       {/* GLOBAL MODALS (Transient State) */}
       {toastData && (
@@ -636,37 +640,39 @@ export const App = () => {
         </div>
       )}
 
-      {isFilterPanelVisible && (
-        <FilterPanel 
-            onClose={() => setIsFilterPanelVisible(false)}
-            searchTerm={searchTerm} setSearchTerm={setSearchTerm}
-            typeFilter={typeFilter} setTypeFilter={setTypeFilter}
-            ratingFilter={ratingFilter} setRatingFilter={setRatingFilter}
-            ownerFilter={ownerFilter} setOwnerFilter={setOwnerFilter}
-            sortBy={sortBy} setSortBy={setSortBy}
-            onReset={clearAllFilters}
-            onAiSearch={handleConversationalSearch}
-            isAiSearchLoading={aiSearchResults.isLoading}
-        />
-      )}
+      <Suspense fallback={null}>
+        {isFilterPanelVisible && (
+          <FilterPanel 
+              onClose={() => setIsFilterPanelVisible(false)}
+              searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+              typeFilter={typeFilter} setTypeFilter={setTypeFilter}
+              ratingFilter={ratingFilter} setRatingFilter={setRatingFilter}
+              ownerFilter={ownerFilter} setOwnerFilter={setOwnerFilter}
+              sortBy={sortBy} setSortBy={setSortBy}
+              onReset={clearAllFilters}
+              onAiSearch={handleConversationalSearch}
+              isAiSearchLoading={aiSearchResults.isLoading}
+          />
+        )}
 
-      {selectedImage && <ImageModal imageUrl={selectedImage} onClose={() => setSelectedImage(null)} />}
+        {selectedImage && <ImageModal imageUrl={selectedImage} onClose={() => setSelectedImage(null)} />}
 
-      {isReceiptCameraOpen && (
-          <CameraCapture onCapture={handleReceiptCapture} onClose={() => setIsReceiptCameraOpen(false)} mode="receipt" />
-      )}
-      {isProcessingReceipt && (
-          <div className="fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-50 text-white">
-              <SpinnerIcon className="w-12 h-12 text-white mb-4" />
-              <p className="text-lg font-bold">Analyzing...</p>
-          </div>
-      )}
-      {scannedReceiptData && (
-          <ReceiptReviewModal receiptData={scannedReceiptData} onSave={handleSaveReceipt} onClose={() => setScannedReceiptData(null)} />
-      )}
-      {confirmedReceiptForImport && (
-          <ReceiptToInventoryModal receipt={confirmedReceiptForImport.receipt} items={confirmedReceiptForImport.items} onConfirm={handleImportReceiptItems} onClose={() => setConfirmedReceiptForImport(null)} />
-      )}
+        {isReceiptCameraOpen && (
+            <CameraCapture onCapture={handleReceiptCapture} onClose={() => setIsReceiptCameraOpen(false)} mode="receipt" />
+        )}
+        {isProcessingReceipt && (
+            <div className="fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-50 text-white">
+                <SpinnerIcon className="w-12 h-12 text-white mb-4 animate-spin" />
+                <p className="text-lg font-bold">Analyzing...</p>
+            </div>
+        )}
+        {scannedReceiptData && (
+            <ReceiptReviewModal receiptData={scannedReceiptData} onSave={handleSaveReceipt} onClose={() => setScannedReceiptData(null)} />
+        )}
+        {confirmedReceiptForImport && (
+            <ReceiptToInventoryModal receipt={confirmedReceiptForImport.receipt} items={confirmedReceiptForImport.items} onConfirm={handleImportReceiptItems} onClose={() => setConfirmedReceiptForImport(null)} />
+        )}
+      </Suspense>
       <style>{`
         @keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
         .animate-slide-up { animation: slideUp 0.3s ease-out; }
