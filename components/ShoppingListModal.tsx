@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from '../i18n/index';
-import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, CheckBadgeIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon, SparklesIcon, CategoryRestaurantIcon, MapPinIcon } from './Icons';
+import { XMarkIcon, TrashIcon, ShoppingBagIcon, ChevronDownIcon, SpinnerIcon, UserCircleIcon, CheckCircleIcon, CheckBadgeIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryOtherIcon, SparklesIcon, CategoryRestaurantIcon, MapPinIcon, ArrowsUpDownIcon } from './Icons';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { useCategoryOrder } from '../hooks/useCategoryOrder';
 import { CategorySorter } from './CategorySorter';
