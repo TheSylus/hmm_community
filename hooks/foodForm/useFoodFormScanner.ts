@@ -299,7 +299,18 @@ export const useFoodFormScanner = (state: FoodFormStateReturn, handleFindNearby:
       } catch (e) {
         if(progressInterval) clearInterval(progressInterval);
         console.error(e);
-        const errorMessage = e instanceof Error ? e.message : t('form.error.genericAiError');
+        
+        let errorMessage = t('form.error.genericAiError');
+        if (e instanceof Error) {
+            if (e.message === 'AI_TIMEOUT') {
+                errorMessage = t('form.error.aiTimeout') || "Die KI hat zu lange gebraucht. Bitte ergänze die Daten manuell.";
+            } else if (e.message === 'AI_PARSE_ERROR' || e.message === 'AI_INVALID_FORMAT' || e.message === 'AI_EMPTY_RESPONSE') {
+                errorMessage = t('form.error.aiParseError') || "Die KI konnte das Bild nicht eindeutig erkennen. Bitte ergänze die Daten manuell.";
+            } else {
+                errorMessage = e.message;
+            }
+        }
+        
         uiSetters.setError(errorMessage);
         uiSetters.setUncroppedImage(imageDataUrl);
         uiSetters.setSuggestedCrop(null);
@@ -346,7 +357,16 @@ export const useFoodFormScanner = (state: FoodFormStateReturn, handleFindNearby:
         formSetters.setAutoExpandDetails(true);
       } catch (e) {
         console.error(e);
-        const errorMessage = e instanceof Error ? e.message : t('form.error.ingredientsAiError');
+        let errorMessage = t('form.error.ingredientsAiError');
+        if (e instanceof Error) {
+            if (e.message === 'AI_TIMEOUT') {
+                errorMessage = t('form.error.aiTimeout') || "Die KI hat zu lange gebraucht. Bitte ergänze die Daten manuell.";
+            } else if (e.message === 'AI_PARSE_ERROR' || e.message === 'AI_INVALID_FORMAT' || e.message === 'AI_EMPTY_RESPONSE') {
+                errorMessage = t('form.error.aiParseError') || "Die KI konnte das Bild nicht eindeutig erkennen. Bitte ergänze die Daten manuell.";
+            } else {
+                errorMessage = e.message;
+            }
+        }
         uiSetters.setError(errorMessage);
       } finally {
         uiSetters.setIngredientsLoading(false);

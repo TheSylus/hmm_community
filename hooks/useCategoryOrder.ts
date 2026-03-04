@@ -16,7 +16,7 @@ export function useCategoryOrder() {
                     parsed.push('other');
                 }
                 return parsed;
-            } catch (e) {
+            } catch {
                 return DEFAULT_CATEGORY_ORDER;
             }
         }
@@ -36,7 +36,7 @@ export function useCategoryOrder() {
             if (saved) {
                 try {
                     setCategoryOrderState(JSON.parse(saved));
-                } catch (e) {
+                } catch {
                     // ignore
                 }
             }

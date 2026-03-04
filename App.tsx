@@ -414,9 +414,17 @@ export const App = () => {
     try {
       const resultIds = await geminiService.performConversationalSearch(query, foodItems);
       setAiSearchResults({ ids: resultIds, error: null, isLoading: false });
-    } catch (e) {
-      console.error(e);
-      setAiSearchResults({ ids: null, error: t('conversationalSearch.error'), isLoading: false });
+    } catch (e: unknown) {
+      console.error("Conversational search error:", e);
+      let errorMessage = t('conversationalSearch.error');
+      if (e instanceof Error) {
+          if (e.message === 'AI_TIMEOUT') {
+              errorMessage = "Die Suche dauert zu lange. Bitte versuche es noch einmal.";
+          } else if (e.message === 'AI_PARSE_ERROR' || e.message === 'AI_INVALID_FORMAT' || e.message === 'AI_EMPTY_RESPONSE') {
+              errorMessage = "Die Suchanfrage konnte nicht verarbeitet werden.";
+          }
+      }
+      setAiSearchResults({ ids: null, error: errorMessage, isLoading: false });
     }
   }, [foodItems, t]);
 
@@ -449,8 +457,19 @@ export const App = () => {
               triggerHaptic('success');
               showToast(t('shoppingList.addedAnotherToast', { name: `${addedCount} items` }));
           }
-      } catch {
-          showToast("Could not process list.");
+      } catch (e: unknown) {
+          console.error("Smart add error:", e);
+          if (e instanceof Error) {
+              if (e.message === 'AI_TIMEOUT') {
+                  showToast("Die Verarbeitung dauert zu lange. Bitte versuche es noch einmal.");
+              } else if (e.message === 'AI_PARSE_ERROR' || e.message === 'AI_INVALID_FORMAT' || e.message === 'AI_EMPTY_RESPONSE') {
+                  showToast("Die Liste konnte nicht verstanden werden. Bitte überprüfe die Eingabe.");
+              } else {
+                  showToast("Fehler beim Verarbeiten der Liste.");
+              }
+          } else {
+              showToast("Fehler beim Verarbeiten der Liste.");
+          }
       } finally {
           setIsSmartAddLoading(false);
       }
@@ -464,8 +483,19 @@ export const App = () => {
           const contextItems = hydratedShoppingList.filter(i => i.checked).map(i => ({ id: i.id, name: i.name }));
           const analyzed = await geminiService.analyzeReceiptImage(imageDataUrl, contextItems);
           setScannedReceiptData(analyzed);
-      } catch {
-          showToast("Could not scan receipt.");
+      } catch (e: unknown) {
+          console.error("Receipt scan error:", e);
+          if (e instanceof Error) {
+              if (e.message === 'AI_TIMEOUT') {
+                  showToast("Die Analyse dauert zu lange. Bitte versuche es noch einmal.");
+              } else if (e.message === 'AI_PARSE_ERROR' || e.message === 'AI_INVALID_FORMAT' || e.message === 'AI_EMPTY_RESPONSE') {
+                  showToast("Der Kassenbon konnte nicht gelesen werden. Bitte versuche ein klareres Foto.");
+              } else {
+                  showToast("Fehler beim Scannen des Kassenbons. Bitte versuche es später noch einmal.");
+              }
+          } else {
+              showToast("Fehler beim Scannen des Kassenbons. Bitte versuche es später noch einmal.");
+          }
       } finally {
           setIsProcessingReceipt(false);
       }
