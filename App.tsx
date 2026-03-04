@@ -15,6 +15,7 @@ import { useTranslation } from './i18n/index';
 import { XMarkIcon, SpinnerIcon, CameraIcon } from './components/Icons';
 import { useModalHistory } from './hooks/useModalHistory';
 import { triggerHaptic } from './utils/haptics';
+import { useOfflineSync } from './hooks/useOfflineSync';
 import { ReloadPrompt } from './components/ReloadPrompt';
 
 // Lazy load components
@@ -146,6 +147,7 @@ const ItemFormPage: React.FC<{
 // --- MAIN APP COMPONENT ---
 
 export const App = () => {
+  useOfflineSync();
   const { t } = useTranslation();
   const { session, user } = useAuth();
   const navigate = useNavigate();

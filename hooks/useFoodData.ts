@@ -6,6 +6,7 @@ import * as foodItemService from '../services/foodItemService';
 import { supabase } from '../services/supabaseClient';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base64ToBlob, compressImage } from '../utils/fileUtils';
+import * as offlineQueue from '../services/offlineQueueService';
 
 // Keys for caching
 const KEYS = {
@@ -39,6 +40,13 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
           if (!user) throw new Error("No user");
           
           let imageUrl = itemData.image;
+
+          // If offline, queue the mutation and return early
+          if (!navigator.onLine) {
+              offlineQueue.addMutation('FOOD_ITEM_SAVE', { itemData, existingId, userId: user.id, imageUrl });
+              return;
+          }
+          
           // Handle Image Upload
           if (imageUrl && imageUrl.startsWith('data:image')) {
               const mimeType = imageUrl.match(/data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+).*,.*/)?.[1] || 'image/jpeg';
@@ -101,6 +109,10 @@ export const useFoodData = (user: User | null, householdId?: string | null) => {
 
   const deleteMutation = useMutation({
       mutationFn: async (id: string) => {
+          if (!navigator.onLine) {
+              offlineQueue.addMutation('FOOD_ITEM_DELETE', { id });
+              return;
+          }
           await foodItemService.deleteFoodItem(id);
       },
       onMutate: async (id) => {

@@ -5,6 +5,7 @@ import { supabase } from '../services/supabaseClient';
 import { User } from '@supabase/supabase-js';
 import { useTranslation } from '../i18n/index';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import * as offlineQueue from '../services/offlineQueueService';
 
 const KEYS = {
     lists: (householdId: string) => ['shoppingLists', householdId],
@@ -99,6 +100,10 @@ export const useShoppingList = (user: User | null, household: Household | null) 
   const createListMutation = useMutation({
       mutationFn: async (name: string) => {
           if (!household) throw new Error("No household");
+          if (!navigator.onLine) {
+              offlineQueue.addMutation('SHOPPING_LIST_CREATE', { name, householdId: household.id });
+              return;
+          }
           const { data, error } = await supabase.from('shopping_lists').insert({ name, household_id: household.id }).select().single();
           if (error) throw error;
           return data;
@@ -112,6 +117,10 @@ export const useShoppingList = (user: User | null, household: Household | null) 
   const addItemMutation = useMutation({
       mutationFn: async ({ foodItemId, quantity }: { foodItemId: string, quantity: number }) => {
           if (!user || !activeShoppingListId) throw new Error("No context");
+          if (!navigator.onLine) {
+              offlineQueue.addMutation('SHOPPING_LIST_ITEM_ADD', { foodItemId, listId: activeShoppingListId, userId: user.id, quantity });
+              return;
+          }
           const { data, error } = await supabase.from('shopping_list_items').insert({
               food_item_id: foodItemId,
               list_id: activeShoppingListId,
@@ -127,6 +136,10 @@ export const useShoppingList = (user: User | null, household: Household | null) 
 
   const updateItemMutation = useMutation({
       mutationFn: async ({ id, updates }: { id: string, updates: Partial<ShoppingListItem> }) => {
+          if (!navigator.onLine) {
+              offlineQueue.addMutation('SHOPPING_LIST_ITEM_UPDATE', { id, updates });
+              return;
+          }
           const { error } = await supabase.from('shopping_list_items').update(updates).eq('id', id);
           if (error) throw error;
       },
@@ -149,6 +162,10 @@ export const useShoppingList = (user: User | null, household: Household | null) 
 
   const deleteItemMutation = useMutation({
       mutationFn: async (id: string) => {
+          if (!navigator.onLine) {
+              offlineQueue.addMutation('SHOPPING_LIST_ITEM_DELETE', { id });
+              return;
+          }
           const { error } = await supabase.from('shopping_list_items').delete().eq('id', id);
           if (error) throw error;
       },
@@ -187,14 +204,30 @@ export const useShoppingList = (user: User | null, household: Household | null) 
     error: null,
     setActiveShoppingListId,
     createList: (name: string) => createListMutation.mutate(name),
-    deleteList: async (id: string) => { await supabase.from('shopping_lists').delete().eq('id', id); queryClient.invalidateQueries({ queryKey: KEYS.lists(household?.id || '') }); }, // Simplified
+    deleteList: async (id: string) => { 
+        if (!navigator.onLine) {
+            offlineQueue.addMutation('SHOPPING_LIST_DELETE', { id });
+            queryClient.setQueryData<ShoppingList[]>(KEYS.lists(household?.id || ''), old => old?.filter(l => l.id !== id) || []);
+            return;
+        }
+        await supabase.from('shopping_lists').delete().eq('id', id); 
+        queryClient.invalidateQueries({ queryKey: KEYS.lists(household?.id || '') }); 
+    },
     addItemToList,
     updateQuantity: (id: string, q: number) => q <= 0 ? deleteItemMutation.mutate(id) : updateItemMutation.mutate({ id, updates: { quantity: q } }),
     removeItem: (id: string) => deleteItemMutation.mutate(id),
     toggleChecked: (id: string, checked: boolean) => updateItemMutation.mutate({ id, updates: { checked, checked_by_user_id: checked ? user?.id : null } }),
     clearCompleted: async () => {
         const ids = shoppingListItems.filter(i => i.checked).map(i => i.id);
-        if(ids.length > 0) await supabase.from('shopping_list_items').delete().in('id', ids); // Realtime will update UI
+        if(ids.length === 0) return;
+        
+        if (!navigator.onLine) {
+            // Queue each delete or add a bulk delete mutation type
+            ids.forEach(id => offlineQueue.addMutation('SHOPPING_LIST_ITEM_DELETE', { id }));
+            queryClient.setQueryData<ShoppingListItem[]>(KEYS.items(activeShoppingListId || ''), old => old?.filter(i => !i.checked) || []);
+            return;
+        }
+        await supabase.from('shopping_list_items').delete().in('id', ids); // Realtime will update UI
     }
   };
 };

@@ -1,6 +1,14 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { FoodItem, NutriScore, GroceryCategory, Receipt, ReceiptItem } from "../types";
+import { 
+    AiFoodAnalysisSchema, 
+    AiIngredientsAnalysisSchema, 
+    AiReceiptSchema, 
+    AiConversationalSearchSchema, 
+    AiShoppingListSchema 
+} from "./schemas";
+import { z } from 'zod';
 
 // FIX: Always initialize GoogleGenAI with process.env.API_KEY directly.
 // const ai = new GoogleGenAI({ apiKey: process.env.API_KEY }); // Removed unused variable
@@ -54,7 +62,7 @@ const resizeImage = (base64Str: string, mode: 'main' | 'text' | 'receipt' = 'mai
     });
 };
 
-const parseJson = (text: string | undefined) => {
+const parseJson = <T>(text: string | undefined, schema?: z.ZodSchema<T>): T => {
     if (!text) throw new Error("AI_EMPTY_RESPONSE");
     try {
         const cleaned = text.replace(/```json\s*|\s*```/g, '').trim();
@@ -62,8 +70,21 @@ const parseJson = (text: string | undefined) => {
         if (typeof parsed !== 'object' || parsed === null) {
             throw new Error("AI_INVALID_FORMAT");
         }
-        return parsed;
+        
+        if (schema) {
+            const validation = schema.safeParse(parsed);
+            if (!validation.success) {
+                console.error("Zod Validation Error:", validation.error);
+                throw new Error("AI_INVALID_FORMAT");
+            }
+            return validation.data;
+        }
+        
+        return parsed as T;
     } catch (e) {
+        if (e instanceof Error && (e.message === "AI_INVALID_FORMAT" || e.message === "AI_EMPTY_RESPONSE")) {
+            throw e;
+        }
         console.error("JSON Parsing Error", e);
         throw new Error("AI_PARSE_ERROR");
     }
@@ -130,7 +151,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
     }), 20000);
     
     // FIX: Accessing .text directly on response object as per extracting text output rules.
-    const result = parseJson(response.text);
+    const result = parseJson(response.text, AiFoodAnalysisSchema);
     
     let boundingBox: BoundingBox | undefined;
     if (result.boundingBox) {
@@ -191,7 +212,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
         },
       }), 15000);
       // FIX: Accessing .text directly on response object.
-      return parseJson(response.text);
+      return parseJson(response.text, AiIngredientsAnalysisSchema);
     } catch (error) {
       console.error("Ingredients scan failed:", error);
       throw error;
@@ -212,7 +233,8 @@ export const performConversationalSearch = async (query: string, items: FoodItem
       },
     }), 15000);
     // FIX: Accessing .text directly on response object.
-    return parseJson(response.text).matchingIds || [];
+    const result = parseJson(response.text, AiConversationalSearchSchema);
+    return result.matchingIds || [];
   } catch (error) {
     console.error("Conversational search failed:", error);
     throw error;
@@ -247,7 +269,8 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
             }
         }), 15000);
         // FIX: Accessing .text directly on response object.
-        return parseJson(response.text).items || [];
+        const result = parseJson(response.text, AiShoppingListSchema);
+        return result.items || [];
     } catch (error) {
         console.error("Parse shopping list failed:", error);
         throw error;
@@ -300,7 +323,7 @@ export const analyzeReceiptImage = async (base64Image: string, context: { id: st
             }
         }), 20000);
         // FIX: Accessing .text directly on response object.
-        const result = parseJson(response.text);
+        const result = parseJson(response.text, AiReceiptSchema);
         return {
             merchant_name: result.merchant_name,
             date: result.date || new Date().toISOString(),

@@ -53,3 +53,19 @@ export const AiReceiptSchema = z.object({
     currency: z.string().optional(),
     items: z.array(AiReceiptItemSchema).optional()
 });
+
+// Conversational Search Response Schema
+export const AiConversationalSearchSchema = z.object({
+    matchingIds: z.array(z.string()),
+});
+
+// Shopping List Parsing Response Schema
+export const AiShoppingListItemSchema = z.object({
+    name: z.string(),
+    quantity: z.number().optional().default(1),
+    category: GroceryCategorySchema.optional().default('other'),
+});
+
+export const AiShoppingListSchema = z.object({
+    items: z.array(AiShoppingListItemSchema),
+});
