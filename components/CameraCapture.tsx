@@ -29,6 +29,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
   const [error, setError] = useState<string | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [focusPoint, setFocusPoint] = useState<{ x: number, y: number } | null>(null);
+  const [showShutter, setShowShutter] = useState(false);
 
   const setupCamera = useCallback(async () => {
     if (streamRef.current) return;
@@ -123,6 +124,10 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
 
   const handleCapture = () => {
     if (videoRef.current && canvasRef.current && isCameraReady) {
+      // Visual feedback
+      setShowShutter(true);
+      setTimeout(() => setShowShutter(false), 150);
+      
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
@@ -208,19 +213,37 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
 
           {/* Dark Overlay with Scan Window */}
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-             <div className={`relative border-2 border-white/50 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] transition-all duration-300 ${getOverlayStyle()}`}>
-                <div className="absolute top-[-2px] left-[-2px] w-8 h-8 border-t-4 border-l-4 border-indigo-400 rounded-tl-2xl"></div>
-                <div className="absolute top-[-2px] right-[-2px] w-8 h-8 border-t-4 border-r-4 border-indigo-400 rounded-tr-2xl"></div>
-                <div className="absolute bottom-[-2px] left-[-2px] w-8 h-8 border-b-4 border-l-4 border-indigo-400 rounded-bl-2xl"></div>
-                <div className="absolute bottom-[-2px] right-[-2px] w-8 h-8 border-b-4 border-r-4 border-indigo-400 rounded-br-2xl"></div>
+             <div className={`relative border border-white/20 shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] transition-all duration-500 ${getOverlayStyle()}`}>
+                {/* Technical Corner Markings */}
+                <div className="absolute top-0 left-0 w-10 h-10 border-t-2 border-l-2 border-indigo-500 rounded-tl-xl"></div>
+                <div className="absolute top-0 right-0 w-10 h-10 border-t-2 border-r-2 border-indigo-500 rounded-tr-xl"></div>
+                <div className="absolute bottom-0 left-0 w-10 h-10 border-b-2 border-l-2 border-indigo-500 rounded-bl-xl"></div>
+                <div className="absolute bottom-0 right-0 w-10 h-10 border-b-2 border-r-2 border-indigo-500 rounded-br-xl"></div>
                 
-                <div className="absolute -bottom-10 left-0 right-0 text-center">
-                    <span className="text-white/90 text-sm font-medium bg-black/40 px-4 py-1.5 rounded-full backdrop-blur-md">
-                        Tippen zum Fokussieren
+                {/* Animated Scan Line */}
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-400 to-transparent shadow-[0_0_15px_rgba(129,140,248,0.8)] animate-scan-line z-10"></div>
+
+                {/* Technical Labels */}
+                <div className="absolute -top-6 left-0 flex items-center gap-3 text-[10px] font-mono text-indigo-400 tracking-widest uppercase opacity-80">
+                    <span>REC ●</span>
+                    <span>{mode}</span>
+                </div>
+                <div className="absolute -bottom-6 right-0 text-[10px] font-mono text-indigo-400 tracking-widest uppercase opacity-80">
+                    4K_ULTRA_HD // 60FPS
+                </div>
+                
+                <div className="absolute -bottom-14 left-0 right-0 text-center">
+                    <span className="text-white/70 text-[11px] font-mono uppercase tracking-widest bg-black/60 px-4 py-2 rounded-full backdrop-blur-xl border border-white/10">
+                        [ TAP_TO_FOCUS ]
                     </span>
                 </div>
              </div>
           </div>
+
+          {/* Shutter Flash Effect */}
+          {showShutter && (
+            <div className="absolute inset-0 bg-white z-50 animate-shutter-flash"></div>
+          )}
 
           <canvas ref={canvasRef} className="hidden" />
         </div>
@@ -257,11 +280,28 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
       </div>
       <style>{`
         @keyframes focusPulse {
-            0% { transform: scale(1.2); opacity: 1; }
-            100% { transform: scale(1); opacity: 0; }
+            0% { transform: scale(1.4); opacity: 1; border-width: 3px; }
+            100% { transform: scale(1); opacity: 0; border-width: 1px; }
+        }
+        @keyframes scanLine {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+        @keyframes shutterFlash {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
         }
         .animate-focus-pulse {
-            animation: focusPulse 0.5s ease-out forwards;
+            animation: focusPulse 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        .animate-scan-line {
+            animation: scanLine 3s linear infinite;
+        }
+        .animate-shutter-flash {
+            animation: shutterFlash 0.15s ease-out forwards;
         }
       `}</style>
     </div>
