@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from 'react-image-crop';
+import ReactCrop, { type Crop, centerCrop, makeAspectCrop, convertToPixelCrop, type PixelCrop } from 'react-image-crop';
 import { BoundingBox } from '../services/geminiService';
 import { useTranslation } from '../i18n/index';
 
@@ -14,7 +14,7 @@ interface ImageCropperProps {
 // Function to create a canvas preview of the crop
 function getCroppedImg(
   image: HTMLImageElement,
-  crop: Crop,
+  crop: PixelCrop,
   canvas: HTMLCanvasElement
 ) {
   const ctx = canvas.getContext('2d');
@@ -22,7 +22,7 @@ function getCroppedImg(
     throw new Error('No 2d context');
   }
 
-  const pixelRatio = window.devicePixelRatio;
+  const pixelRatio = window.devicePixelRatio || 1;
   const scaleX = image.naturalWidth / image.width;
   const scaleY = image.naturalHeight / image.height;
 
@@ -47,13 +47,13 @@ function getCroppedImg(
     crop.height * scaleY
   );
   
-  return canvas.toDataURL('image/jpeg');
+  return canvas.toDataURL('image/jpeg', 0.9);
 }
 
 export const ImageCropper: React.FC<ImageCropperProps> = ({ imageUrl, suggestedCrop, onCrop, onCancel }) => {
   const { t } = useTranslation();
   const [crop, setCrop] = useState<Crop>();
-  const [completedCrop, setCompletedCrop] = useState<Crop>();
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const imgRef = useRef<HTMLImageElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -61,9 +61,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ imageUrl, suggestedC
     const { width, height } = e.currentTarget;
     let initialCrop: Crop;
 
-    // Quality Gate: Only use suggested crop if dimensions are valid (non-zero)
     if (suggestedCrop && suggestedCrop.width > 0 && suggestedCrop.height > 0) {
-      // Use pixel values directly as they now match the optimized image
       initialCrop = {
         unit: 'px',
         x: suggestedCrop.x,
@@ -72,23 +70,28 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ imageUrl, suggestedC
         height: suggestedCrop.height,
       };
     } else {
-      // Fallback: center a 1:1 aspect ratio crop
-      const crop = centerCrop(
+      initialCrop = centerCrop(
         makeAspectCrop(
           {
             unit: '%',
             width: 90,
           },
-          1 / 1, // Aspect ratio 1:1
+          1 / 1,
           width,
           height
         ),
         width,
         height
       );
-      initialCrop = crop;
     }
     setCrop(initialCrop);
+    
+    // Set initial completed crop
+    if (initialCrop.unit === 'px') {
+        setCompletedCrop(initialCrop as PixelCrop);
+    } else {
+        setCompletedCrop(convertToPixelCrop(initialCrop, width, height));
+    }
   }
 
   const handleCropConfirm = async () => {
@@ -102,7 +105,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ imageUrl, suggestedC
             onCrop(croppedImageUrl);
         } catch (e) {
             console.error(e);
-            onCancel(); // Fallback if cropping fails
+            onCancel();
         }
     }
   };
@@ -115,10 +118,8 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ imageUrl, suggestedC
         <div className="relative bg-gray-100 dark:bg-gray-900 rounded-md overflow-hidden max-h-[60vh]">
             <ReactCrop
                 crop={crop}
-                onChange={(_, percentCrop) => setCrop(percentCrop)}
+                onChange={(c) => setCrop(c)}
                 onComplete={(c) => setCompletedCrop(c)}
-                // Disabled enforced aspect ratio for better flexibility with AI boxes
-                // aspect={1} 
                 className="max-h-full"
             >
                 <img
@@ -129,7 +130,6 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ imageUrl, suggestedC
                     className="w-full h-auto object-contain"
                 />
             </ReactCrop>
-            {/* Hidden canvas for generating the cropped image */}
             <canvas ref={previewCanvasRef} className="hidden" />
         </div>
         <div className="mt-6 flex justify-center gap-4">

@@ -37,10 +37,17 @@ const resizeImage = (base64Str: string, mode: 'main' | 'text' | 'receipt' = 'mai
 
     return new Promise((resolve) => {
         const img = new Image();
-        img.src = base64Str;
         img.onload = () => {
-            let width = img.width;
-            let height = img.height;
+            const originalWidth = img.naturalWidth || img.width;
+            const originalHeight = img.naturalHeight || img.height;
+
+            if (originalWidth === 0 || originalHeight === 0) {
+                resolve(base64Str);
+                return;
+            }
+
+            let width = originalWidth;
+            let height = originalHeight;
             if (width > maxWidth) {
                 height = Math.round((height * maxWidth) / width);
                 width = maxWidth;
@@ -59,6 +66,7 @@ const resizeImage = (base64Str: string, mode: 'main' | 'text' | 'receipt' = 'mai
             }
         };
         img.onerror = () => resolve(base64Str);
+        img.src = base64Str;
     });
 };
 
@@ -156,13 +164,18 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
     let boundingBox: BoundingBox | undefined;
     if (result.boundingBox) {
         const img = new Image();
+        const loadPromise = new Promise(r => img.onload = r);
         img.src = resizedImage;
-        await new Promise(r => img.onload = r);
+        await loadPromise;
+        
+        const width = img.naturalWidth || img.width;
+        const height = img.naturalHeight || img.height;
+
         boundingBox = {
-            x: (result.boundingBox.xmin / 1000) * img.width,
-            y: (result.boundingBox.ymin / 1000) * img.height,
-            width: ((result.boundingBox.xmax - result.boundingBox.xmin) / 1000) * img.width,
-            height: ((result.boundingBox.ymax - result.boundingBox.ymin) / 1000) * img.height
+            x: (result.boundingBox.xmin / 1000) * width,
+            y: (result.boundingBox.ymin / 1000) * height,
+            width: ((result.boundingBox.xmax - result.boundingBox.xmin) / 1000) * width,
+            height: ((result.boundingBox.ymax - result.boundingBox.ymin) / 1000) * height
         };
     }
 

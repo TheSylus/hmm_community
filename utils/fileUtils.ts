@@ -15,11 +15,17 @@ export const base64ToBlob = (base64: string, mimeType: string): Blob => {
 export const compressImage = async (base64: string, maxWidth = 800, maxHeight = 800, quality = 0.7): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.src = base64;
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      let width = img.width;
-      let height = img.height;
+      const originalWidth = img.naturalWidth || img.width;
+      const originalHeight = img.naturalHeight || img.height;
+      
+      if (originalWidth === 0 || originalHeight === 0) {
+        reject(new Error('Image has no dimensions'));
+        return;
+      }
+
+      let width = originalWidth;
+      let height = originalHeight;
 
       if (width > height) {
         if (width > maxWidth) {
@@ -33,6 +39,7 @@ export const compressImage = async (base64: string, maxWidth = 800, maxHeight = 
         }
       }
 
+      const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
@@ -44,5 +51,6 @@ export const compressImage = async (base64: string, maxWidth = 800, maxHeight = 
       resolve(canvas.toDataURL('image/jpeg', quality));
     };
     img.onerror = (error) => reject(error);
+    img.src = base64;
   });
 };
