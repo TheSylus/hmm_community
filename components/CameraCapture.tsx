@@ -67,6 +67,12 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
         videoRef.current.onloadedmetadata = () => {
+          // Check if we have valid dimensions, if not wait for onloadeddata
+          if (videoRef.current && videoRef.current.videoWidth > 0) {
+            setIsCameraReady(true);
+          }
+        };
+        videoRef.current.onloadeddata = () => {
           setIsCameraReady(true);
         };
       }
@@ -136,6 +142,12 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
         // Wir nutzen die native Auflösung des Videos für den Crop
         const videoW = video.videoWidth;
         const videoH = video.videoHeight;
+        
+        if (videoW === 0 || videoH === 0) {
+            console.warn("Video dimensions are 0, cannot capture.");
+            return;
+        }
+
         const minDim = Math.min(videoW, videoH);
         
         let cropW, cropH;

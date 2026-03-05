@@ -92,7 +92,7 @@ export const ImageCaptureSection: React.FC<ImageCaptureSectionProps> = ({
           </div>
         )}
         {formState.image && !uiState.analysisProgress.active && !uiState.isLoading && (
-          <div className="relative w-28 h-28 rounded-lg overflow-hidden group shadow-md animate-fade-in">
+          <div className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-xl overflow-hidden group shadow-lg animate-fade-in border-2 border-white dark:border-gray-700">
             <img src={formState.image} alt="Preview" className="w-full h-full object-cover" />
             <button
               type="button"

@@ -88,10 +88,10 @@ export const FoodItemDetailView: React.FC<FoodItemDetailViewProps> = ({ item, on
   return (
     <div className="space-y-6 text-sm">
       {/* Header with Image, Name, Rating */}
-      <div className="flex items-start gap-4">
+      <div className="flex flex-col sm:flex-row items-start gap-4">
         {displayItem.image && (
           <div 
-            className="w-24 h-24 flex-shrink-0 rounded-md overflow-hidden cursor-pointer group shadow-sm border border-gray-100 dark:border-gray-700"
+            className="w-full sm:w-48 h-48 flex-shrink-0 rounded-xl overflow-hidden cursor-pointer group shadow-md border border-gray-100 dark:border-gray-700"
             onClick={() => displayItem.image && onImageClick(displayItem.image)}
           >
             <img src={displayItem.image} alt={displayItem.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />

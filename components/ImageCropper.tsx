@@ -22,14 +22,12 @@ function getCroppedImg(
     throw new Error('No 2d context');
   }
 
-  const pixelRatio = window.devicePixelRatio || 1;
   const scaleX = image.naturalWidth / image.width;
   const scaleY = image.naturalHeight / image.height;
 
-  canvas.width = Math.floor(crop.width * scaleX * pixelRatio);
-  canvas.height = Math.floor(crop.height * scaleY * pixelRatio);
+  canvas.width = Math.floor(crop.width * scaleX);
+  canvas.height = Math.floor(crop.height * scaleY);
 
-  ctx.scale(pixelRatio, pixelRatio);
   ctx.imageSmoothingQuality = 'high';
 
   const cropX = crop.x * scaleX;
@@ -43,8 +41,8 @@ function getCroppedImg(
     crop.height * scaleY,
     0,
     0,
-    crop.width * scaleX,
-    crop.height * scaleY
+    canvas.width,
+    canvas.height
   );
   
   return canvas.toDataURL('image/jpeg', 0.9);
