@@ -3,6 +3,7 @@ import React, { useState, useCallback } from 'react';
 import { GoogleGenAI } from '@google/genai';
 import { useTranslation } from '../i18n/index';
 import { SparklesIcon } from './Icons';
+import { withRetry } from '../services/geminiService';
 
 interface ApiKeyTesterProps {
     onKeyVerified: (apiKey: string) => void;
@@ -27,10 +28,10 @@ export const ApiKeyTester: React.FC<ApiKeyTesterProps> = ({ onKeyVerified, butto
         try {
             const testAi = new GoogleGenAI({ apiKey: keyToTest });
             // FIX: Updated model to gemini-3-flash-preview for connectivity test.
-            await testAi.models.generateContent({ 
+            await withRetry(() => testAi.models.generateContent({ 
                 model: 'gemini-3-flash-preview', 
                 contents: { parts: [{ text: 'hello' }] }
-            });
+            }));
             
             setStatus('success');
             onKeyVerified(keyToTest);

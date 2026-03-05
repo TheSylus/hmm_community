@@ -3,6 +3,7 @@ import React from 'react';
 import { useTranslation } from '../../i18n/index';
 import { useAppSettings } from '../../contexts/AppSettingsContext';
 import { StoreLogo } from '../StoreLogo';
+import { CATEGORY_COLORS, CATEGORY_COLORS_DARK } from '../../constants';
 import { GroceryCategory, NutriScore } from '../../types';
 import { 
     CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, 
@@ -50,20 +51,12 @@ const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>>
     'other': CategoryOtherIcon,
 };
 
-const CategoryColorMap: Record<GroceryCategory, string> = {
-    'produce': 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300',
-    'bakery': 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
-    'meat_fish': 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
-    'dairy_eggs': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300',
-    'pantry': 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300',
-    'frozen': 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300',
-    'snacks': 'bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-300',
-    'beverages': 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300',
-    'household': 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-    'personal_care': 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300',
-    'restaurant_food': 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300',
-    'other': 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-};
+const CategoryColorMap: Record<GroceryCategory, string> = Object.keys(CATEGORY_COLORS).reduce((acc, cat) => {
+    const c = CATEGORY_COLORS[cat as GroceryCategory];
+    const d = CATEGORY_COLORS_DARK[cat as GroceryCategory];
+    acc[cat as GroceryCategory] = `${c.bg} ${c.text} ${d.bg} ${d.text}`;
+    return acc;
+}, {} as Record<GroceryCategory, string>);
 
 export const ProductMetadataSection: React.FC<ProductMetadataSectionProps> = ({
   formState,

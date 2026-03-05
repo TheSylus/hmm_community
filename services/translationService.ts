@@ -1,6 +1,6 @@
 
 import { Type } from "@google/genai";
-import { getAiClient, hasValidApiKey } from './geminiService';
+import { getAiClient, hasValidApiKey, withRetry } from './geminiService';
 
 const CACHE_KEY = 'food_tracker_translation_cache';
 const SOURCE_LANGUAGE = 'en';
@@ -45,7 +45,7 @@ const processBatch = async () => {
     try {
         const gemini = getAiClient();
         // FIX: Updated model to gemini-3-flash-preview for basic text tasks.
-        const response = await gemini.models.generateContent({
+        const response = await withRetry(() => gemini.models.generateContent({
             model: "gemini-3-flash-preview",
             config: {
                 temperature: 0, 
@@ -68,7 +68,7 @@ const processBatch = async () => {
                 }
             },
             contents: { parts: [{ text: `Translate to German: ${JSON.stringify(uniqueTexts)}` }] },
-        });
+        }));
 
         // FIX: Accessing .text directly.
         const json = JSON.parse(response.text || '{"translations":[]}');

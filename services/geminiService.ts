@@ -107,6 +107,38 @@ const withTimeout = <T>(promise: Promise<T>, ms: number = 15000): Promise<T> => 
     ]);
 };
 
+export const withRetry = async <T>(
+    operation: () => Promise<T>, 
+    maxRetries: number = 3, 
+    baseDelayMs: number = 1000
+): Promise<T> => {
+    let attempt = 0;
+    while (attempt < maxRetries) {
+        try {
+            return await operation();
+        } catch (error: any) {
+            attempt++;
+            const isRetryable = 
+                error?.status === 503 || 
+                error?.status === 429 || 
+                error?.message?.includes('503') || 
+                error?.message?.includes('429') || 
+                error?.message?.includes('Service Unavailable') ||
+                error?.message?.includes('Too Many Requests') ||
+                error?.message?.includes('fetch failed');
+            
+            if (isRetryable && attempt < maxRetries) {
+                const delay = baseDelayMs * Math.pow(2, attempt - 1);
+                console.warn(`API Error (Retryable). Retrying in ${delay}ms... (Attempt ${attempt} of ${maxRetries})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+                throw error;
+            }
+        }
+    }
+    throw new Error("Max retries reached");
+};
+
 export interface BoundingBox {
     x: number;
     y: number;
@@ -125,7 +157,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
   try {
     const gemini = getAiClient();
     // FIX: Updated model to gemini-3-flash-preview for vision tasks as per task-based model selection.
-    const response = await withTimeout(gemini.models.generateContent({
+    const response = await withTimeout(withRetry(() => gemini.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: { parts: [
           { inlineData: { mimeType, data } },
@@ -156,7 +188,7 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
           required: ["name", "itemType", "category"],
         },
       },
-    }), 20000);
+    })), 20000);
     
     // FIX: Accessing .text directly on response object as per extracting text output rules.
     const result = parseJson(response.text, AiFoodAnalysisSchema);
@@ -202,7 +234,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
     try {
       const gemini = getAiClient();
       // FIX: Updated model to gemini-3-flash-preview.
-      const response = await withTimeout(gemini.models.generateContent({
+      const response = await withTimeout(withRetry(() => gemini.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: { parts: [
             { inlineData: { mimeType: match[1], data: match[2] } },
@@ -223,7 +255,7 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
             }
           },
         },
-      }), 15000);
+      })), 15000);
       // FIX: Accessing .text directly on response object.
       return parseJson(response.text, AiIngredientsAnalysisSchema);
     } catch (error) {
@@ -237,14 +269,14 @@ export const performConversationalSearch = async (query: string, items: FoodItem
   try {
     const gemini = getAiClient();
     // FIX: Updated model to gemini-3-pro-preview for complex reasoning/searching tasks.
-    const response = await withTimeout(gemini.models.generateContent({
+    const response = await withTimeout(withRetry(() => gemini.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: { parts: [{ text: `Search Query: "${query}"\nData: ${JSON.stringify(items.map(i => ({ id: i.id, n: i.name, t: i.tags })))}` }] },
       config: {
         systemInstruction: "Return JSON: { matchingIds: string[] }.",
         responseMimeType: "application/json"
       },
-    }), 15000);
+    })), 15000);
     // FIX: Accessing .text directly on response object.
     const result = parseJson(response.text, AiConversationalSearchSchema);
     return result.matchingIds || [];
@@ -258,7 +290,7 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
     try {
         const gemini = getAiClient();
         // FIX: Updated model to gemini-3-flash-preview.
-        const response = await withTimeout(gemini.models.generateContent({
+        const response = await withTimeout(withRetry(() => gemini.models.generateContent({
             model: "gemini-3-flash-preview",
             contents: { parts: [{ text: `List: "${input}"` }] },
             config: {
@@ -280,7 +312,7 @@ export const parseShoppingList = async (input: string): Promise<{ name: string; 
                     }
                 }
             }
-        }), 15000);
+        })), 15000);
         // FIX: Accessing .text directly on response object.
         const result = parseJson(response.text, AiShoppingListSchema);
         return result.items || [];
@@ -298,7 +330,7 @@ export const analyzeReceiptImage = async (base64Image: string, context: { id: st
     try {
         const gemini = getAiClient();
         // FIX: Updated model to gemini-3-flash-preview.
-        const response = await withTimeout(gemini.models.generateContent({
+        const response = await withTimeout(withRetry(() => gemini.models.generateContent({
             model: "gemini-3-flash-preview",
             contents: { parts: [
                 { inlineData: { mimeType: match[1], data: match[2] } },
@@ -334,7 +366,7 @@ export const analyzeReceiptImage = async (base64Image: string, context: { id: st
                     required: ["merchant_name", "total_amount", "items"]
                 }
             }
-        }), 20000);
+        })), 20000);
         // FIX: Accessing .text directly on response object.
         const result = parseJson(response.text, AiReceiptSchema);
         return {
@@ -365,7 +397,7 @@ export const findNearbyRestaurants = async (latitude: number, longitude: number)
         const gemini = getAiClient();
         // FIX: Google Maps grounding is only supported in Gemini 2.5 series models. 
         // Using 'gemini-2.5-flash' explicitly for this tool.
-        const response = await withTimeout(gemini.models.generateContent({
+        const response = await withTimeout(withRetry(() => gemini.models.generateContent({
             model: "gemini-2.5-flash",
             contents: "List good restaurants nearby.",
             config: {
@@ -379,7 +411,7 @@ export const findNearbyRestaurants = async (latitude: number, longitude: number)
                     }
                 },
             },
-        }), 15000);
+        })), 15000);
 
         const restaurants: { name: string; cuisine?: string }[] = [];
         const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks as GoogleMapsGroundingChunk[] | undefined;
