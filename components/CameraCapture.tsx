@@ -148,34 +148,16 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
             return;
         }
 
-        const minDim = Math.min(videoW, videoH);
-        
-        let cropW, cropH;
-
-        if (mode === 'main') {
-            const cropSize = minDim * 0.85; 
-            cropW = cropSize;
-            cropH = cropSize;
-        } else if (mode === 'ingredients') {
-            cropW = minDim * 0.8;
-            cropH = cropW * 1.33;
-        } else {
-            cropH = videoH * 0.9; 
-            cropW = cropH * 0.5;
-        }
-
-        const startX = (videoW - cropW) / 2;
-        const startY = (videoH - cropH) / 2;
-
-        canvas.width = cropW;
-        canvas.height = cropH;
+        // Capture the full video frame as requested by the user ("Vollbild")
+        canvas.width = videoW;
+        canvas.height = videoH;
 
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
-        ctx.drawImage(video, startX, startY, cropW, cropH, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, 0, 0, videoW, videoH);
         
-        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.95); // Hohe Qualität beim Speichern
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.95); 
         onCapture(imageDataUrl);
       }
     }

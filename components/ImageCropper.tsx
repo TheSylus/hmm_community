@@ -56,16 +56,23 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ imageUrl, suggestedC
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
-    const { width, height } = e.currentTarget;
+    const { width: displayWidth, height: displayHeight } = e.currentTarget;
+    const naturalWidth = e.currentTarget.naturalWidth;
+    const naturalHeight = e.currentTarget.naturalHeight;
+    
     let initialCrop: Crop;
 
     if (suggestedCrop && suggestedCrop.width > 0 && suggestedCrop.height > 0) {
+      // Scale natural pixel coordinates to display pixel coordinates
+      const scaleX = displayWidth / naturalWidth;
+      const scaleY = displayHeight / naturalHeight;
+      
       initialCrop = {
         unit: 'px',
-        x: suggestedCrop.x,
-        y: suggestedCrop.y,
-        width: suggestedCrop.width,
-        height: suggestedCrop.height,
+        x: suggestedCrop.x * scaleX,
+        y: suggestedCrop.y * scaleY,
+        width: suggestedCrop.width * scaleX,
+        height: suggestedCrop.height * scaleY,
       };
     } else {
       initialCrop = centerCrop(
@@ -75,11 +82,11 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ imageUrl, suggestedC
             width: 90,
           },
           1 / 1,
-          width,
-          height
+          displayWidth,
+          displayHeight
         ),
-        width,
-        height
+        displayWidth,
+        displayHeight
       );
     }
     setCrop(initialCrop);
@@ -88,7 +95,7 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ imageUrl, suggestedC
     if (initialCrop.unit === 'px') {
         setCompletedCrop(initialCrop as PixelCrop);
     } else {
-        setCompletedCrop(convertToPixelCrop(initialCrop, width, height));
+        setCompletedCrop(convertToPixelCrop(initialCrop, displayWidth, displayHeight));
     }
   }
 
@@ -106,6 +113,10 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ imageUrl, suggestedC
             onCancel();
         }
     }
+  };
+  
+  const handleFullImage = () => {
+    onCrop(imageUrl);
   };
   
   return (
@@ -130,16 +141,22 @@ export const ImageCropper: React.FC<ImageCropperProps> = ({ imageUrl, suggestedC
             </ReactCrop>
             <canvas ref={previewCanvasRef} className="hidden" />
         </div>
-        <div className="mt-6 flex justify-center gap-4">
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           <button
             onClick={onCancel}
-            className="px-6 py-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white rounded-md font-semibold transition-colors"
+            className="px-4 py-2 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white rounded-md font-semibold transition-colors text-sm"
           >
             {t('cropper.button.cancel')}
           </button>
           <button
+            onClick={handleFullImage}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md font-semibold transition-colors text-sm"
+          >
+            {t('cropper.button.fullImage') || 'Full Image'}
+          </button>
+          <button
             onClick={handleCropConfirm}
-            className="px-8 py-2 bg-indigo-600 text-white rounded-md font-semibold hover:bg-indigo-700 transition-colors"
+            className="px-6 py-2 bg-indigo-600 text-white rounded-md font-semibold hover:bg-indigo-700 transition-colors text-sm"
           >
             {t('cropper.button.confirm')}
           </button>
