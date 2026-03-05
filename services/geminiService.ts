@@ -269,9 +269,9 @@ export const performConversationalSearch = async (query: string, items: FoodItem
   if (!query || items.length === 0) return [];
   try {
     const gemini = getAiClient();
-    // FIX: Updated model to gemini-3-pro-preview for complex reasoning/searching tasks.
+    // FIX: Updated model to gemini-3-flash-preview for complex reasoning/searching tasks.
     const response = await withTimeout(withRetry(() => gemini.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-flash-preview",
       contents: { parts: [{ text: `Search Query: "${query}"\nData: ${JSON.stringify(items.map(i => ({ id: i.id, n: i.name, t: i.tags })))}` }] },
       config: {
         systemInstruction: "Return JSON: { matchingIds: string[] }.",
@@ -396,34 +396,39 @@ export interface GoogleMapsGroundingChunk {
 export const findNearbyRestaurants = async (latitude: number, longitude: number): Promise<{ name: string; cuisine?: string }[]> => {
     try {
         const gemini = getAiClient();
-        // FIX: Google Maps grounding is only supported in Gemini 2.5 series models. 
-        // Using 'gemini-2.5-flash' explicitly for this tool.
+        // FIX: Using gemini-3-flash-preview as requested. 
+        // Note: Google Maps grounding is natively supported in 2.5, 
+        // for 3.0 we use googleSearch grounding as a replacement.
         const response = await withTimeout(withRetry(() => gemini.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: "List good restaurants nearby.",
+            model: "gemini-3-flash-preview",
+            contents: `List good restaurants near latitude ${latitude}, longitude ${longitude}.`,
             config: {
-                tools: [{ googleMaps: {} }],
-                toolConfig: {
-                    retrievalConfig: {
-                        latLng: {
-                            latitude,
-                            longitude
-                        }
-                    }
-                },
+                tools: [{ googleSearch: {} }],
             },
         })), 15000);
 
         const restaurants: { name: string; cuisine?: string }[] = [];
-        const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks as GoogleMapsGroundingChunk[] | undefined;
-
+        // Extract from search grounding if available
+        const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+        
         if (chunks) {
             chunks.forEach((chunk) => {
-                if (chunk.maps && chunk.maps.title) {
+                const c = chunk as { web?: { title?: string } };
+                if (c.web && c.web.title) {
+                    // Simple heuristic to extract restaurant names from search results
                     restaurants.push({
-                        name: chunk.maps.title,
+                        name: c.web.title.split(' - ')[0].split(' | ')[0],
                     });
                 }
+            });
+        }
+        
+        // If no grounding chunks, try to parse the text response
+        if (restaurants.length === 0 && response.text) {
+            const lines = response.text.split('\n');
+            lines.forEach(line => {
+                const match = line.match(/^\d+\.\s*(.+)$/);
+                if (match) restaurants.push({ name: match[1].trim() });
             });
         }
         
