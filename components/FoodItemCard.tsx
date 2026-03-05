@@ -1,8 +1,7 @@
 
 import React, { useState, useRef } from 'react';
-import { FoodItem, NutriScore, GroceryCategory } from '../types';
-import { CATEGORY_COLORS, CATEGORY_COLORS_DARK } from '../constants';
-import { StarIcon, TrashIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, UserGroupIcon, LockClosedIcon, ShoppingCartIcon, BeakerIcon, CategoryProduceIcon, CategoryBakeryIcon, CategoryMeatIcon, CategoryDairyIcon, CategoryPantryIcon, CategoryFrozenIcon, CategorySnacksIcon, CategoryBeveragesIcon, CategoryHouseholdIcon, CategoryPersonalCareIcon, CategoryRestaurantIcon, CategoryOtherIcon } from './Icons';
+import { FoodItem, NutriScore } from '../types';
+import { StarIcon, TrashIcon, LactoseFreeIcon, VeganIcon, GlutenFreeIcon, ShoppingBagIcon, BuildingStorefrontIcon, UserGroupIcon, LockClosedIcon, ShoppingCartIcon, BeakerIcon } from './Icons';
 import { useTranslation } from '../i18n/index';
 import { useTranslatedItem } from '../hooks/useTranslatedItem';
 import { StoreLogo } from './StoreLogo';
@@ -50,24 +49,8 @@ const DietaryIcon: React.FC<{ type: 'lactoseFree' | 'vegan' | 'glutenFree', clas
     );
 }
 
-const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>> = {
-    'produce': CategoryProduceIcon,
-    'bakery': CategoryBakeryIcon,
-    'meat_fish': CategoryMeatIcon,
-    'dairy_eggs': CategoryDairyIcon,
-    'pantry': CategoryPantryIcon,
-    'frozen': CategoryFrozenIcon,
-    'snacks': CategorySnacksIcon,
-    'beverages': CategoryBeveragesIcon,
-    'household': CategoryHouseholdIcon,
-    'personal_care': CategoryPersonalCareIcon,
-    'restaurant_food': CategoryRestaurantIcon,
-    'other': CategoryOtherIcon,
-};
-
 // Internal component for the actual content
 const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onViewDetails, onAddToShoppingList, onToggleFamilyStatus, isPreview = false, isInShoppingList = false }) => {
-  const { t } = useTranslation();
   const { user } = useAuth();
   const displayItem = useTranslatedItem(item);
 
@@ -269,12 +252,7 @@ const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onVi
                         {[1, 2, 3, 4, 5].map(star => (
                             <StarIcon key={star} className={`w-3 h-3 ${displayItem.rating >= star ? 'text-yellow-400 fill-current' : 'text-gray-200 dark:text-gray-700'}`} filled={displayItem.rating >= star} />
                         ))}
-                        {displayItem.category && (
-                            <div className={`ml-2 flex items-center gap-1 px-1.5 py-0 rounded-md text-[9px] font-bold uppercase tracking-wider border ${CATEGORY_COLORS[displayItem.category].bg} ${CATEGORY_COLORS[displayItem.category].text} ${CATEGORY_COLORS[displayItem.category].border} ${CATEGORY_COLORS_DARK[displayItem.category].bg} ${CATEGORY_COLORS_DARK[displayItem.category].text} ${CATEGORY_COLORS_DARK[displayItem.category].border}`}>
-                                {React.createElement(CategoryIconMap[displayItem.category], { className: "w-2.5 h-2.5" })}
-                                <span>{t(`category.${displayItem.category}`)}</span>
-                            </div>
-                        )}
+                        {/* Category banner removed as items are already grouped by category */}
                     </div>
 
                     <div className="mt-1 min-h-[1rem] flex items-center justify-between">
