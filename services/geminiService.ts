@@ -157,9 +157,9 @@ export const analyzeFoodImage = async (base64Image: string): Promise<{ name: str
 
   try {
     const gemini = getAiClient();
-    // FIX: Updated model to gemini-3-flash-preview for vision tasks as per task-based model selection.
+    // Use gemini-3.1-flash-lite-preview for basic vision analysis to save quota
     const response = await withTimeout(withRetry(() => gemini.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.1-flash-lite-preview",
       contents: { parts: [
           { inlineData: { mimeType, data } },
           { text: "Analyze item. Name: exact text on pack. Category: produce, bakery, meat_fish, dairy_eggs, pantry, frozen, snacks, beverages, household, personal_care, restaurant_food, other. Tags: max 5 keywords. Nutri-Score (A-E). BoundingBox: exact pixel boundaries (ymin, xmin, ymax, xmax) 0-1000." }
@@ -234,9 +234,9 @@ export const analyzeIngredientsImage = async (base64Image: string): Promise<{ in
     
     try {
       const gemini = getAiClient();
-      // FIX: Updated model to gemini-3-flash-preview.
+      // Use gemini-3.1-flash-lite-preview for ingredients analysis
       const response = await withTimeout(withRetry(() => gemini.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-flash-lite-preview",
         contents: { parts: [
             { inlineData: { mimeType: match[1], data: match[2] } },
             { text: "Extract ingredients/allergens, check dietary flags, and extract energy in kcal (calories) per 100g or per serving if visible." }
@@ -269,9 +269,9 @@ export const performConversationalSearch = async (query: string, items: FoodItem
   if (!query || items.length === 0) return [];
   try {
     const gemini = getAiClient();
-    // FIX: Updated model to gemini-3-flash-preview for complex reasoning/searching tasks.
+    // Use gemini-3.1-flash-lite-preview for conversational search
     const response = await withTimeout(withRetry(() => gemini.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.1-flash-lite-preview",
       contents: { parts: [{ text: `Search Query: "${query}"\nData: ${JSON.stringify(items.map(i => ({ id: i.id, n: i.name, t: i.tags })))}` }] },
       config: {
         systemInstruction: "Return JSON: { matchingIds: string[] }.",
@@ -290,9 +290,9 @@ export const performConversationalSearch = async (query: string, items: FoodItem
 export const parseShoppingList = async (input: string): Promise<{ name: string; quantity: number; category: GroceryCategory }[]> => {
     try {
         const gemini = getAiClient();
-        // FIX: Updated model to gemini-3-flash-preview.
+        // Use gemini-3.1-flash-lite-preview for shopping list parsing
         const response = await withTimeout(withRetry(() => gemini.models.generateContent({
-            model: "gemini-3-flash-preview",
+            model: "gemini-3.1-flash-lite-preview",
             contents: { parts: [{ text: `List: "${input}"` }] },
             config: {
                 responseMimeType: "application/json",
@@ -330,9 +330,9 @@ export const analyzeReceiptImage = async (base64Image: string, context: { id: st
 
     try {
         const gemini = getAiClient();
-        // FIX: Updated model to gemini-3-flash-preview.
+        // Use gemini-3.1-flash-lite-preview for receipt analysis to save quota
         const response = await withTimeout(withRetry(() => gemini.models.generateContent({
-            model: "gemini-3-flash-preview",
+            model: "gemini-3.1-flash-lite-preview",
             contents: { parts: [
                 { inlineData: { mimeType: match[1], data: match[2] } },
                 { text: `Analyze this receipt image. Extract the merchant name, date, total amount, and currency.
@@ -396,11 +396,9 @@ export interface GoogleMapsGroundingChunk {
 export const findNearbyRestaurants = async (latitude: number, longitude: number): Promise<{ name: string; cuisine?: string }[]> => {
     try {
         const gemini = getAiClient();
-        // FIX: Using gemini-3-flash-preview as requested. 
-        // Note: Google Maps grounding is natively supported in 2.5, 
-        // for 3.0 we use googleSearch grounding as a replacement.
+        // Use gemini-3.1-flash-lite-preview for restaurant search
         const response = await withTimeout(withRetry(() => gemini.models.generateContent({
-            model: "gemini-3-flash-preview",
+            model: "gemini-3.1-flash-lite-preview",
             contents: `List good restaurants near latitude ${latitude}, longitude ${longitude}.`,
             config: {
                 tools: [{ googleSearch: {} }],

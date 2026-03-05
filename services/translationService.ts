@@ -44,9 +44,9 @@ const processBatch = async () => {
 
     try {
         const gemini = getAiClient();
-        // FIX: Updated model to gemini-3-flash-preview for basic text tasks.
+        // Use gemini-3.1-flash-lite-preview for translations to save quota
         const response = await withRetry(() => gemini.models.generateContent({
-            model: "gemini-3-flash-preview",
+            model: "gemini-3.1-flash-lite-preview",
             config: {
                 temperature: 0, 
                 responseMimeType: "application/json",
