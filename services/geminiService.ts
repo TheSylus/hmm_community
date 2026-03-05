@@ -116,16 +116,17 @@ export const withRetry = async <T>(
     while (attempt < maxRetries) {
         try {
             return await operation();
-        } catch (error: any) {
+        } catch (error: unknown) {
             attempt++;
+            const err = error as { status?: number; message?: string };
             const isRetryable = 
-                error?.status === 503 || 
-                error?.status === 429 || 
-                error?.message?.includes('503') || 
-                error?.message?.includes('429') || 
-                error?.message?.includes('Service Unavailable') ||
-                error?.message?.includes('Too Many Requests') ||
-                error?.message?.includes('fetch failed');
+                err?.status === 503 || 
+                err?.status === 429 || 
+                err?.message?.includes('503') || 
+                err?.message?.includes('429') || 
+                err?.message?.includes('Service Unavailable') ||
+                err?.message?.includes('Too Many Requests') ||
+                err?.message?.includes('fetch failed');
             
             if (isRetryable && attempt < maxRetries) {
                 const delay = baseDelayMs * Math.pow(2, attempt - 1);
