@@ -6,7 +6,6 @@ import { useFoodFormLogic } from '../hooks/useFoodFormLogic';
 import { CameraCapture } from './CameraCapture';
 import { BarcodeScanner } from './BarcodeScanner';
 import { SpeechInputModal } from './SpeechInputModal';
-import { ImageCropper } from './ImageCropper';
 import { ChevronDownIcon, XMarkIcon } from './Icons';
 
 // Sub-components
@@ -240,14 +239,6 @@ export const FoodItemForm: React.FC<FoodItemFormProps> = ({ onSaveItem, onCancel
             <SpeechInputModal 
                 onDictate={actions.handleDictationResult} 
                 onClose={() => uiSetters.setIsSpeechModalOpen(false)} 
-            />
-        )}
-        {uiState.isCropperOpen && uiState.uncroppedImage && (
-            <ImageCropper
-                imageUrl={uiState.uncroppedImage}
-                suggestedCrop={uiState.suggestedCrop}
-                onCrop={actions.handleCropComplete}
-                onCancel={actions.handleCropCancel}
             />
         )}
       </form>

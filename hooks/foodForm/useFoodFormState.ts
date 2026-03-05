@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { FoodItem, FoodItemType, NutriScore, GroceryCategory } from '../../types';
-import { hasValidApiKey, BoundingBox } from '../../services/geminiService';
+import { hasValidApiKey } from '../../services/geminiService';
 import { useAppSettings } from '../../contexts/AppSettingsContext';
 
 export interface UseFoodFormStateProps {
@@ -57,9 +57,6 @@ export const useFoodFormState = ({ initialData, initialItemType = 'product', sta
   const [isSpeechModalOpen, setIsSpeechModalOpen] = useState(false);
   const [isNameSearchLoading, setIsNameSearchLoading] = useState(false);
   const [scanMode, setScanMode] = useState<'main' | 'ingredients'>('main');
-  const [uncroppedImage, setUncroppedImage] = useState<string | null>(null);
-  const [suggestedCrop, setSuggestedCrop] = useState<BoundingBox | null | undefined>(null);
-  const [isCropperOpen, setIsCropperOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState({ active: false, message: '' });
   const [highlightedFields, setHighlightedFields] = useState<string[]>([]);
@@ -185,13 +182,13 @@ export const useFoodFormState = ({ initialData, initialItemType = 'product', sta
     },
     uiState: {
       isCameraOpen, isBarcodeScannerOpen, isSpeechModalOpen, isNameSearchLoading,
-      isCropperOpen, uncroppedImage, suggestedCrop, isLoading, analysisProgress,
+      isLoading, analysisProgress,
       highlightedFields, isIngredientsLoading, error, isFindingRestaurants,
       nearbyRestaurants, locationError, isAiAvailable, scanMode, autoExpandDetails
     },
     uiSetters: {
-      setIsCameraOpen, setIsBarcodeScannerOpen, setIsSpeechModalOpen, setIsCropperOpen, setError,
-      setScanMode, setUncroppedImage, setSuggestedCrop, setIsLoading, setAnalysisProgress,
+      setIsCameraOpen, setIsBarcodeScannerOpen, setIsSpeechModalOpen, setError,
+      setScanMode, setIsLoading, setAnalysisProgress,
       setHighlightedFields, setIngredientsLoading, setIsFindingRestaurants, setNearbyRestaurants, setLocationError, setIsNameSearchLoading
     },
     fileInputRef

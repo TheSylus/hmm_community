@@ -157,9 +157,7 @@ export const useFoodFormScanner = (state: FoodFormStateReturn, handleFindNearby:
     uiSetters.setError(null);
   
     if (!uiState.isAiAvailable) {
-      uiSetters.setUncroppedImage(imageDataUrl);
-      uiSetters.setSuggestedCrop(null);
-      uiSetters.setIsCropperOpen(true);
+      formSetters.setImage(imageDataUrl);
       return;
     }
   
@@ -246,10 +244,9 @@ export const useFoodFormScanner = (state: FoodFormStateReturn, handleFindNearby:
         uiSetters.setHighlightedFields(newHighlightedFields);
         
         if (mergedData.nutriScore || mergedData.tags.length > 0) formSetters.setAutoExpandDetails(true);
-
-        uiSetters.setUncroppedImage(aiResult.image || imageDataUrl);
-        uiSetters.setSuggestedCrop(aiResult.boundingBox);
-        uiSetters.setIsCropperOpen(true);
+        
+        // Directly set the full image and skip the cropper as requested
+        formSetters.setImage(imageDataUrl);
         uiSetters.setIsLoading(false);
 
         if (currentItemType === 'dish') {
@@ -312,9 +309,7 @@ export const useFoodFormScanner = (state: FoodFormStateReturn, handleFindNearby:
         }
         
         uiSetters.setError(errorMessage);
-        uiSetters.setUncroppedImage(imageDataUrl);
-        uiSetters.setSuggestedCrop(null);
-        uiSetters.setIsCropperOpen(true);
+        formSetters.setImage(imageDataUrl);
         uiSetters.setAnalysisProgress({ active: false, message: '' });
       } 
     } else { 
@@ -373,21 +368,7 @@ export const useFoodFormScanner = (state: FoodFormStateReturn, handleFindNearby:
       }
     }
   }, [uiState.isAiAvailable, uiState.scanMode, t, isOffSearchEnabled, language, textsNeedTranslation, handleFindNearby, formSetters, uiSetters]);
-
-  const handleCropComplete = useCallback((croppedImageUrl: string) => {
-    formSetters.setImage(croppedImageUrl);
-    uiSetters.setIsCropperOpen(false);
-    uiSetters.setUncroppedImage(null);
-    uiSetters.setSuggestedCrop(null);
-  }, [formSetters, uiSetters]);
   
-  const handleCropCancel = useCallback(() => {
-    if (uiState.uncroppedImage) formSetters.setImage(uiState.uncroppedImage);
-    uiSetters.setIsCropperOpen(false);
-    uiSetters.setUncroppedImage(null);
-    uiSetters.setSuggestedCrop(null);
-  }, [uiState.uncroppedImage, formSetters, uiSetters]);
-
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     uiSetters.setScanMode('main');
     const file = event.target.files?.[0];
@@ -407,8 +388,6 @@ export const useFoodFormScanner = (state: FoodFormStateReturn, handleFindNearby:
     handleDictationResult,
     handleBarcodeScanned,
     handleImageFromCamera,
-    handleCropComplete,
-    handleCropCancel,
     handleFileChange
   };
 };
