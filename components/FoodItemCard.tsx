@@ -67,6 +67,7 @@ const CategoryIconMap: Record<GroceryCategory, React.FC<{ className?: string }>>
 
 // Internal component for the actual content
 const FoodItemCardContent: React.FC<FoodItemCardProps> = ({ item, onDelete, onViewDetails, onAddToShoppingList, onToggleFamilyStatus, isPreview = false, isInShoppingList = false }) => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const displayItem = useTranslatedItem(item);
 
